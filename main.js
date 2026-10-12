@@ -13,6 +13,7 @@ const schedule = require('./lib/schedule');
 const { Focus } = require('./lib/focus');
 const { ClipboardHistory } = require('./lib/clipboard');
 const devwatch = require('./lib/devwatch');
+const { Stats, duration, dayKey } = require('./lib/stats');
 const season = require('./lib/season');
 const weather = require('./lib/weather');
 const voice = require('./lib/voice');
@@ -300,6 +301,7 @@ function peekAction(id, action) {
   if (!currentPeek || currentPeek.id !== id) return;
   const peek = currentPeek;
   if (peek.kind === 'reminder') {
+    if (action !== 'snooze') statsAdd('reminders');
     updateReminder(peek.ref, (r) => (action === 'snooze' ? schedule.snooze(r, 10) : schedule.acknowledge(r)));
   } else if (peek.kind === 'notification' && action === 'open') {
     openNotification(peek.ref);
@@ -342,8 +344,6 @@ async function loadConfig() {
     pollServices();
     pollGit();
     pollWeather();
-  // Daftar aplikasi terpasang untuk "buka …" (dimuat di belakang).
-  apps.installedApps().then((list) => (installedForVoice = list)).catch(() => {});
   }
   settingsWin?.webContents.send('settings:changed');
 }
@@ -685,6 +685,7 @@ const focus = new Focus({
   onChange: (state) => send('kapsul:focus', state),
   onPhaseEnd: (phase, state) => {
     if (phase === 'focus') {
+      statsAdd('focus');
       const minutes = state.phase === 'long' ? config.focus.longBreakMinutes : config.focus.breakMinutes;
       showPeek({
         kind: 'focus',
@@ -752,6 +753,8 @@ function todoCommand(action, payload = {}) {
     if (!text) return;
     todos = [...todos, { id: crypto.randomUUID(), text, done: false, at: Date.now() }];
   } else if (action === 'toggle') {
+    const target = todos.find((t) => t.id === payload.id);
+    if (target && !target.done) statsAdd('todos');
     todos = todos.map((t) => (t.id === payload.id ? { ...t, done: !t.done, doneAt: t.done ? null : Date.now() } : t));
   } else if (action === 'remove') {
     todos = todos.filter((t) => t.id !== payload.id);
@@ -940,6 +943,7 @@ function voiceApps() {
 
 async function runVoiceCommand(heard) {
   const intent = commands.parse(heard, { apps: voiceApps() });
+  if (intent.action !== 'empty') statsAdd('voice');
   const firstName = (config.user.name || '').split(/\s+/)[0];
   switch (intent.action) {
     case 'empty':
@@ -999,6 +1003,10 @@ async function runVoiceCommand(heard) {
       return reply(heard, `Halo${firstName ? ` ${firstName}` : ''}! Ada yang bisa aku bantu?`, 'greet');
     case 'power':
       return askPower(intent.command, heard);
+    case 'stats': {
+      const s = summaryText();
+      return reply(heard, `${s.title}. ${s.body}`, 'happy');
+    }
     default:
       return reply(heard, `Maaf, aku belum paham “${heard}”.`, 'confused');
   }
@@ -1060,6 +1068,75 @@ function askPower(action, heard) {
       { id: 'confirm', label: POWER_LABELS[action], primary: true },
     ],
   });
+}
+
+// ---------- Statistik harian ----------
+
+const stats = new Stats(path.join(app.getPath('userData'), 'stats.json'), {
+  onLevelUp: (level) =>
+    showPeek({
+      kind: 'pet',
+      mood: 'laugh',
+      sound: 'success',
+      app: `${config.buddy.name || 'Zeno'} naik level!`,
+      title: `Level ${level}`,
+      body: 'Terima kasih sudah rajin hari ini.',
+      seconds: 7,
+    }),
+});
+
+let statsTimer = null;
+function sendStats() {
+  clearTimeout(statsTimer);
+  statsTimer = setTimeout(() => {
+    const today = stats.day();
+    const top = stats.topSong();
+    const payload = { today: { ...today, songs: undefined, top }, pet: stats.pet() };
+    send('kapsul:stats', payload);
+    settingsWin?.webContents.send('settings:changed');
+  }, 300);
+}
+
+function statsAdd(field, amount = 1) {
+  stats.add(field, amount);
+  sendStats();
+}
+
+function summaryText() {
+  const d = stats.day();
+  const top = stats.topSong();
+  const parts = [
+    d.claudeMs ? `Claude ${duration(d.claudeMs)}` : '',
+    d.focus ? `${d.focus} fokus` : '',
+    d.todos ? `${d.todos} tugas selesai` : '',
+    d.reminders ? `${d.reminders} pengingat` : '',
+  ].filter(Boolean);
+  return {
+    title: parts.length ? parts.join(' · ') : 'Hari yang santai',
+    body: top ? `Lagu favorit: ${top[0]} (${duration(top[1])})` : 'Terima kasih sudah bekerja hari ini.',
+  };
+}
+
+function showSummary() {
+  const s = summaryText();
+  showPeek({ kind: 'stats', mood: 'happy', sound: 'today', app: `${config.buddy.name || 'Zeno'} · Ringkasan hari ini`, title: s.title, body: s.body, seconds: 12 });
+}
+
+// Tiap 30 dtk: catat lama Claude bekerja & lagu yang diputar; ringkasan sekali sehari di jam yang dipilih.
+function tickStats() {
+  const busy = [...sessions.values()].some((s) => (s.state === 'thinking' || s.state === 'working') && Date.now() - s.updated < 10 * 60_000);
+  if (busy) stats.add('claudeMs', 30_000);
+  if (lastMedia.playing && lastMedia.title) stats.song([lastMedia.title, lastMedia.artist].filter(Boolean).join(' · '), 30_000);
+
+  const [hh, mm] = String(config.stats.time || '20:00').split(':').map(Number);
+  const now = new Date();
+  const due = now.getHours() > hh || (now.getHours() === hh && now.getMinutes() >= mm);
+  if (config.stats.summary && due && stats.data.lastSummary !== dayKey()) {
+    stats.data.lastSummary = dayKey();
+    stats.save();
+    showSummary();
+  }
+  sendStats();
 }
 
 // ---------- Sapaan ----------
@@ -1183,6 +1260,8 @@ function settingsState() {
     costumeNow: costumeState,
     costumes: season.COSTUMES,
     weatherNow: weatherState,
+    statsWeek: stats.week().map((d) => ({ ...d, songs: undefined })),
+    pet: stats.pet(),
     voiceStatus: voice.status(),
     ttsVoices,
     ttsAuto: ttsVoice(),
@@ -1252,6 +1331,7 @@ ipcMain.handle('settings:pick-folder', async () => {
 
 ipcMain.handle('settings:preview', (_event, kind) => {
   if (kind === 'greeting') greet();
+  if (kind === 'summary') showSummary();
   return true;
 });
 
@@ -1328,7 +1408,10 @@ function createTray() {
 ipcMain.on('kapsul:expand', (_event, next, focus) => setExpanded(Boolean(next), { focus: Boolean(focus) }));
 ipcMain.on('kapsul:launch', (_event, index) => {
   const item = items[Number(index)];
-  if (item) apps.launch(item);
+  if (item) {
+    apps.launch(item);
+    statsAdd('apps');
+  }
   setExpanded(false);
 });
 ipcMain.on('kapsul:media', (_event, command) => mediaCommand(String(command)));
@@ -1366,6 +1449,7 @@ ipcMain.on('kapsul:launch-installed', (_event, key) => {
   const found = installedForVoice.find((a) => a.key === key);
   if (!found) return;
   apps.launch({ launch: found.aumid ? { aumid: found.aumid } : { target: found.target } });
+  statsAdd('apps');
   setExpanded(false);
 });
 ipcMain.on('kapsul:drag-move', (_event, dx, dy) => dragMove(Number(dx), Number(dy)));
@@ -1383,6 +1467,7 @@ ipcMain.on('kapsul:ready', (event) => {
   event.sender.send('kapsul:weather', weatherState);
   event.sender.send('kapsul:costume', costumeState);
   event.sender.send('kapsul:todos', config.todos);
+  sendStats();
   if (currentPeek) event.sender.send('kapsul:peek', currentPeek);
 });
 
@@ -1406,6 +1491,7 @@ app.whenReady().then(async () => {
   watchGreetings();
   setInterval(checkReminders, 15_000);
   setInterval(sendClaude, 60_000);
+  setInterval(tickStats, 30_000);
   devTimers = [
     setInterval(pollServices, 30_000),
     setInterval(pollGit, 20_000),
@@ -1415,6 +1501,8 @@ app.whenReady().then(async () => {
   pollWeather();
   pollServices();
   pollGit();
+  // Daftar aplikasi terpasang untuk "buka …" dan pencarian (dimuat di belakang).
+  apps.installedApps().then((list) => (installedForVoice = list)).catch(() => {});
 
   // Pertama kali: kenalan dulu. Sesudahnya: sapa + cek pengingat yang terlewat.
   if (!config.user.name) {

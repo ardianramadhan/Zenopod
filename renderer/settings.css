@@ -643,6 +643,56 @@ select {
   color: var(--muted);
 }
 
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-table th,
+.stats-table td {
+  padding: 7px 8px;
+  white-space: nowrap;
+  text-align: right;
+  border-bottom: 1px solid var(--line);
+}
+
+.stats-table th:first-child,
+.stats-table td:first-child,
+.stats-table td.song {
+  text-align: left;
+}
+
+.stats-table th {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.stats-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.stats-table tr.today td {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.stats-table td.song {
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.time-input {
+  width: 140px;
+  flex: none;
+}
+
 .shortcut {
   width: 180px;
   text-align: center;

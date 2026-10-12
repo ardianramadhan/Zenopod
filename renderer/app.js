@@ -1133,9 +1133,10 @@ function renderPage() {
     if (weatherNow) list.append(todayRow('cloud', weatherText()));
     list.append(todayRow('bell', nextReminder ? `${nextReminder.title} · ${nextReminder.when}` : 'Tidak ada pengingat'));
     list.append(todayRow('check', open.length ? `${open.length} tugas: ${open[0].text}` : 'Semua tugas beres'));
-    list.append(
-      todayRow('target', focusState.done ? `${focusState.done} sesi fokus selesai` : focusState.phase ? 'Sedang fokus' : 'Belum mulai fokus'),
-    );
+    const t = statsToday ?? {};
+    const minutes = Math.round((t.claudeMs ?? 0) / 60_000);
+    const claudeText = minutes >= 60 ? `${Math.floor(minutes / 60)} j ${minutes % 60} m` : `${minutes} m`;
+    list.append(todayRow('target', `${t.focus ?? 0} fokus · ${t.todos ?? 0} tugas selesai${minutes ? ` · Claude ${claudeText}` : ''}`));
   }
 }
 
@@ -1515,6 +1516,18 @@ for (const button of document.querySelectorAll('[data-power]')) {
 
 $('power-btn').addEventListener('click', () => ($('power-sheet').hidden ? openPower() : closePower()));
 $('power-cancel').addEventListener('click', closePower);
+
+// ---------- Statistik & Zeno peliharaan ----------
+
+let statsToday = null;
+let petState = null;
+
+window.kapsul.onStats((data) => {
+  statsToday = data?.today ?? null;
+  petState = data?.pet ?? null;
+  if (PAGES[pageIndex].id === 'today') renderPage();
+  if (typeof renderPet === 'function') renderPet();
+});
 
 // ---------- Pengingat berikutnya (footer panel) ----------
 

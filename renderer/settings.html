@@ -38,6 +38,7 @@
           <button type="button" data-section="focus">Fokus</button>
           <button type="button" data-section="claude">Claude Code</button>
           <button type="button" data-section="dev">Dev</button>
+          <button type="button" data-section="stats">Statistik</button>
           <button type="button" data-section="voice">Perintah suara</button>
           <button type="button" data-section="weather">Cuaca & baterai</button>
           <button type="button" data-section="sound">Suara</button>
@@ -271,6 +272,26 @@
           <h2>Project Git</h2>
           <div class="card list" id="project-list"></div>
           <button type="button" class="btn" id="add-project">Tambah folder project</button>
+        </section>
+
+        <!-- Statistik -->
+        <section data-panel="stats" hidden>
+          <header>
+            <h1>Statistik</h1>
+            <p>Catatan harianmu selama 7 hari terakhir. Disimpan di laptop ini saja.</p>
+          </header>
+          <div class="card">
+            <table class="stats-table" id="stats-table"></table>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Ringkasan harian</div>
+              <div class="row-sub">Sekali sehari Zeno menampilkan ringkasan: lama Claude bekerja, sesi fokus, tugas, dan lagu favorit.</div>
+            </div>
+            <input type="time" id="summary-time" class="time-input" />
+            <label class="switch"><input type="checkbox" id="summary-enabled" /><span></span></label>
+          </div>
+          <button type="button" class="btn" id="preview-summary">Lihat ringkasan sekarang</button>
         </section>
 
         <!-- Perintah suara -->

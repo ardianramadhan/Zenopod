@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('kapsul', {
   onListen: on('kapsul:listen'),
   onSpeech: on('kapsul:speech'),
   onTodos: on('kapsul:todos'),
+  onStats: on('kapsul:stats'),
   onState: on('kapsul:state'),
   onMedia: on('kapsul:media'),
   onCursor: on('kapsul:cursor'),

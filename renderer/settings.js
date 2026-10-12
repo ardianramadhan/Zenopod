@@ -128,6 +128,7 @@ function render() {
   if (section === 'sound') renderSound();
   if (section === 'weather') renderWeather();
   if (section === 'voice') renderVoice();
+  if (section === 'stats') renderStats();
   if (section === 'display') renderDisplay();
 }
 
@@ -564,6 +565,45 @@ $('add-project').addEventListener('click', async () => {
   const dir = await api.pickFolder();
   if (dir && !state.config.dev.projects.includes(dir)) saveDev({ projects: [...state.config.dev.projects, dir] });
 });
+
+// ---------- Statistik ----------
+
+function fmtDuration(ms) {
+  const minutes = Math.round((ms ?? 0) / 60_000);
+  if (!minutes) return '–';
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} j ${minutes % 60} m` : `${minutes} m`;
+}
+
+function renderStats() {
+  const table = $('stats-table');
+  table.replaceChildren();
+  const head = el('tr');
+  for (const label of ['Hari', 'Claude', 'Fokus', 'Tugas', 'Pengingat', 'Aplikasi', 'Lagu favorit']) head.append(el('th', '', label));
+  table.append(head);
+  const dayFormat = new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+  const week = [...(state.statsWeek ?? [])].reverse();
+  week.forEach((d, i) => {
+    const row = el('tr', i === 0 ? 'today' : '');
+    const [y, m, dd] = d.key.split('-').map(Number);
+    row.append(
+      el('td', '', i === 0 ? 'Hari ini' : dayFormat.format(new Date(y, m - 1, dd))),
+      el('td', '', fmtDuration(d.claudeMs)),
+      el('td', '', String(d.focus || '–')),
+      el('td', '', String(d.todos || '–')),
+      el('td', '', String(d.reminders || '–')),
+      el('td', '', String(d.apps || '–')),
+      el('td', 'song', d.top ? d.top[0] : '–'),
+    );
+    table.append(row);
+  });
+  $('summary-enabled').checked = state.config.stats.summary;
+  $('summary-time').value = state.config.stats.time;
+  $('summary-time').disabled = !state.config.stats.summary;
+}
+
+$('summary-enabled').addEventListener('change', (e) => save({ stats: { ...state.config.stats, summary: e.target.checked } }).then(renderStats));
+$('summary-time').addEventListener('change', (e) => e.target.value && save({ stats: { ...state.config.stats, time: e.target.value } }));
+$('preview-summary').addEventListener('click', () => api.preview('summary'));
 
 // ---------- Perintah suara ----------
 
