@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; style-src 'self'; script-src 'self'" />
+    <title>Zenopod</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="buddy.css" />
+  </head>
+  <body>
+    <div id="shell" class="shell">
+      <!-- Tampilan kecil (kapsul) -->
+      <div class="pill" id="pill">
+        <span class="buddy-slot" id="buddy-slot"></span>
+        <span class="pill-text" id="pill-text"></span>
+        <span class="typing" id="typing" hidden><i></i><i></i><i></i></span>
+        <span class="eq" id="eq" hidden><i></i><i></i><i></i></span>
+        <span class="dev-alert" id="pill-dev-alert" title="Ada server lokal yang mati" hidden></span>
+        <span class="pill-battery" id="pill-battery" hidden></span>
+        <span class="mic-level" id="mic-level" hidden><i></i><i></i><i></i><i></i></span>
+        <span class="badge" id="badge" hidden></span>
+      </div>
+
+      <!-- Kartu sementara: notifikasi, Claude, sapaan, pengingat -->
+      <div class="peek" id="peek">
+        <span class="peek-slot" id="peek-slot"></span>
+        <div class="peek-main">
+          <button type="button" class="peek-content" id="peek-content" tabindex="-1">
+            <span class="peek-text">
+              <span class="peek-app" id="peek-app"></span>
+              <span class="peek-title" id="peek-title"></span>
+              <span class="peek-body" id="peek-body"></span>
+            </span>
+            <img class="peek-icon" id="peek-icon" alt="" hidden />
+          </button>
+          <div class="peek-actions" id="peek-actions" hidden></div>
+        </div>
+      </div>
+
+      <!-- Panel terbuka -->
+      <div class="panel" id="panel">
+        <button type="button" class="grip" id="grip" title="Geser Zenopod" aria-label="Geser Zenopod"><i></i><i></i><i></i><i></i><i></i><i></i></button>
+        <!-- Kartu atas: swipe antar halaman (musik, sapaan, jam, hari ini) -->
+        <section class="media hero" id="media">
+          <!-- Maskot besar tetap di kiri, berganti wujud sesuai halaman -->
+          <button type="button" class="buddy-big" id="buddy-big" title="Halo!" aria-label="Maskot"></button>
+          <div class="hero-view" id="hero-view" aria-roledescription="carousel">
+            <div class="hero-track" id="hero-track">
+              <div class="page claude-page" data-page="claude" aria-label="Claude Code">
+                <div class="claude-head">
+                  <span class="live" id="claude-live"></span>
+                  <span class="claude-project" id="claude-project"></span>
+                </div>
+                <div class="claude-meta" id="claude-meta"></div>
+                <ul class="claude-activity" id="claude-activity"></ul>
+              </div>
+              <div class="page media-main" data-page="music" aria-label="Musik">
+                <div class="track">
+                  <img class="art" id="art-img" alt="" hidden />
+                  <div class="meta">
+                    <div class="title" id="title">Tidak ada yang diputar</div>
+                    <div class="artist" id="artist">Putar lagu di Spotify atau Chrome</div>
+                  </div>
+                </div>
+                <div class="controls">
+                  <button type="button" class="ctl" data-cmd="prev" title="Sebelumnya" aria-label="Sebelumnya">
+                    <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9.5 12z" /></svg>
+                  </button>
+                  <button type="button" class="ctl ctl-main" data-cmd="toggle" title="Putar / jeda" aria-label="Putar / jeda">
+                    <svg viewBox="0 0 24 24" id="icon-play"><path d="M7 4.5v15L19.5 12z" /></svg>
+                    <svg viewBox="0 0 24 24" id="icon-pause" hidden><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z" /></svg>
+                  </button>
+                  <button type="button" class="ctl" data-cmd="next" title="Berikutnya" aria-label="Berikutnya">
+                    <svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="page" data-page="greeting" aria-label="Sapaan">
+                <div class="page-kicker" id="greet-kicker"></div>
+                <div class="page-title" id="greet-title"></div>
+                <div class="page-sub" id="greet-sub"></div>
+              </div>
+              <div class="page" data-page="clock" aria-label="Tanggal dan jam">
+                <div class="clock-time" id="clock-time"></div>
+                <div class="page-sub" id="clock-date"></div>
+                <div class="page-sub dim" id="clock-hijri"></div>
+              </div>
+              <div class="page" data-page="weather" aria-label="Cuaca">
+                <div class="page-kicker" id="weather-city"></div>
+                <div class="weather-main">
+                  <span class="weather-temp" id="weather-temp"></span>
+                  <span class="weather-text">
+                    <span class="weather-cond" id="weather-cond"></span>
+                    <span class="page-sub dim" id="weather-feels"></span>
+                  </span>
+                </div>
+                <div class="weather-next" id="weather-next"></div>
+              </div>
+              <div class="page" data-page="today" aria-label="Hari ini">
+                <div class="page-kicker">Hari ini</div>
+                <ul class="today-list" id="today-list"></ul>
+              </div>
+            </div>
+          </div>
+          <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Halaman kartu"></div>
+        </section>
+
+        <div class="tabs">
+          <div class="tab-list" role="tablist">
+            <button type="button" role="tab" data-tab="apps" aria-selected="true">Aplikasi</button>
+            <button type="button" role="tab" data-tab="notifs" aria-selected="false">
+              Notif <span class="count" id="notif-count" hidden></span>
+            </button>
+            <button type="button" role="tab" data-tab="focus" aria-selected="false">
+              Fokus <span class="count live-count" id="focus-count" hidden></span>
+            </button>
+            <button type="button" role="tab" data-tab="clips" aria-selected="false">Klip</button>
+            <button type="button" role="tab" data-tab="todos" aria-selected="false">
+              Catatan <span class="count" id="todo-count" hidden></span>
+            </button>
+            <button type="button" role="tab" data-tab="dev" aria-selected="false">
+              Dev <span class="dev-alert" id="dev-alert" hidden></span>
+            </button>
+          </div>
+          <button type="button" class="link" id="tab-action" hidden></button>
+        </div>
+
+        <section class="apps" id="apps" role="tabpanel"></section>
+        <section class="notifs" id="notifs" role="tabpanel" hidden></section>
+        <section class="list-tab" id="clips" role="tabpanel" hidden></section>
+        <section class="list-tab dev-tab" id="dev" role="tabpanel" hidden>
+          <div class="dev-group" id="dev-services"></div>
+          <div class="dev-group" id="dev-projects"></div>
+        </section>
+        <section class="list-tab todos" id="todos" role="tabpanel" hidden>
+          <form class="todo-form" id="todo-form">
+            <input id="todo-input" maxlength="200" placeholder="Tulis catatan atau tugas, lalu Enter…" autocomplete="off" />
+          </form>
+          <div class="todo-list" id="todo-list"></div>
+        </section>
+        <section class="focus-tab" id="focus-tab" role="tabpanel" hidden>
+          <div class="ring">
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="ring-track" cx="50" cy="50" r="44" />
+              <circle class="ring-bar" id="ring-bar" cx="50" cy="50" r="44" />
+            </svg>
+            <span class="ring-time" id="focus-time">25:00</span>
+          </div>
+          <div class="focus-info">
+            <div class="focus-phase" id="focus-phase">Siap fokus?</div>
+            <div class="focus-sub" id="focus-sub"></div>
+            <div class="focus-dots" id="focus-dots"></div>
+            <div class="focus-actions" id="focus-actions"></div>
+          </div>
+        </section>
+
+        <footer class="foot">
+          <span class="hint" id="shortcut"></span>
+          <span class="next-reminder" id="next-reminder" hidden>
+            <svg viewBox="0 0 16 16"><circle cx="8" cy="9" r="5.2" /><path d="M8 6.4V9l1.8 1.2M3 3.2 4.6 2M13 3.2 11.4 2" /></svg>
+            <span id="next-reminder-text"></span>
+          </span>
+          <div class="foot-actions">
+            <div class="seg" role="group" aria-label="Posisi">
+              <button type="button" data-position="top-left" title="Kiri atas" aria-label="Kiri atas">
+                <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="3" y="4" width="5" height="2" rx="1" /></svg>
+              </button>
+              <button type="button" data-position="top-center" title="Tengah atas" aria-label="Tengah atas">
+                <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="5.5" y="4" width="5" height="2" rx="1" /></svg>
+              </button>
+              <button type="button" data-position="top-right" title="Kanan atas" aria-label="Kanan atas">
+                <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="8" y="4" width="5" height="2" rx="1" /></svg>
+              </button>
+            </div>
+            <button type="button" class="link" id="edit">Pengaturan</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+    <script src="buddy.js"></script>
+    <script src="sounds.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "kapsul",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zenopod: widget desktop pribadi dengan maskot Zeno (Windows).",
+  "main": "main.js",
+  "scripts": {
+    "start": "node start.js"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  }
+}

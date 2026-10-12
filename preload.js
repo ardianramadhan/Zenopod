@@ -1,0 +1,45 @@
+'use strict';
+
+const { contextBridge, ipcRenderer } = require('electron');
+
+const on = (channel) => (callback) => ipcRenderer.on(channel, (_event, payload) => callback(payload));
+
+contextBridge.exposeInMainWorld('kapsul', {
+  ready: () => ipcRenderer.send('kapsul:ready'),
+  expand: (next, focus = false) => ipcRenderer.send('kapsul:expand', next, focus),
+  launch: (index) => ipcRenderer.send('kapsul:launch', index),
+  media: (command) => ipcRenderer.send('kapsul:media', command),
+  openSettings: () => ipcRenderer.send('kapsul:settings'),
+  setPosition: (position) => ipcRenderer.send('kapsul:position', position),
+  dragStart: () => ipcRenderer.send('kapsul:drag-start'),
+  dragMove: (dx, dy) => ipcRenderer.send('kapsul:drag-move', dx, dy),
+  dragEnd: () => ipcRenderer.send('kapsul:drag-end'),
+  openNotification: (id) => ipcRenderer.send('kapsul:notif-open', id),
+  dismissNotification: (id) => ipcRenderer.send('kapsul:notif-dismiss', id),
+  clearNotifications: () => ipcRenderer.send('kapsul:notif-clear'),
+  peekAction: (id, action) => ipcRenderer.send('kapsul:peek-action', id, action),
+  peekClick: (id) => ipcRenderer.send('kapsul:peek-click', id),
+  focus: (action) => ipcRenderer.send('kapsul:focus', action),
+  onFocus: on('kapsul:focus'),
+  clip: (action, id) => ipcRenderer.send('kapsul:clip', action, id),
+  todo: (action, payload) => ipcRenderer.send('kapsul:todo', action, payload),
+  onClips: on('kapsul:clips'),
+  devOpen: (kind, index) => ipcRenderer.send('kapsul:dev-open', kind, index),
+  devRefresh: () => ipcRenderer.send('kapsul:dev-refresh'),
+  onDev: on('kapsul:dev'),
+  battery: (state) => ipcRenderer.send('kapsul:battery', state),
+  onWeather: on('kapsul:weather'),
+  onCostume: on('kapsul:costume'),
+  sendAudio: (wav) => ipcRenderer.invoke('kapsul:audio', wav),
+  onListen: on('kapsul:listen'),
+  onSpeech: on('kapsul:speech'),
+  onTodos: on('kapsul:todos'),
+  onState: on('kapsul:state'),
+  onMedia: on('kapsul:media'),
+  onCursor: on('kapsul:cursor'),
+  onExpanded: on('kapsul:expanded'),
+  onNotifications: on('kapsul:notifications'),
+  onPeek: on('kapsul:peek'),
+  onClaude: on('kapsul:claude'),
+  onReminders: on('kapsul:reminders'),
+});

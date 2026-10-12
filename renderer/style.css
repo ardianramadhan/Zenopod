@@ -1,0 +1,1708 @@
+:root {
+  --bg: #0b0b0d;
+  --surface: #17171b;
+  --surface-hover: #232329;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent: #5ba8f5;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+/* Atribut hidden juga untuk <svg>, yang tidak disembunyikan browser secara bawaan. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font: 13px/1.35 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Kerangka: kapsul yang melebar menjadi panel ---------- */
+
+.shell {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: 224px;
+  height: 32px;
+  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  transition:
+    width 0.22s var(--ease),
+    height 0.22s var(--ease),
+    border-radius 0.22s var(--ease);
+}
+
+/* Jendela sedikit lebih besar dari kapsul; kapsul menempel di sisi yang sama dengan posisinya. */
+body[data-align="right"] .shell {
+  left: auto;
+  right: 6px;
+  translate: none;
+}
+
+body[data-align="left"] .shell {
+  left: 6px;
+  translate: none;
+}
+
+.shell.open {
+  width: 456px;
+  height: 372px;
+  border-radius: 22px;
+}
+
+/* ---------- Zenopod ---------- */
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px 0 4px;
+  transition: opacity 0.12s;
+}
+
+.shell.open .pill {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Maskot di kapsul (gaya maskot di buddy.css) */
+.pill .buddy {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  cursor: pointer;
+}
+
+.pill-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.pill-text .dim {
+  color: var(--muted);
+}
+
+/* Bar equalizer kecil saat musik berjalan */
+.eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+  flex: none;
+}
+
+.eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: bottom;
+  animation: eq 0.9s ease-in-out infinite;
+}
+
+.eq i:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.eq i:nth-child(3) {
+  animation-delay: -0.6s;
+}
+
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* ---------- Panel ---------- */
+
+.panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.shell.open .panel {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0.08s;
+}
+
+.media {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 8px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+/* Maskot besar di panel (salinan maskot kapsul). */
+.buddy-big {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 84px;
+  padding: 0;
+  border-radius: 14px;
+  flex: none;
+}
+
+.buddy-big .buddy {
+  width: 84px;
+  height: 84px;
+}
+
+.media-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.art {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex: none;
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.title,
+.artist {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.artist {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: -6px;
+}
+
+.ctl {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: var(--muted);
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.ctl:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.ctl svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.ctl-main {
+  width: 38px;
+  height: 38px;
+  background: var(--text);
+  color: var(--bg);
+}
+
+.ctl-main:hover {
+  background: #ffffff;
+  color: var(--bg);
+}
+
+.ctl-main svg {
+  width: 18px;
+  height: 18px;
+}
+
+.media.idle .ctl {
+  opacity: 0.4;
+}
+
+/* ---------- Peluncur ---------- */
+
+.apps {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-content: start;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.apps::-webkit-scrollbar {
+  width: 6px;
+}
+
+.apps::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--surface-hover);
+}
+
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px 6px;
+  border-radius: 12px;
+  transition: background 0.12s;
+}
+
+.app:hover,
+.app:focus-visible {
+  background: var(--surface);
+}
+
+.app:active .app-icon {
+  transform: scale(0.92);
+}
+
+.app-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  color: #fff;
+  transition: transform 0.1s;
+}
+
+.app-icon img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.app-name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.app:hover .app-name {
+  color: var(--text);
+}
+
+.app-key {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 10px;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.app:hover .app-key {
+  opacity: 0.7;
+}
+
+.empty {
+  grid-column: 1 / -1;
+  padding: 24px 0;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* ---------- Footer ---------- */
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 16px;
+  margin: 0 1px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--surface);
+  font: inherit;
+  text-align: center;
+}
+
+.hint {
+  white-space: nowrap;
+}
+
+.foot-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Pilihan posisi: kiri / tengah / kanan atas */
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.seg button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+
+.seg button:hover {
+  color: var(--text);
+}
+
+.seg button[aria-pressed="true"] {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.seg svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+
+.seg .mark {
+  fill: currentColor;
+  stroke: none;
+}
+
+.seg button[aria-pressed="true"] .mark {
+  fill: var(--accent);
+}
+
+.link {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.link:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .panel,
+  .pill {
+    transition: none;
+  }
+  .eq i {
+    animation: none;
+  }
+}
+
+/* ---------- Notifikasi baru (kapsul melebar sebentar) ---------- */
+
+.shell.peeking {
+  width: 376px;
+  height: 72px;
+  border-radius: 24px;
+}
+
+.shell.peeking .pill {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.shell.peeking.peek-tall {
+  height: 110px;
+}
+
+.peek {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px 0 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.peek-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.peek-content {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+}
+
+.peek-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.peek-btn {
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.peek-btn:hover {
+  background: #2e2e36;
+}
+
+.peek-btn.primary {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.peek-btn.primary:hover {
+  background: #fff;
+}
+
+.shell.peeking .peek {
+  opacity: 1;
+  pointer-events: auto;
+  transition-delay: 0.08s;
+}
+
+.peek-slot .buddy {
+  width: 56px;
+  height: 56px;
+}
+
+.peek-text {
+  flex: 1;
+  overflow: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.peek-app {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.peek-title,
+.peek-body {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.peek-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.peek-body {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.peek-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  flex: none;
+}
+
+/* Jumlah notifikasi di kapsul */
+.badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  flex: none;
+}
+
+/* ---------- Tab Aplikasi / Notifikasi ---------- */
+
+.tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: -4px;
+}
+
+.tab-list {
+  display: flex;
+  gap: 2px;
+}
+
+.tab-list button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.tab-list button:hover {
+  color: var(--text);
+}
+
+.tab-list button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.count {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* ---------- Daftar notifikasi ---------- */
+
+.notifs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.notifs::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notifs::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--surface-hover);
+}
+
+.notif {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  border-radius: 12px;
+  transition: background 0.12s;
+}
+
+.notif:hover {
+  background: var(--surface);
+}
+
+.notif-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.notif-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  font-weight: 700;
+  font-size: 12px;
+  flex: none;
+  overflow: hidden;
+}
+
+.notif-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.notif-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-head {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.notif-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.notif-body {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: pre-line;
+}
+
+.notif-x {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 8px 8px 0 0;
+  border-radius: 50%;
+  color: var(--muted);
+  opacity: 0;
+  flex: none;
+}
+
+.notif:hover .notif-x,
+.notif-x:focus-visible {
+  opacity: 1;
+}
+
+.notif-x:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.notif-x svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.notif-text > span {
+  display: block;
+}
+
+/* Claude bekerja: titik mengetik di kapsul */
+.typing {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+}
+
+.typing i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: typing 1.2s ease-in-out infinite;
+}
+
+.typing i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+/* Pengingat berikutnya di footer panel */
+.next-reminder {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.next-reminder span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.next-reminder svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing i {
+    animation: none;
+  }
+}
+
+/* ---------- Kartu Claude Code di panel ---------- */
+
+.claude-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 98px;
+  padding: 10px 14px 10px 6px;
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.claude-buddy .buddy {
+  width: 84px;
+  height: 84px;
+}
+
+.claude-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.claude-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  flex: none;
+  align-self: center;
+  animation: live 1.4s ease-in-out infinite;
+}
+
+.claude-card.waiting .live {
+  background: #f59e0b;
+}
+
+.claude-project {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.claude-meta {
+  margin-top: -3px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.claude-prompt {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.claude-activity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.claude-activity li {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+.claude-activity li b {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.claude-activity li code {
+  font: 11px "Cascadia Code", Consolas, monospace;
+}
+
+.claude-activity li:last-child b::before {
+  content: "› ";
+  color: var(--accent);
+}
+
+@keyframes live {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live {
+    animation: none;
+  }
+}
+
+/* ---------- Tab Fokus (Pomodoro) ---------- */
+
+.focus-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 8px;
+}
+
+.ring {
+  position: relative;
+  width: 118px;
+  height: 118px;
+  flex: none;
+}
+
+.ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 7;
+}
+
+.ring-track {
+  stroke: var(--surface-hover);
+}
+
+.ring-bar {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 276.46;
+  transition: stroke-dashoffset 0.9s linear;
+}
+
+.focus-tab.rest .ring-bar {
+  stroke: #4ade80;
+}
+
+.focus-tab.paused .ring-bar {
+  stroke: #71717a;
+}
+
+.ring-time {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.focus-phase {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.focus-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.focus-dots {
+  display: flex;
+  gap: 5px;
+  margin: 4px 0 6px;
+}
+
+.focus-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--surface-hover);
+}
+
+.focus-dots i.done {
+  background: var(--accent);
+}
+
+.focus-dots i.now {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.focus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.live-count {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.tabular,
+.live-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Tab Klip & Catatan ---------- */
+
+.list-tab {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.list-tab::-webkit-scrollbar {
+  width: 6px;
+}
+
+.list-tab::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--surface-hover);
+}
+
+.clip-thumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex: none;
+}
+
+.clip-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font: 400 12px/1.4 "Cascadia Code", Consolas, monospace;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.notif.copied .notif-head {
+  color: #4ade80;
+}
+
+.todos {
+  overflow: hidden;
+}
+
+.todo-form input {
+  width: 100%;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.todo-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.todo-list {
+  flex: 1;
+  min-height: 0;
+  margin-top: 4px;
+  overflow-y: auto;
+}
+
+.todo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+}
+
+.todo:hover {
+  background: var(--surface);
+}
+
+.todo-check {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid #52525b;
+  flex: none;
+}
+
+.todo-check svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: var(--bg);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.todo.done .todo-check {
+  background: #4ade80;
+  border-color: #4ade80;
+}
+
+.todo.done .todo-check svg {
+  opacity: 1;
+}
+
+.todo-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+}
+
+.todo.done .todo-text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.todo .notif-x {
+  margin: 0;
+}
+
+.todo:hover .notif-x {
+  opacity: 1;
+}
+
+/* ---------- Tab Dev ---------- */
+
+.dev-alert {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex: none;
+}
+
+.dev-tab {
+  gap: 10px;
+}
+
+.dev-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.dev-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.dev-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.dev-row:hover {
+  background: var(--surface);
+}
+
+.dev-row[disabled] {
+  cursor: default;
+}
+
+.dev-row[disabled]:hover {
+  background: none;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #52525b;
+  flex: none;
+}
+
+.status-dot.up {
+  background: #4ade80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.15);
+}
+
+.status-dot.error {
+  background: #f59e0b;
+}
+
+.status-dot.down {
+  background: #ef4444;
+}
+
+.dev-name {
+  font-size: 13px;
+  font-weight: 600;
+  flex: none;
+}
+
+.dev-target {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 11px "Cascadia Code", Consolas, monospace;
+  color: var(--muted);
+}
+
+.dev-detail {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dev-detail.down {
+  color: #f87171;
+}
+
+.branch {
+  flex: none;
+  max-width: 140px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  font: 11px "Cascadia Code", Consolas, monospace;
+}
+
+.git-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+
+/* ---------- Kartu atas: carousel halaman ---------- */
+
+.hero {
+  position: relative;
+}
+
+.buddy-big {
+  border-radius: 50%;
+}
+
+.hero-view {
+  flex: 1;
+  min-width: 0;
+  height: 80px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;
+}
+
+.hero-view.dragging {
+  cursor: grabbing;
+}
+
+.hero-track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.hero-view.dragging .hero-track {
+  transition: none;
+}
+
+.page {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding-right: 4px;
+  user-select: none;
+}
+
+.page.media-main {
+  gap: 6px;
+}
+
+.page-kicker {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.page-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.page-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.page-sub.dim {
+  color: var(--muted);
+}
+
+.clock-time {
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-time .sec {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.today-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.today-list li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.today-list li span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.today-list svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hero-dots {
+  position: absolute;
+  right: 14px;
+  bottom: 8px;
+  display: flex;
+  gap: 5px;
+}
+
+.hero-dots button {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border-radius: 999px;
+  background: #3f3f46;
+  transition:
+    width 0.2s,
+    background 0.2s;
+}
+
+.hero-dots button[aria-selected="true"] {
+  width: 16px;
+  background: var(--accent);
+}
+
+.hero-dots button:focus-visible {
+  outline-offset: 3px;
+}
+
+/* Baterai lemah di kapsul */
+.pill-battery {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.18);
+  color: #fca5a5;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Halaman Cuaca ---------- */
+
+.page[data-page="weather"] {
+  gap: 2px;
+}
+
+.weather-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.weather-temp {
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.weather-cond {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.weather-next {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-next b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.weather-next .wet {
+  color: #7cc4ff;
+}
+
+/* Perintah suara: level mikrofon di kapsul */
+.mic-level {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+  flex: none;
+}
+
+.mic-level i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: #f43f5e;
+  transform: scaleY(var(--lvl, 0.2));
+  transition: transform 0.08s;
+}
+
+.shell.listening {
+  box-shadow: 0 0 0 1.5px rgba(244, 63, 94, 0.6);
+}
+
+/* ---------- Isi kapsul berganti otomatis ---------- */
+
+.pill-text {
+  position: relative;
+  height: 18px;
+}
+
+.tick {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.tick .dim {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tick.enter {
+  animation: tick-in 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.tick.leave {
+  position: absolute;
+  inset: 0;
+  animation: tick-out 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.tick-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.tick-icon svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@keyframes tick-in {
+  from {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tick-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-70%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick.enter,
+  .tick.leave {
+    animation: none;
+  }
+}
+
+/* ---------- Posisi bebas: geser kapsul ---------- */
+
+body[data-valign="bottom"] .shell {
+  top: auto;
+  bottom: 8px;
+}
+
+.pill {
+  cursor: grab;
+}
+
+.shell.dragging,
+.shell.dragging .pill {
+  cursor: grabbing;
+}
+
+.shell.dragging {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.grip {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(3, 3px);
+  gap: 2px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: grab;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+
+.grip:hover {
+  opacity: 1;
+  background: var(--surface);
+}
+
+.grip i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+/* Halaman Claude di carousel */
+.claude-page {
+  gap: 1px;
+}
+
+.claude-page .claude-meta {
+  margin-top: 0;
+}
+
+.live.waiting {
+  background: #f59e0b;
+}

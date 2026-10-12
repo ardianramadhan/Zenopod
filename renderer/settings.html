@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'" />
+    <title>Pengaturan Zenopod</title>
+    <link rel="stylesheet" href="buddy.css" />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <!-- Perkenalan pertama kali -->
+    <section class="intro" id="intro" hidden>
+      <div class="intro-card">
+        <div class="intro-buddy" id="intro-buddy"></div>
+        <p class="bubble" id="intro-bubble"></p>
+        <form class="intro-form" id="intro-form">
+          <input id="intro-input" maxlength="40" autocomplete="off" />
+          <button type="submit" class="btn primary" id="intro-next">Lanjut</button>
+        </form>
+        <p class="intro-step" id="intro-step"></p>
+      </div>
+    </section>
+
+    <div class="layout" id="layout">
+      <aside class="side">
+        <div class="side-head">
+          <div class="side-buddy" id="side-buddy"></div>
+          <div>
+            <div class="side-name" id="side-name">Zenopod</div>
+            <div class="side-sub">Pengaturan</div>
+          </div>
+        </div>
+        <nav class="nav" id="nav">
+          <button type="button" data-section="profile">Profil</button>
+          <button type="button" data-section="apps">Aplikasi</button>
+          <button type="button" data-section="notifications">Notifikasi</button>
+          <button type="button" data-section="reminders">Pengingat</button>
+          <button type="button" data-section="focus">Fokus</button>
+          <button type="button" data-section="claude">Claude Code</button>
+          <button type="button" data-section="dev">Dev</button>
+          <button type="button" data-section="voice">Perintah suara</button>
+          <button type="button" data-section="weather">Cuaca & baterai</button>
+          <button type="button" data-section="sound">Suara</button>
+          <button type="button" data-section="display">Tampilan</button>
+        </nav>
+        <p class="saved" id="saved" aria-live="polite"></p>
+      </aside>
+
+      <main class="content">
+        <!-- Profil -->
+        <section data-panel="profile" hidden>
+          <header>
+            <h1>Profil</h1>
+            <p>Nama kamu dan nama maskotmu. Maskot memakai nama ini saat menyapa.</p>
+          </header>
+          <div class="card">
+            <label class="field">
+              <span>Namamu</span>
+              <input id="user-name" maxlength="40" autocomplete="off" />
+            </label>
+            <label class="field">
+              <span>Nama maskot</span>
+              <input id="buddy-name" maxlength="40" autocomplete="off" placeholder="mis. Kapsi" />
+            </label>
+            <label class="field">
+              <span>Tanggal lahir (opsional, untuk topi pesta di hari ulang tahunmu)</span>
+              <input id="user-birthday" type="date" />
+            </label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Sapaan</div>
+              <div class="row-sub">Selamat pagi (04.00), siang (11.00), sore (15.00), dan malam (18.00), saat kamu sedang di depan laptop.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="greetings" /><span></span></label>
+          </div>
+          <button type="button" class="btn" id="preview-greeting">Coba sapaan</button>
+        </section>
+
+        <!-- Aplikasi -->
+        <section data-panel="apps" hidden>
+          <header>
+            <h1>Aplikasi</h1>
+            <p>Tombol di panel Zenopod. Urutan 1–9 bisa dijalankan dengan tombol angka.</p>
+          </header>
+          <div class="card list" id="launcher-list"></div>
+          <div class="actions-row">
+            <button type="button" class="btn primary" id="add-app">Tambah aplikasi</button>
+            <button type="button" class="btn" id="add-site">Tambah website</button>
+          </div>
+
+          <form class="card picker" id="site-form" hidden>
+            <div class="picker-title">Tambah website</div>
+            <div class="grid-2">
+              <label class="field"><span>Nama</span><input id="site-name" maxlength="30" required /></label>
+              <label class="field"><span>Alamat</span><input id="site-url" type="url" placeholder="https://" required /></label>
+            </div>
+            <div class="actions-row">
+              <button type="submit" class="btn primary">Tambah</button>
+              <button type="button" class="btn" id="site-cancel">Batal</button>
+            </div>
+          </form>
+
+          <div class="card picker" id="app-picker" hidden>
+            <div class="picker-head">
+              <div class="picker-title">Pilih aplikasi</div>
+              <button type="button" class="btn small" id="picker-close">Selesai</button>
+            </div>
+            <input id="picker-search" placeholder="Cari aplikasi…" autocomplete="off" />
+            <div class="picker-list" id="picker-list"></div>
+          </div>
+        </section>
+
+        <!-- Notifikasi -->
+        <section data-panel="notifications" hidden>
+          <header>
+            <h1>Notifikasi</h1>
+            <p>Pilih aplikasi yang notifikasinya boleh masuk ke Zenopod.</p>
+          </header>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kartu notifikasi baru</div>
+              <div class="row-sub">Zenopod melebar sebentar saat notifikasi masuk.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="notif-peek" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Lama tampil</div>
+              <div class="row-sub">Berapa detik kartu notifikasi terlihat.</div>
+            </div>
+            <select id="notif-seconds">
+              <option value="4">4 detik</option>
+              <option value="6">6 detik</option>
+              <option value="8">8 detik</option>
+              <option value="10">10 detik</option>
+            </select>
+          </div>
+          <h2>Aplikasi</h2>
+          <div class="card list" id="notif-apps"></div>
+
+          <h2>Clipboard</h2>
+          <div class="card row">
+            <div>
+              <div class="row-title">Riwayat clipboard</div>
+              <div class="row-sub">20 salinan terakhir di tab Klip. Hanya di memori (hilang saat Zenopod ditutup); salinan dari password manager dilewati.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="clipboard-enabled" /><span></span></label>
+          </div>
+        </section>
+
+        <!-- Pengingat -->
+        <section data-panel="reminders" hidden>
+          <header>
+            <h1>Pengingat</h1>
+            <p>Pulang kerja, deadline, rapat — maskot akan mengingatkanmu tepat waktu.</p>
+          </header>
+          <form class="card" id="reminder-form">
+            <label class="field"><span>Judul</span><input id="reminder-title" maxlength="80" placeholder="mis. Pulang kerja" required /></label>
+            <div class="grid-3">
+              <label class="field"><span>Tanggal</span><input id="reminder-date" type="date" required /></label>
+              <label class="field"><span>Jam</span><input id="reminder-time" type="time" required /></label>
+              <label class="field">
+                <span>Ulangi</span>
+                <select id="reminder-repeat">
+                  <option value="none">Sekali</option>
+                  <option value="daily">Setiap hari</option>
+                  <option value="weekdays">Hari kerja (Sen–Jum)</option>
+                </select>
+              </label>
+            </div>
+            <label class="field"><span>Catatan (opsional)</span><input id="reminder-note" maxlength="120" /></label>
+            <div class="actions-row"><button type="submit" class="btn primary">Tambah pengingat</button></div>
+          </form>
+          <h2>Jadwal</h2>
+          <div class="card list" id="reminder-list"></div>
+        </section>
+
+        <!-- Fokus -->
+        <section data-panel="focus" hidden>
+          <header>
+            <h1>Fokus</h1>
+            <p>Pomodoro: fokus, lalu istirahat sebentar. Mulai dari tab Fokus di panel Zenopod.</p>
+          </header>
+          <div class="card">
+            <div class="grid-4">
+              <label class="field"><span>Fokus (menit)</span><input id="focus-minutes" type="number" min="1" max="180" /></label>
+              <label class="field"><span>Istirahat (menit)</span><input id="break-minutes" type="number" min="1" max="60" /></label>
+              <label class="field"><span>Istirahat panjang</span><input id="long-minutes" type="number" min="1" max="90" /></label>
+              <label class="field"><span>Sesi per putaran</span><input id="focus-cycles" type="number" min="1" max="12" /></label>
+            </div>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Istirahat mulai otomatis</div>
+              <div class="row-sub">Begitu fokus selesai, timer istirahat langsung berjalan.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="focus-autobreak" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Tahan notifikasi saat fokus</div>
+              <div class="row-sub">Notifikasi tetap masuk daftar, tapi kartunya tidak muncul. Pengingat dan izin Claude tetap muncul.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="focus-mute" /><span></span></label>
+          </div>
+        </section>
+
+        <!-- Claude Code -->
+        <section data-panel="claude" hidden>
+          <header>
+            <h1>Claude Code</h1>
+            <p>Maskot ikut berpikir saat Claude bekerja, senang saat selesai, dan memanggilmu saat Claude butuh jawaban.</p>
+          </header>
+          <div class="card">
+            <div class="status"><span class="dot" id="hooks-dot"></span><span id="hooks-status">Memeriksa…</span></div>
+            <p class="muted small" id="hooks-file"></p>
+            <p class="muted small">Hook lain (mis. Coucou) tidak diubah. Salinan settings.json disimpan sebagai <code>settings.json.kapsul-backup</code> setiap kali dipasang atau dilepas. Berlaku untuk sesi Claude Code yang dimulai sesudahnya.</p>
+            <div class="actions-row">
+              <button type="button" class="btn primary" id="hooks-install">Pasang hook</button>
+              <button type="button" class="btn danger" id="hooks-uninstall">Lepas hook</button>
+            </div>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Jawab izin dari Zenopod</div>
+              <div class="row-sub">Saat Claude minta izin, muncul tombol Izinkan / Tolak / Di terminal. Tidak dijawab 90 detik = dialog biasa muncul di terminal.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="claude-permissions" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kartu Claude</div>
+              <div class="row-sub">Tampilkan pesan terakhir Claude saat selesai dan saat butuh jawabanmu.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="claude-peek" /><span></span></label>
+          </div>
+        </section>
+
+        <!-- Dev -->
+        <section data-panel="dev" hidden>
+          <header>
+            <h1>Dev</h1>
+            <p>Server lokal dan project Git yang dipantau di tab Dev panel Zenopod.</p>
+          </header>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kabari saat server mati</div>
+              <div class="row-sub">Zeno kaget dan muncul kartu saat server yang tadinya hidup berhenti. Diperiksa tiap 30 detik.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="dev-alerts" /><span></span></label>
+          </div>
+
+          <h2>Server</h2>
+          <div class="card list" id="service-list"></div>
+          <form class="card" id="service-form">
+            <div class="grid-3">
+              <label class="field"><span>Nama</span><input id="service-name" maxlength="30" required placeholder="mis. CRM" /></label>
+              <label class="field">
+                <span>Jenis</span>
+                <select id="service-type">
+                  <option value="http">Website (HTTP)</option>
+                  <option value="tcp">Port (database, Redis, …)</option>
+                </select>
+              </label>
+              <label class="field"><span>Alamat</span><input id="service-target" required placeholder="http://crm.localhost:3000" /></label>
+            </div>
+            <div class="actions-row"><button type="submit" class="btn primary">Tambah server</button></div>
+          </form>
+
+          <h2>Project Git</h2>
+          <div class="card list" id="project-list"></div>
+          <button type="button" class="btn" id="add-project">Tambah folder project</button>
+        </section>
+
+        <!-- Perintah suara -->
+        <section data-panel="voice" hidden>
+          <header>
+            <h1>Perintah suara</h1>
+            <p>Tekan tombol pintas, bicara, lalu diam sebentar. Suaramu diproses di laptop ini (whisper.cpp), tidak dikirim ke internet.</p>
+          </header>
+
+          <div class="card">
+            <div class="status"><span class="dot" id="voice-dot"></span><span id="voice-status">Memeriksa…</span></div>
+            <div class="progress" id="voice-progress" hidden><span id="voice-bar"></span></div>
+            <p class="muted small" id="voice-progress-text"></p>
+            <div class="actions-row"><button type="button" class="btn primary" id="voice-download">Unduh mesin suara (~170 MB)</button></div>
+          </div>
+
+          <div class="card row">
+            <div>
+              <div class="row-title">Perintah suara</div>
+              <div class="row-sub">Tombol pintas: <b id="voice-shortcut"></b>. Tekan sekali untuk mulai, Zeno berhenti mendengar setelah kamu diam (atau tekan lagi).</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="voice-enabled" /><span></span></label>
+          </div>
+
+          <h2>Zeno menjawab</h2>
+          <div class="card row">
+            <div>
+              <div class="row-title">Jawab dengan suara</div>
+              <div class="row-sub">Tanpa suara, jawaban tetap muncul sebagai kartu.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="voice-speak" /><span></span></label>
+          </div>
+          <div class="card">
+            <label class="field">
+              <span>Suara</span>
+              <select id="voice-id"></select>
+            </label>
+            <p class="muted small" id="voice-hint"></p>
+            <div class="grid-2 even">
+              <label class="field"><span>Kecepatan <b id="voice-rate-label"></b></span><input type="range" class="range wide" id="voice-rate" min="0.7" max="1.5" step="0.05" /></label>
+              <label class="field"><span>Nada <b id="voice-pitch-label"></b></span><input type="range" class="range wide" id="voice-pitch" min="0.8" max="1.6" step="0.05" /></label>
+            </div>
+            <div class="actions-row"><button type="button" class="btn" id="voice-test">Coba suara Zeno</button></div>
+          </div>
+
+          <h2>Contoh perintah</h2>
+          <div class="card examples">
+            <span>“Zeno, buka WhatsApp”</span>
+            <span>“Putar musik” · “Jeda lagu” · “Lagu berikutnya”</span>
+            <span>“Ingatkan aku pulang kerja jam 5”</span>
+            <span>“Ingetin 10 menit lagi angkat jemuran”</span>
+            <span>“Catat beli kopi”</span>
+            <span>“Mulai fokus” · “Berhenti fokus”</span>
+            <span>“Jam berapa?” · “Hari ini tanggal berapa?” · “Gimana cuacanya?”</span>
+            <span>“Buka pengaturan”</span>
+          </div>
+        </section>
+
+        <!-- Cuaca & baterai -->
+        <section data-panel="weather" hidden>
+          <header>
+            <h1>Cuaca & baterai</h1>
+            <p>Cuaca dari Open-Meteo (gratis). Yang dikirim hanya nama kota yang kamu cari dan koordinatnya.</p>
+          </header>
+          <div class="card row">
+            <div>
+              <div class="row-title">Cuaca</div>
+              <div class="row-sub" id="weather-now">Pilih kota dulu.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="weather-enabled" /><span></span></label>
+          </div>
+          <form class="card" id="city-form">
+            <label class="field"><span>Kota</span><input id="city-input" placeholder="mis. Bekasi" autocomplete="off" /></label>
+            <div class="actions-row"><button type="submit" class="btn">Cari kota</button></div>
+            <div class="list" id="city-results"></div>
+          </form>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kabari saat mulai hujan</div>
+              <div class="row-sub">Diperiksa tiap 30 menit. Saat hujan Zeno memakai payung, saat panas (≥ 33°) kacamata hitam.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="weather-alerts" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Peringatan baterai</div>
+              <div class="row-sub">Zeno lemas saat baterai di bawah 20% dan mengingatkan di 20% dan 10%.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="battery-alerts" /><span></span></label>
+          </div>
+        </section>
+
+        <!-- Suara -->
+        <section data-panel="sound" hidden>
+          <header>
+            <h1>Suara</h1>
+            <p>Suara kecil Zeno. Semuanya dibuat langsung oleh Zenopod, tanpa file audio.</p>
+          </header>
+          <div class="card row">
+            <div>
+              <div class="row-title">Suara</div>
+              <div class="row-sub">Matikan untuk membuat Zenopod diam sepenuhnya.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="sound-enabled" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Volume</div>
+              <div class="row-sub" id="sound-volume-label"></div>
+            </div>
+            <input type="range" class="range" id="sound-volume" min="0" max="100" step="5" />
+          </div>
+          <h2>Kapan berbunyi</h2>
+          <div class="card list" id="sound-categories"></div>
+        </section>
+
+        <!-- Tampilan -->
+        <section data-panel="display" hidden>
+          <header>
+            <h1>Tampilan</h1>
+            <p>Letak kapsul, tombol pintas, dan saat menyala.</p>
+          </header>
+          <h2>Posisi</h2>
+          <div class="positions" id="positions">
+            <label><input type="radio" name="position" value="top-left" /><span class="pos pos-left"></span>Kiri atas</label>
+            <label><input type="radio" name="position" value="top-center" /><span class="pos pos-center"></span>Tengah atas</label>
+            <label><input type="radio" name="position" value="top-right" /><span class="pos pos-right"></span>Kanan atas</label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kostum Zeno</div>
+              <div class="row-sub" id="costume-now"></div>
+            </div>
+            <select id="costume"></select>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Tombol pintas</div>
+              <div class="row-sub">Klik kotaknya lalu tekan kombinasi tombol baru.</div>
+            </div>
+            <input class="shortcut" id="shortcut" readonly />
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Jalankan saat Windows mulai</div>
+              <div class="row-sub">Zenopod langsung muncul setelah login.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="autostart" /><span></span></label>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="buddy.js"></script>
+    <script src="sounds.js"></script>
+    <script src="settings.js"></script>
+  </body>
+</html>
