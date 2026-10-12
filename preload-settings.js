@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('settings', {
   autostart: (enabled) => ipcRenderer.invoke('settings:autostart', enabled),
   preview: (kind) => ipcRenderer.invoke('settings:preview', kind),
   pickFolder: () => ipcRenderer.invoke('settings:pick-folder'),
+  chatKey: (key) => ipcRenderer.invoke('settings:chat-key', key),
+  chatTest: () => ipcRenderer.invoke('settings:chat-test'),
   searchCity: (name) => ipcRenderer.invoke('settings:search-city', name),
   voiceDownload: () => ipcRenderer.invoke('settings:voice-download'),
   voiceTest: (text) => ipcRenderer.invoke('settings:voice-test', text),

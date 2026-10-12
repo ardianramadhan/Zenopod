@@ -129,6 +129,7 @@ function render() {
   if (section === 'weather') renderWeather();
   if (section === 'voice') renderVoice();
   if (section === 'stats') renderStats();
+  if (section === 'chat') renderChat();
   if (section === 'display') renderDisplay();
 }
 
@@ -575,6 +576,51 @@ $('service-target').addEventListener('input', (e) => e.target.setCustomValidity(
 $('add-project').addEventListener('click', async () => {
   const dir = await api.pickFolder();
   if (dir && !state.config.dev.projects.includes(dir)) saveDev({ projects: [...state.config.dev.projects, dir] });
+});
+
+// ---------- Ngobrol ----------
+
+function renderChat() {
+  const c = state.config.chat;
+  $('chat-enabled').checked = c.enabled;
+  const select = $('chat-model');
+  if (!select.options.length) {
+    for (const [id, label] of Object.entries(state.chatModels ?? {})) select.append(new Option(label, id));
+  }
+  select.value = c.model;
+  $('chat-key-status').textContent = state.chatKeyMask
+    ? `Tersimpan: ${state.chatKeyMask}`
+    : state.chatEnvKey
+      ? 'Memakai ANTHROPIC_API_KEY dari Windows.'
+      : 'Belum ada API key.';
+  $('chat-key-remove').disabled = !state.chatKeyMask;
+}
+
+$('chat-enabled').addEventListener('change', (e) => save({ chat: { ...state.config.chat, enabled: e.target.checked } }));
+$('chat-model').addEventListener('change', (e) => save({ chat: { ...state.config.chat, model: e.target.value } }));
+$('chat-key-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const result = await api.chatKey($('chat-key').value);
+  $('chat-key').value = '';
+  if (!result.ok) {
+    $('chat-key-status').textContent = result.error;
+    return;
+  }
+  state = result.state;
+  renderChat();
+});
+$('chat-key-remove').addEventListener('click', async () => {
+  const result = await api.chatKey('');
+  if (result.ok) {
+    state = result.state;
+    renderChat();
+  }
+});
+$('chat-test').addEventListener('click', async () => {
+  const out = $('chat-test-result');
+  out.textContent = 'Zeno sedang berpikir…';
+  const result = await api.chatTest();
+  out.textContent = result.ok ? `“${result.answer}”` : result.error;
 });
 
 // ---------- Statistik ----------

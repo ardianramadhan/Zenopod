@@ -15,6 +15,7 @@ const { ClipboardHistory } = require('./lib/clipboard');
 const devwatch = require('./lib/devwatch');
 const { Stats, duration, dayKey } = require('./lib/stats');
 const calc = require('./lib/calc');
+const chat = require('./lib/chat');
 const season = require('./lib/season');
 const weather = require('./lib/weather');
 const voice = require('./lib/voice');
@@ -375,6 +376,7 @@ function publicState() {
     valign: valign(),
     position: config.position,
     buddyName: config.buddy.name,
+    chatReady: chatReady(),
     focus: config.focus,
     sound: config.sound,
     ticker: config.ticker,
@@ -1066,6 +1068,14 @@ async function runVoiceCommand(heard) {
       return reply(heard, `${s.title}. ${s.body}`, 'happy');
     }
     default:
+      // Bukan perintah: tanya Zeno (Claude) kalau sudah diatur.
+      if (chatReady()) {
+        try {
+          return showAnswer(heard, await askZeno(heard));
+        } catch (error) {
+          return reply(heard, error.message, 'confused');
+        }
+      }
       return reply(heard, `Maaf, aku belum paham “${heard}”.`, 'confused');
   }
 }
@@ -1135,6 +1145,34 @@ const QUICK_KEYS = new Set(['volume', 'mute', 'brightness', 'wifi', 'bluetooth']
 function quickSet(what, value) {
   if (!QUICK_KEYS.has(what)) return;
   bridgeCommand(`quick ${what} ${String(value).replace(/\s+/g, '')}`);
+}
+
+// ---------- Ngobrol dengan Zeno (Claude API) ----------
+
+const conversation = new chat.Chat();
+
+const chatReady = () => config.chat.enabled && (Boolean(config.chat.apiKeyEnc) || Boolean(process.env.ANTHROPIC_API_KEY));
+
+async function askZeno(question) {
+  return conversation.ask(question, {
+    apiKey: chat.decryptKey(config.chat.apiKeyEnc),
+    model: config.chat.model,
+    buddyName: config.buddy.name,
+    userName: config.user.name,
+  });
+}
+
+// Tampilkan jawaban di kartu (lama tampil mengikuti panjang jawaban) dan bacakan.
+function showAnswer(question, answer, mood = 'happy') {
+  showPeek({
+    kind: 'chat',
+    mood,
+    app: `Kamu: “${claude.plain(question, 80)}”`,
+    title: config.buddy.name || 'Zeno',
+    body: answer,
+    seconds: Math.min(25, 6 + Math.ceil(answer.length / 20)),
+  });
+  speak(answer);
 }
 
 // ---------- Timer cepat ----------
@@ -1489,6 +1527,9 @@ function settingsState() {
     statsWeek: stats.week().map((d) => ({ ...d, songs: undefined })),
     pet: stats.pet(),
     voiceStatus: voice.status(),
+    chatModels: chat.MODELS,
+    chatKeyMask: chat.maskKey(config.chat.apiKeyEnc),
+    chatEnvKey: Boolean(process.env.ANTHROPIC_API_KEY),
     ttsVoices,
     ttsAuto: ttsVoice(),
     notificationIcons: Object.fromEntries((config.notifications.seen ?? []).map((s) => [s.name, appIcons[s.app] ?? null])),
@@ -1547,6 +1588,28 @@ ipcMain.handle('settings:search-city', async (_event, name) => {
     return { results: await weather.searchCity(String(name).slice(0, 80)) };
   } catch (error) {
     return { error: 'Pencarian kota gagal: ' + error.message, results: [] };
+  }
+});
+
+// API key hanya lewat sini: dienkripsi sebelum disimpan, tidak pernah dikirim balik utuh.
+ipcMain.handle('settings:chat-key', async (_event, key) => {
+  const value = typeof key === 'string' ? key.trim() : '';
+  if (value && !/^sk-ant-/.test(value)) return { ok: false, error: 'API key Claude diawali "sk-ant-".' };
+  try {
+    saveConfig({ ...config, chat: { ...config.chat, apiKeyEnc: chat.encryptKey(value) } });
+    conversation.reset();
+    await loadConfig();
+    return { ok: true, state: settingsState() };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+
+ipcMain.handle('settings:chat-test', async () => {
+  try {
+    return { ok: true, answer: await askZeno('Halo! Perkenalkan dirimu dalam satu kalimat.') };
+  } catch (error) {
+    return { ok: false, error: error.message };
   }
 });
 
@@ -1663,6 +1726,22 @@ ipcMain.on('kapsul:clip', (_event, action, id) => clipCommand(String(action), id
 ipcMain.on('kapsul:todo', (_event, action, payload) => todoCommand(String(action), payload ?? {}));
 ipcMain.on('kapsul:position', (_event, position) => setPosition(String(position)));
 ipcMain.on('kapsul:drag-start', () => dragStart());
+ipcMain.handle('kapsul:ask', async (_event, question) => {
+  const q = String(question).trim();
+  if (!q) return { ok: false };
+  if (!chatReady()) {
+    reply(q, 'Atur dulu API key Claude di Pengaturan › Ngobrol ya.', 'confused');
+    return { ok: false };
+  }
+  try {
+    const answer = await askZeno(q);
+    showAnswer(q, answer);
+    return { ok: true, answer };
+  } catch (error) {
+    reply(q, error.message, 'confused');
+    return { ok: false };
+  }
+});
 ipcMain.on('kapsul:quick-set', (_event, what, value) => quickSet(String(what), value));
 ipcMain.on('kapsul:pet', (_event, action, food) => {
   if (action === 'feed') feedPet(String(food));

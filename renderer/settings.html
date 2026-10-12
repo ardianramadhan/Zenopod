@@ -40,6 +40,7 @@
           <button type="button" data-section="dev">Dev</button>
           <button type="button" data-section="stats">Statistik</button>
           <button type="button" data-section="voice">Perintah suara</button>
+          <button type="button" data-section="chat">Ngobrol</button>
           <button type="button" data-section="weather">Cuaca & baterai</button>
           <button type="button" data-section="sound">Suara</button>
           <button type="button" data-section="display">Tampilan</button>
@@ -375,6 +376,41 @@
             <span>“Mulai fokus” · “Berhenti fokus”</span>
             <span>“Jam berapa?” · “Hari ini tanggal berapa?” · “Gimana cuacanya?”</span>
             <span>“Buka pengaturan”</span>
+          </div>
+        </section>
+
+        <!-- Ngobrol (Claude API) -->
+        <section data-panel="chat" hidden>
+          <header>
+            <h1>Ngobrol dengan Zeno</h1>
+            <p>Pertanyaan yang bukan perintah dijawab Zeno lewat Claude: dari perintah suara, atau ketik pertanyaan berakhiran “?” di kotak cari.</p>
+          </header>
+          <div class="card row">
+            <div>
+              <div class="row-title">Ngobrol</div>
+              <div class="row-sub">Pertanyaanmu dikirim ke Claude API (Anthropic) memakai API key-mu sendiri; ada biaya per pemakaian.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="chat-enabled" /><span></span></label>
+          </div>
+          <form class="card" id="chat-key-form">
+            <label class="field">
+              <span>API key Claude</span>
+              <input id="chat-key" type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
+            </label>
+            <p class="muted small" id="chat-key-status"></p>
+            <div class="actions-row">
+              <button type="submit" class="btn primary">Simpan key</button>
+              <button type="button" class="btn danger" id="chat-key-remove">Hapus key</button>
+            </div>
+            <p class="muted small">Buat key di <code>platform.claude.com</code> › API Keys. Key disimpan terenkripsi oleh Windows di laptop ini dan tidak pernah ditampilkan utuh.</p>
+          </form>
+          <div class="card">
+            <label class="field">
+              <span>Model</span>
+              <select id="chat-model"></select>
+            </label>
+            <div class="actions-row"><button type="button" class="btn" id="chat-test">Coba tanya Zeno</button></div>
+            <p class="small" id="chat-test-result"></p>
           </div>
         </section>
 

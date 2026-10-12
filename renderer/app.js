@@ -351,6 +351,7 @@ window.kapsul.onState((state) => {
   document.body.dataset.align = state.align;
   document.body.dataset.valign = state.valign ?? 'top';
   if (state.sound) soundSettings = state.sound;
+  chatReady = Boolean(state.chatReady);
   if (state.ticker && (state.ticker.enabled !== tickerSettings.enabled || state.ticker.seconds !== tickerSettings.seconds)) {
     tickerSettings = state.ticker;
     startTicker();
@@ -1417,6 +1418,12 @@ function renderSearch() {
       selectTab('focus');
     } });
   }
+  // Pertanyaan ("…?", "tanya …") atau tidak ada aplikasi yang cocok: tawarkan tanya Zeno.
+  const looksLikeQuestion = /\?$|^(tanya|apa|siapa|kenapa|mengapa|bagaimana|gimana|kapan|dimana|di mana|berapa)\b/.test(query);
+  if (chatReady && query.length > 2 && !quick && (looksLikeQuestion || !searchMatches.length)) {
+    const question = $('app-search').value.trim().replace(/^tanya\s+/i, '');
+    searchMatches.push({ name: `Tanya ${profile.buddyName || 'Zeno'}: “${question}”`, ask: true, tag: 'Claude', open: () => askFromSearch(question) });
+  }
   if (quickTimers.length && /^(batal|cancel|stop)/.test(query)) {
     searchMatches.unshift({ name: 'Batalkan semua timer', tag: 'Timer', open: () => window.kapsul.timer('cancel', {}) });
   }
@@ -1426,7 +1433,9 @@ function renderSearch() {
   if (!searchMatches.length) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = installedList ? `Tidak ada aplikasi “${query}”. Coba “= 25*4” atau “timer 10”.` : 'Memuat daftar aplikasi…';
+    empty.textContent = installedList
+      ? `Tidak ada aplikasi “${query}”. Coba “= 25*4”, “timer 10”${chatReady ? ', atau tanya Zeno dengan tanda “?”' : ''}.`
+      : 'Memuat daftar aplikasi…';
     results.append(empty);
     return;
   }
@@ -1443,7 +1452,9 @@ function renderSearch() {
     row.addEventListener('click', () => openResult(item));
     const icon = document.createElement('span');
     icon.className = 'result-icon';
-    if (item.value || item.timer || item.tag === 'Timer') {
+    if (item.ask) {
+      icon.textContent = '💬';
+    } else if (item.value || item.timer || item.tag === 'Timer') {
       icon.textContent = item.value ? '=' : '⏱';
     } else if (item.icon) {
       const img = document.createElement('img');
@@ -1469,6 +1480,19 @@ function openResult(item) {
   item.open();
   $('app-search').value = '';
   renderSearch();
+}
+
+let chatReady = false;
+
+// Pertanyaan dari kotak cari: panel ditutup, Zeno "berpikir", jawaban muncul di kartu.
+async function askFromSearch(question) {
+  window.kapsul.expand(false);
+  setVoiceState('thinking');
+  try {
+    await window.kapsul.ask(question);
+  } finally {
+    setVoiceState(null);
+  }
 }
 
 function openInstalled(key) {
