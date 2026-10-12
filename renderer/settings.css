@@ -224,6 +224,10 @@ select {
   width: 100%;
 }
 
+.card.row select {
+  flex: none;
+}
+
 .grid-2,
 .grid-3 {
   display: grid;

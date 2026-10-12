@@ -310,6 +310,10 @@ function peekAction(id, action) {
     const finish = permissionReplies.get(peek.id);
     finish?.(action === 'allow' ? 'allow' : action === 'deny' ? 'deny' : null);
     return; // finish() sudah menutup kartunya
+  } else if (peek.kind === 'water') {
+    if (action === 'drank') statsAdd('water');
+    // "Nanti" = ingatkan lagi 10 menit kemudian.
+    if (action === 'later') wellness.water = Math.max(0, Number(config.wellness.waterMinutes || 60) - 10);
   } else if (peek.kind === 'timer') {
     if (action === 'again') startTimer(peek.ref.total, peek.ref.label);
   } else if (peek.kind === 'power') {
@@ -1151,6 +1155,56 @@ function quickQuery(query) {
   return null;
 }
 
+// ---------- Istirahat mata & minum air ----------
+// Menghitung menit aktif (ada gerakan kursor). Pergi > 5 menit = sudah istirahat → hitungan diulang.
+
+const wellness = { eyes: 0, water: 0 };
+
+function tickWellness() {
+  const idleMs = Date.now() - lastActivity;
+  if (idleMs > 5 * 60_000) {
+    wellness.eyes = 0;
+    wellness.water = 0;
+    return;
+  }
+  if (idleMs > 2 * 60_000) return; // tidak sedang di depan laptop
+  const w = config.wellness;
+  if (w.eyes) wellness.eyes += 1;
+  if (w.water) wellness.water += 1;
+
+  // Saat fokus (dengan notifikasi ditahan) tunggu sampai istirahat.
+  if (focusing() && config.focus.muteNotifications) return;
+
+  if (w.eyes && wellness.eyes >= Number(w.eyesMinutes || 20)) {
+    wellness.eyes = 0;
+    statsAdd('eyes');
+    showPeek({
+      kind: 'wellness',
+      mood: 'stretch',
+      sound: 'today',
+      app: `${config.buddy.name || 'Zeno'} · Istirahat mata`,
+      title: 'Lihat yang jauh 20 detik',
+      body: 'Pandang sesuatu sekitar 6 meter, lalu kedipkan mata beberapa kali.',
+      seconds: 20,
+    });
+  } else if (w.water && wellness.water >= Number(w.waterMinutes || 60)) {
+    wellness.water = 0;
+    showPeek({
+      kind: 'water',
+      mood: 'happy',
+      sound: 'wake',
+      app: `${config.buddy.name || 'Zeno'} · Minum air`,
+      title: 'Waktunya minum air',
+      body: 'Satu gelas dulu, biar tetap segar.',
+      seconds: 20,
+      actions: [
+        { id: 'later', label: 'Nanti' },
+        { id: 'drank', label: 'Sudah minum', primary: true },
+      ],
+    });
+  }
+}
+
 // ---------- Statistik harian ----------
 
 const stats = new Stats(path.join(app.getPath('userData'), 'stats.json'), {
@@ -1580,6 +1634,7 @@ app.whenReady().then(async () => {
   setInterval(checkReminders, 15_000);
   setInterval(sendClaude, 60_000);
   setInterval(tickStats, 30_000);
+  setInterval(tickWellness, 60_000);
   devTimers = [
     setInterval(pollServices, 30_000),
     setInterval(pollGit, 20_000),
