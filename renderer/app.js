@@ -88,6 +88,7 @@ window.kapsul.onExpanded((value) => {
   if (!value) {
     hoveringBig = false;
     if (!$('power-sheet').hidden) closePower();
+    $('quick-sheet').hidden = true;
     $('app-search').value = '';
     renderSearch();
   }
@@ -99,6 +100,10 @@ window.kapsul.onExpanded((value) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (!$('power-sheet').hidden) return closePower();
+    if (!$('quick-sheet').hidden) {
+      $('quick-sheet').hidden = true;
+      return;
+    }
     if (event.target === $('app-search') && $('app-search').value) {
       $('app-search').value = '';
       renderSearch();
@@ -1551,7 +1556,11 @@ for (const button of document.querySelectorAll('[data-power]')) {
   });
 }
 
-$('power-btn').addEventListener('click', () => ($('power-sheet').hidden ? openPower() : closePower()));
+$('power-btn').addEventListener('click', () => {
+  $('quick-sheet').hidden = true;
+  if ($('power-sheet').hidden) openPower();
+  else closePower();
+});
 $('power-cancel').addEventListener('click', closePower);
 
 // ---------- Statistik & Zeno peliharaan ----------
@@ -1631,6 +1640,69 @@ window.kapsul.onPetEvent((event) => {
     buddy.jump();
     sfx('giggle');
   }
+});
+
+// ---------- Kontrol cepat Windows ----------
+
+let quick = null;
+let quickDragging = { volume: false, brightness: false };
+
+function renderQuick() {
+  if (!quick) return;
+  const volume = $('quick-volume');
+  if (!quickDragging.volume && quick.volume != null) volume.value = String(quick.volume);
+  $('quick-volume-value').textContent = quick.volume != null ? `${volume.value}%` : '–';
+  volume.disabled = quick.volume == null;
+  $('quick-mute').classList.toggle('muted', Boolean(quick.muted));
+  $('quick-mute').title = quick.muted ? 'Nyalakan suara' : 'Bisukan';
+
+  // Layar tanpa dukungan (mis. monitor eksternal) = baris kecerahan disembunyikan.
+  $('quick-brightness-row').hidden = quick.brightness == null;
+  if (!quickDragging.brightness && quick.brightness != null) $('quick-brightness').value = String(quick.brightness);
+  $('quick-brightness-value').textContent = `${$('quick-brightness').value}%`;
+
+  for (const what of ['wifi', 'bluetooth']) {
+    const button = $(`quick-${what}`);
+    button.disabled = quick[what] == null || quick[what] === 'Disabled';
+    button.setAttribute('aria-pressed', String(quick[what] === 'On'));
+  }
+}
+
+window.kapsul.onQuickState((state) => {
+  quick = state;
+  renderQuick();
+});
+
+// Geser slider: kirim paling cepat tiap 120 ms; nilai akhir saat dilepas.
+for (const what of ['volume', 'brightness']) {
+  const input = $(`quick-${what}`);
+  let last = 0;
+  input.addEventListener('input', () => {
+    quickDragging[what] = true;
+    $(`quick-${what}-value`).textContent = `${input.value}%`;
+    if (Date.now() - last > 120) {
+      last = Date.now();
+      window.kapsul.quickSet(what, input.value);
+    }
+  });
+  input.addEventListener('change', () => {
+    quickDragging[what] = false;
+    window.kapsul.quickSet(what, input.value);
+  });
+}
+
+$('quick-mute').addEventListener('click', () => window.kapsul.quickSet('mute', 'toggle'));
+for (const what of ['wifi', 'bluetooth']) {
+  $(`quick-${what}`).addEventListener('click', () => {
+    const on = $(`quick-${what}`).getAttribute('aria-pressed') === 'true';
+    window.kapsul.quickSet(what, on ? 'off' : 'on');
+  });
+}
+
+$('quick-btn').addEventListener('click', () => {
+  if (!$('power-sheet').hidden) closePower();
+  $('quick-sheet').hidden = !$('quick-sheet').hidden;
+  renderQuick();
 });
 
 // ---------- Pengingat berikutnya (footer panel) ----------

@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('kapsul', {
   onSpeech: on('kapsul:speech'),
   onTodos: on('kapsul:todos'),
   onStats: on('kapsul:stats'),
+  quickSet: (what, value) => ipcRenderer.send('kapsul:quick-set', what, value),
+  onQuickState: on('kapsul:quick-state'),
   pet: (action, food) => ipcRenderer.send('kapsul:pet', action, food),
   onPetEvent: on('kapsul:pet-event'),
   quick: (query) => ipcRenderer.invoke('kapsul:quick', query),

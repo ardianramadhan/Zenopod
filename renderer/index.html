@@ -176,6 +176,32 @@
           </div>
         </section>
 
+        <!-- Kontrol cepat Windows -->
+        <div class="power-sheet quick-sheet" id="quick-sheet" hidden>
+          <div class="quick-row">
+            <button type="button" class="quick-icon" id="quick-mute" title="Bisukan" aria-label="Bisukan">
+              <svg viewBox="0 0 16 16"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path class="waves" d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" /><path class="slash" d="M10.5 6l4 4M14.5 6l-4 4" /></svg>
+            </button>
+            <input type="range" min="0" max="100" step="1" id="quick-volume" aria-label="Volume" />
+            <span class="quick-value" id="quick-volume-value"></span>
+          </div>
+          <div class="quick-row" id="quick-brightness-row">
+            <span class="quick-icon static">
+              <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.8" /><path d="M8 1.8v1.4M8 12.8v1.4M1.8 8h1.4M12.8 8h1.4M3.6 3.6l1 1M11.4 11.4l1 1M3.6 12.4l1-1M11.4 4.6l1-1" /></svg>
+            </span>
+            <input type="range" min="0" max="100" step="5" id="quick-brightness" aria-label="Kecerahan" />
+            <span class="quick-value" id="quick-brightness-value"></span>
+          </div>
+          <div class="quick-toggles">
+            <button type="button" class="quick-toggle" id="quick-wifi" aria-pressed="false">
+              <svg viewBox="0 0 16 16"><path d="M1.8 6a9 9 0 0 1 12.4 0M4 8.4a6 6 0 0 1 8 0M6.2 10.8a3 3 0 0 1 3.6 0" /><circle cx="8" cy="13" r="0.8" /></svg>Wi-Fi
+            </button>
+            <button type="button" class="quick-toggle" id="quick-bluetooth" aria-pressed="false">
+              <svg viewBox="0 0 16 16"><path d="M4.5 5l7 6-3.5 3V2l3.5 3-7 6" /></svg>Bluetooth
+            </button>
+          </div>
+        </div>
+
         <!-- Menu daya -->
         <div class="power-sheet" id="power-sheet" hidden>
           <div class="power-menu" id="power-menu">
@@ -213,6 +239,9 @@
                 <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="8" y="4" width="5" height="2" rx="1" /></svg>
               </button>
             </div>
+            <button type="button" class="icon-link" id="quick-btn" title="Kontrol cepat" aria-label="Kontrol cepat">
+              <svg viewBox="0 0 16 16"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7" /><circle cx="11" cy="4.5" r="1.6" /><circle cx="5" cy="11.5" r="1.6" /></svg>
+            </button>
             <button type="button" class="icon-link" id="power-btn" title="Daya" aria-label="Daya">
               <svg viewBox="0 0 16 16"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0" /></svg>
             </button>

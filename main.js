@@ -40,6 +40,7 @@ let notifications = { access: 'Unknown', items: [] };
 let knownIds = null; // null = belum ada daftar pertama (notifikasi lama tidak dianggap baru)
 let lastActivity = Date.now();
 let devTimers = null;
+let quickState = null; // volume, muted, brightness, wifi, bluetooth (dari bridge.ps1)
 const appIcons = {};
 
 const primaryInstance = app.requestSingleInstanceLock();
@@ -450,6 +451,9 @@ function handleBridge(message) {
   } else if (message.type === 'voices') {
     ttsVoices = Array.isArray(message.voices) ? message.voices : [message.voices].filter(Boolean);
     settingsWin?.webContents.send('settings:changed');
+  } else if (message.type === 'quick') {
+    quickState = message;
+    send('kapsul:quick-state', quickState);
   } else if (message.type === 'speech') {
     send('kapsul:speech', message.data);
   }
@@ -1035,6 +1039,28 @@ async function runVoiceCommand(heard) {
     case 'play':
       playPet();
       return reply(heard, 'Yeay, main!', 'laugh');
+    case 'quick': {
+      const q = quickState ?? {};
+      if (intent.what === 'volume') {
+        const now = q.volume ?? 50;
+        const next = intent.value ?? Math.max(0, Math.min(100, now + intent.delta));
+        quickSet('volume', next);
+        return reply(heard, `Volume ${next}%.`, 'music');
+      }
+      if (intent.what === 'mute') {
+        quickSet('mute', intent.value);
+        return reply(heard, intent.value === '1' ? 'Suara dibisukan.' : 'Suara dinyalakan.', 'happy');
+      }
+      if (intent.what === 'brightness') {
+        if (q.brightness == null) return reply(heard, 'Kecerahan layar ini tidak bisa diatur dari Zenopod.', 'confused');
+        const next = intent.value ?? Math.max(0, Math.min(100, q.brightness + intent.delta));
+        quickSet('brightness', next);
+        return reply(heard, `Kecerahan ${next}%.`, 'happy');
+      }
+      quickSet(intent.what, intent.value);
+      const name = intent.what === 'wifi' ? 'Wi-Fi' : 'Bluetooth';
+      return reply(heard, `${name} ${intent.value === 'on' ? 'dinyalakan' : 'dimatikan'}.`, 'happy');
+    }
     case 'stats': {
       const s = summaryText();
       return reply(heard, `${s.title}. ${s.body}`, 'happy');
@@ -1100,6 +1126,15 @@ function askPower(action, heard) {
       { id: 'confirm', label: POWER_LABELS[action], primary: true },
     ],
   });
+}
+
+// ---------- Kontrol cepat Windows ----------
+
+const QUICK_KEYS = new Set(['volume', 'mute', 'brightness', 'wifi', 'bluetooth']);
+
+function quickSet(what, value) {
+  if (!QUICK_KEYS.has(what)) return;
+  bridgeCommand(`quick ${what} ${String(value).replace(/\s+/g, '')}`);
 }
 
 // ---------- Timer cepat ----------
@@ -1628,6 +1663,7 @@ ipcMain.on('kapsul:clip', (_event, action, id) => clipCommand(String(action), id
 ipcMain.on('kapsul:todo', (_event, action, payload) => todoCommand(String(action), payload ?? {}));
 ipcMain.on('kapsul:position', (_event, position) => setPosition(String(position)));
 ipcMain.on('kapsul:drag-start', () => dragStart());
+ipcMain.on('kapsul:quick-set', (_event, what, value) => quickSet(String(what), value));
 ipcMain.on('kapsul:pet', (_event, action, food) => {
   if (action === 'feed') feedPet(String(food));
   if (action === 'play') playPet();
@@ -1670,6 +1706,7 @@ ipcMain.on('kapsul:ready', (event) => {
   event.sender.send('kapsul:todos', config.todos);
   sendStats();
   sendTimers();
+  if (quickState) event.sender.send('kapsul:quick-state', quickState);
   if (currentPeek) event.sender.send('kapsul:peek', currentPeek);
 });
 

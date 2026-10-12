@@ -2040,3 +2040,107 @@ body[data-valign="bottom"] .shell {
   font-size: 11px;
   font-weight: 600;
 }
+
+/* ---------- Kontrol cepat ---------- */
+
+.quick-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+}
+
+.quick-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.quick-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--text);
+  flex: none;
+}
+
+button.quick-icon:hover {
+  background: var(--surface-hover);
+}
+
+.quick-icon svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.quick-icon .slash {
+  display: none;
+}
+
+.quick-icon.muted .slash {
+  display: inline;
+}
+
+.quick-icon.muted .waves {
+  display: none;
+}
+
+.quick-row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.quick-value {
+  width: 34px;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.quick-toggles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.quick-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--surface-hover);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.quick-toggle svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.quick-toggle[aria-pressed="true"] {
+  background: var(--accent);
+  color: #0b0b0d;
+}
+
+.quick-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

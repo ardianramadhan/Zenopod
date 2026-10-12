@@ -145,6 +145,89 @@ function Emit-Notifications([bool]$force) {
     Send @{ type = 'notifications'; access = 'Allowed'; items = $items }
 }
 
+# ---------- Kontrol cepat: volume, kecerahan, Wi-Fi, Bluetooth ----------
+
+try {
+    Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IAudioEndpointVolume {
+  int f(); int g(); int h(); int i();
+  int SetMasterVolumeLevelScalar(float fLevel, System.Guid pguidEventContext);
+  int j();
+  int GetMasterVolumeLevelScalar(out float pfLevel);
+  int k(); int l(); int m(); int n();
+  int SetMute([MarshalAs(UnmanagedType.Bool)] bool bMute, System.Guid pguidEventContext);
+  int GetMute(out bool pbMute);
+}
+[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDevice { int Activate(ref System.Guid id, int clsCtx, int activationParams, out IAudioEndpointVolume aev); }
+[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+interface IMMDeviceEnumerator { int f(); int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint); }
+[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
+public class ZenoAudio {
+  static IAudioEndpointVolume Vol() {
+    var enumerator = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
+    IMMDevice dev = null;
+    Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(0, 1, out dev));
+    IAudioEndpointVolume epv = null;
+    var id = typeof(IAudioEndpointVolume).GUID;
+    Marshal.ThrowExceptionForHR(dev.Activate(ref id, 23, 0, out epv));
+    return epv;
+  }
+  public static float Volume { get { float v = -1; Marshal.ThrowExceptionForHR(Vol().GetMasterVolumeLevelScalar(out v)); return v; } set { Marshal.ThrowExceptionForHR(Vol().SetMasterVolumeLevelScalar(value, System.Guid.Empty)); } }
+  public static bool Mute { get { bool m; Marshal.ThrowExceptionForHR(Vol().GetMute(out m)); return m; } set { Marshal.ThrowExceptionForHR(Vol().SetMute(value, System.Guid.Empty)); } }
+}
+"@
+} catch { }
+
+[void][Windows.Devices.Radios.Radio, Windows.System.Devices, ContentType = WindowsRuntime]
+$radioAccess = $false
+try {
+    $radioAccess = (Await ([Windows.Devices.Radios.Radio]::RequestAccessAsync()) ([Windows.Devices.Radios.RadioAccessStatus])).ToString() -eq 'Allowed'
+} catch { }
+
+function Get-Radios {
+    if (-not $radioAccess) { return @() }
+    return @(Await ([Windows.Devices.Radios.Radio]::GetRadiosAsync()) ([System.Collections.Generic.IReadOnlyList[Windows.Devices.Radios.Radio]]))
+}
+
+$lastQuick = $null
+
+function Emit-Quick([bool]$force) {
+    $state = @{ type = 'quick'; volume = $null; muted = $null; brightness = $null; wifi = $null; bluetooth = $null }
+    try { $state.volume = [int][math]::Round([ZenoAudio]::Volume * 100); $state.muted = [ZenoAudio]::Mute } catch { }
+    try { $state.brightness = [int](Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction Stop | Select-Object -First 1).CurrentBrightness } catch { }
+    try {
+        foreach ($r in (Get-Radios)) {
+            if ($r.Kind.ToString() -eq 'WiFi') { $state.wifi = $r.State.ToString() }
+            if ($r.Kind.ToString() -eq 'Bluetooth') { $state.bluetooth = $r.State.ToString() }
+        }
+    } catch { }
+    $key = "$($state.volume)|$($state.muted)|$($state.brightness)|$($state.wifi)|$($state.bluetooth)"
+    if (-not $force -and $key -eq $script:lastQuick) { return }
+    $script:lastQuick = $key
+    Send $state
+}
+
+function Set-Quick($what, $value) {
+    switch ($what) {
+        'volume' { [ZenoAudio]::Volume = [math]::Max(0, [math]::Min(100, [double]$value)) / 100; if ([ZenoAudio]::Mute) { [ZenoAudio]::Mute = $false } }
+        'mute' { [ZenoAudio]::Mute = if ($value -eq 'toggle') { -not [ZenoAudio]::Mute } else { $value -eq '1' } }
+        'brightness' {
+            $level = [int][math]::Max(0, [math]::Min(100, [double]$value))
+            Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 1; Brightness = [byte]$level } | Out-Null
+        }
+        { $_ -eq 'wifi' -or $_ -eq 'bluetooth' } {
+            $kind = if ($what -eq 'wifi') { 'WiFi' } else { 'Bluetooth' }
+            $target = if ($value -eq 'on') { [Windows.Devices.Radios.RadioState]::On } else { [Windows.Devices.Radios.RadioState]::Off }
+            foreach ($r in (Get-Radios)) {
+                if ($r.Kind.ToString() -eq $kind) { Await ($r.SetStateAsync($target)) ([Windows.Devices.Radios.RadioAccessStatus]) | Out-Null }
+            }
+        }
+    }
+}
+
 # ---------- Suara Zeno (TTS) ----------
 
 $synth = $null
@@ -184,6 +267,8 @@ $pending = $stdin.ReadLineAsync()
 try { Emit-Media $true } catch { }
 try { Emit-Notifications $true } catch { }
 try { Emit-Voices } catch { }
+try { Emit-Quick $true } catch { }
+$quickTick = 0
 
 while ($true) {
     if ($pending.Wait(800)) {
@@ -201,6 +286,7 @@ while ($true) {
                 'clear'   { if ($listener) { $listener.ClearNotifications() } }
                 'voices'  { Emit-Voices }
                 'speak'   { $p = $parts[1] -split '\s+', 2; Speak $p[0] $p[1] }
+                'quick'   { $p = $parts[1] -split '\s+', 2; Set-Quick $p[0] $p[1]; Start-Sleep -Milliseconds 250; Emit-Quick $true }
             }
         } catch { }
         Start-Sleep -Milliseconds 150
@@ -208,4 +294,7 @@ while ($true) {
     }
     try { Emit-Media $false } catch { }
     try { Emit-Notifications $false } catch { }
+    # Volume/kecerahan/radio bisa berubah dari luar: cek tiap ±4 detik.
+    $quickTick++
+    if ($quickTick -ge 5) { $quickTick = 0; try { Emit-Quick $false } catch { } }
 }
