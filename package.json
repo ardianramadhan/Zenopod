@@ -5,12 +5,68 @@
   "description": "Zenopod: widget desktop pribadi dengan maskot Zeno (Windows).",
   "main": "main.js",
   "scripts": {
-    "start": "node start.js"
+    "start": "node start.js",
+    "dist": "electron-builder --win nsis --publish never",
+    "release": "electron-builder --win nsis --publish always"
   },
   "devDependencies": {
-    "electron": "^38.0.0"
+    "electron": "^38.0.0",
+    "electron-builder": "^26.15.3"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.133.0"
+    "@anthropic-ai/sdk": "^0.133.0",
+    "electron-updater": "^6.8.9"
+  },
+  "author": "Awaludhi Ardian",
+  "build": {
+    "appId": "id.zenopod.app",
+    "productName": "Zenopod",
+    "copyright": "Zenopod",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-settings.js",
+      "bridge.ps1",
+      "lib/**",
+      "hooks/**",
+      "renderer/**",
+      "build/icon.png",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "bridge.ps1",
+      "hooks/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Zenopod",
+      "artifactName": "Zenopod-Setup-${version}.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ardianramadhan",
+        "repo": "Zenopod"
+      }
+    ]
   }
 }

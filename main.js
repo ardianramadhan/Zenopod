@@ -1,12 +1,23 @@
 'use strict';
 
+// Zenopod.exe --zenopod-hook <Event>: jalankan hook Claude Code saja (versi terpasang tanpa Node.js).
+if (process.argv.includes('--zenopod-hook')) {
+  require('./hooks/kapsul-hook.js');
+  return;
+}
+
 const { app, BrowserWindow, Tray, Menu, clipboard, dialog, globalShortcut, ipcMain, nativeImage, screen, session, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// Folder data selalu %APPDATA%\kapsul (dari kode maupun versi terpasang "Zenopod"),
+// supaya config, statistik, dan token hook Claude tetap di tempat yang sama.
+app.setPath('userData', path.join(app.getPath('appData'), 'kapsul'));
+
 const { CONFIG_FILE, DEFAULT_OFFSET, normalize, readConfig, writeConfig } = require('./lib/config');
+const paths = require('./lib/paths');
 const apps = require('./lib/apps');
 const claude = require('./lib/claude');
 const schedule = require('./lib/schedule');
@@ -176,7 +187,7 @@ function createWindow() {
     hasShadow: false,
     alwaysOnTop: true,
     show: false,
-    icon: dotIcon(32),
+    icon: appIcon(32),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -318,6 +329,11 @@ function peekAction(id, action) {
     if (action === 'drank') statsAdd('water');
     // "Nanti" = ingatkan lagi 10 menit kemudian.
     if (action === 'later') wellness.water = Math.max(0, Number(config.wellness.waterMinutes || 60) - 10);
+  } else if (peek.kind === 'update') {
+    if (action === 'install' && updater) {
+      app.isQuitting = true;
+      setImmediate(() => updater.quitAndInstall());
+    }
   } else if (peek.kind === 'timer') {
     if (action === 'again') startTimer(peek.ref.total, peek.ref.label);
   } else if (peek.kind === 'power') {
@@ -362,6 +378,7 @@ async function loadConfig() {
 function watchConfig() {
   let timer = null;
   // Pantau foldernya: editor sering menyimpan dengan mengganti file, bukan menimpanya.
+  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
   fs.watch(path.dirname(CONFIG_FILE), (_event, file) => {
     if (file !== path.basename(CONFIG_FILE) || Date.now() - selfWriteAt < 1500) return;
     clearTimeout(timer);
@@ -410,7 +427,7 @@ function setPosition(position, { force = false } = {}) {
 
 function startBridge() {
   debugLog('start bridge');
-  bridge = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'bridge.ps1')], {
+  bridge = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', paths.bridgeScript], {
     windowsHide: true,
   });
   bridge.stdout.setEncoding('utf8');
@@ -1138,6 +1155,45 @@ function askPower(action, heard) {
   });
 }
 
+// ---------- Update otomatis (versi terpasang, dari GitHub Releases) ----------
+
+let updater = null;
+let updateStatus = { state: app.isPackaged ? 'idle' : 'dev', version: null };
+
+function setupUpdates() {
+  if (!app.isPackaged) return;
+  const { autoUpdater } = require('electron-updater');
+  updater = autoUpdater;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('checking-for-update', () => (updateStatus = { state: 'checking', version: null }));
+  autoUpdater.on('update-not-available', () => (updateStatus = { state: 'latest', version: null }));
+  autoUpdater.on('update-available', (info) => (updateStatus = { state: 'downloading', version: info.version }));
+  autoUpdater.on('error', (error) => {
+    updateStatus = { state: 'error', version: null, error: error.message };
+    debugLog('update gagal: ' + error.message);
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    updateStatus = { state: 'ready', version: info.version };
+    showPeek({
+      kind: 'update',
+      mood: 'laugh',
+      sound: 'levelup',
+      app: 'Zenopod',
+      title: `Versi ${info.version} siap dipasang`,
+      body: 'Mulai ulang Zenopod untuk memakai versi baru.',
+      sticky: true,
+      actions: [
+        { id: 'later', label: 'Nanti' },
+        { id: 'install', label: 'Mulai ulang', primary: true },
+      ],
+    });
+  });
+  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  setTimeout(check, 15_000);
+  setInterval(check, 6 * 3_600_000);
+}
+
 // ---------- Kontrol cepat Windows ----------
 
 const QUICK_KEYS = new Set(['volume', 'mute', 'brightness', 'wifi', 'bluetooth']);
@@ -1491,7 +1547,7 @@ function openSettings(section) {
     title: 'Pengaturan Zenopod',
     backgroundColor: '#0b0b0d',
     autoHideMenuBar: true,
-    icon: dotIcon(32),
+    icon: appIcon(32),
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload-settings.js'),
@@ -1506,12 +1562,15 @@ function openSettings(section) {
   setExpanded(false);
 }
 
+// Dari kode: electron.exe <folder project>. Versi terpasang: Zenopod.exe tanpa argumen.
+const loginArgs = () => (app.isPackaged ? [] : [app.getAppPath()]);
+
 function autostartEnabled() {
-  return app.getLoginItemSettings({ path: process.execPath, args: [app.getAppPath()] }).openAtLogin;
+  return app.getLoginItemSettings({ path: process.execPath, args: loginArgs() }).openAtLogin;
 }
 
 function setAutostart(enabled) {
-  app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath, args: [app.getAppPath()] });
+  app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath, args: loginArgs() });
   tray?.setContextMenu(buildTrayMenu());
 }
 
@@ -1527,6 +1586,8 @@ function settingsState() {
     statsWeek: stats.week().map((d) => ({ ...d, songs: undefined })),
     pet: stats.pet(),
     voiceStatus: voice.status(),
+    appVersion: app.getVersion(),
+    updateStatus,
     chatModels: chat.MODELS,
     chatKeyMask: chat.maskKey(config.chat.apiKeyEnc),
     chatEnvKey: Boolean(process.env.ANTHROPIC_API_KEY),
@@ -1613,6 +1674,16 @@ ipcMain.handle('settings:chat-test', async () => {
   }
 });
 
+ipcMain.handle('settings:check-update', async () => {
+  if (!updater) return updateStatus;
+  try {
+    await updater.checkForUpdates();
+  } catch {
+    // status diisi event 'error'
+  }
+  return updateStatus;
+});
+
 ipcMain.handle('settings:pick-folder', async () => {
   const result = await dialog.showOpenDialog(settingsWin, { title: 'Pilih folder project', properties: ['openDirectory'] });
   return result.canceled ? null : result.filePaths[0].replace(/\\/g, '/');
@@ -1685,8 +1756,18 @@ function buildTrayMenu() {
   ]);
 }
 
+function appIcon(size) {
+  try {
+    const image = nativeImage.createFromPath(paths.icon);
+    if (!image.isEmpty()) return image.resize({ width: size, height: size, quality: 'best' });
+  } catch {
+    // tanpa ikon
+  }
+  return dotIcon(size);
+}
+
 function createTray() {
-  tray = new Tray(dotIcon(16));
+  tray = new Tray(appIcon(16));
   tray.setToolTip('Zenopod');
   tray.setContextMenu(buildTrayMenu());
   tray.on('click', () => setExpanded(!expanded, { focus: true }));
@@ -1822,6 +1903,7 @@ app.whenReady().then(async () => {
   pollGit();
   // Daftar aplikasi terpasang untuk "buka …" dan pencarian (dimuat di belakang).
   apps.installedApps().then((list) => (installedForVoice = list)).catch(() => {});
+  setupUpdates();
 
   // Pertama kali: kenalan dulu. Sesudahnya: sapa + cek pengingat yang terlewat.
   if (!config.user.name) {

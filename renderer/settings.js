@@ -873,8 +873,30 @@ $('ticker-seconds').addEventListener('change', (e) => save({ ticker: { ...state.
 
 $('costume').addEventListener('change', (e) => save({ costume: e.target.value }).then(renderCostume));
 
+const UPDATE_TEXT = {
+  dev: 'Dijalankan dari kode (npm start); pembaruan lewat git pull.',
+  idle: 'Pembaruan dicek otomatis tiap 6 jam.',
+  checking: 'Mengecek pembaruan…',
+  latest: 'Sudah versi terbaru.',
+  downloading: 'Mengunduh versi {v}…',
+  ready: 'Versi {v} siap dipasang. Mulai ulang Zenopod untuk memakainya.',
+  error: 'Gagal mengecek pembaruan.',
+};
+
+function renderAbout(status = state.updateStatus ?? {}) {
+  const text = (UPDATE_TEXT[status.state] ?? '').replace('{v}', status.version ?? '');
+  $('about-text').textContent = `Versi ${state.appVersion ?? '?'} · ${text}`;
+  $('check-update').hidden = status.state === 'dev';
+}
+
+$('check-update').addEventListener('click', async () => {
+  renderAbout({ state: 'checking' });
+  renderAbout(await api.checkUpdate());
+});
+
 function renderDisplay() {
   renderCostume();
+  renderAbout();
   $('ticker-enabled').checked = state.config.ticker.enabled;
   $('ticker-seconds').value = String(state.config.ticker.seconds);
   $('ticker-seconds').disabled = !state.config.ticker.enabled;
