@@ -1927,3 +1927,36 @@ body[data-valign="bottom"] .shell {
 #power-now:hover {
   background: #dc2626;
 }
+
+/* Timer cepat (tab Fokus) */
+.timer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.timer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.timer-row b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-row .notif-x {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  opacity: 1;
+}
+
+.result-value {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}

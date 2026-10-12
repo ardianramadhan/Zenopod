@@ -1363,6 +1363,18 @@ function searchScore(name, query) {
   return initials.startsWith(query) ? 3 : null;
 }
 
+let quickRow = null; // { kind: 'math'|'timer', ... } dari proses utama
+let quickQueryText = '';
+
+async function updateQuick() {
+  const raw = $('app-search').value.trim();
+  quickQueryText = raw;
+  const result = raw ? await window.kapsul.quick(raw) : null;
+  if (quickQueryText !== raw) return; // sudah diketik lagi
+  quickRow = result;
+  renderSearch();
+}
+
 function renderSearch() {
   const query = $('app-search').value.trim().toLowerCase();
   const results = $('search-results');
@@ -1381,13 +1393,32 @@ function renderSearch() {
     .sort((a, b) => a.score - b.score || a.item.name.localeCompare(b.item.name))
     .slice(0, 8)
     .map(({ item }) => item);
+
+  // Hitungan / timer tampil paling atas.
+  const quick = quickRow;
+  if (quick?.kind === 'math') {
+    searchMatches.unshift({ name: `= ${quick.text}`, value: true, tag: 'Salin', open: () => {
+      window.kapsul.copy(String(quick.value));
+      sfx('tick');
+      react('wink', 1200);
+    } });
+  } else if (quick?.kind === 'timer') {
+    searchMatches.unshift({ name: `Mulai ${quick.label}`, timer: true, tag: 'Timer', open: () => {
+      window.kapsul.timer('start', { ms: quick.ms, label: quick.label });
+      sfx('blip');
+      selectTab('focus');
+    } });
+  }
+  if (quickTimers.length && /^(batal|cancel|stop)/.test(query)) {
+    searchMatches.unshift({ name: 'Batalkan semua timer', tag: 'Timer', open: () => window.kapsul.timer('cancel', {}) });
+  }
   searchSelected = Math.min(searchSelected, Math.max(0, searchMatches.length - 1));
 
   results.replaceChildren();
   if (!searchMatches.length) {
     const empty = document.createElement('p');
     empty.className = 'empty';
-    empty.textContent = installedList ? `Tidak ada aplikasi “${query}”.` : 'Memuat daftar aplikasi…';
+    empty.textContent = installedList ? `Tidak ada aplikasi “${query}”. Coba “= 25*4” atau “timer 10”.` : 'Memuat daftar aplikasi…';
     results.append(empty);
     return;
   }
@@ -1404,7 +1435,9 @@ function renderSearch() {
     row.addEventListener('click', () => openResult(item));
     const icon = document.createElement('span');
     icon.className = 'result-icon';
-    if (item.icon) {
+    if (item.value || item.timer || item.tag === 'Timer') {
+      icon.textContent = item.value ? '=' : '⏱';
+    } else if (item.icon) {
       const img = document.createElement('img');
       img.src = item.icon;
       img.alt = '';
@@ -1414,7 +1447,7 @@ function renderSearch() {
       if (item.color) icon.style.background = item.color;
     }
     const name = document.createElement('span');
-    name.className = 'result-name';
+    name.className = item.value ? 'result-name result-value' : 'result-name';
     name.textContent = item.name;
     const tag = document.createElement('span');
     tag.className = 'result-tag';
@@ -1443,6 +1476,7 @@ $('app-search').addEventListener('focus', ensureInstalled);
 $('app-search').addEventListener('input', () => {
   searchSelected = 0;
   renderSearch();
+  updateQuick();
 });
 $('app-search').addEventListener('keydown', (event) => {
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -1528,6 +1562,42 @@ window.kapsul.onStats((data) => {
   if (PAGES[pageIndex].id === 'today') renderPage();
   if (typeof renderPet === 'function') renderPet();
 });
+
+// ---------- Timer cepat ----------
+
+let quickTimers = [];
+
+function renderTimers() {
+  const list = $('timer-list');
+  list.replaceChildren();
+  for (const t of quickTimers) {
+    const row = document.createElement('div');
+    row.className = 'timer-row';
+    const time = document.createElement('b');
+    time.textContent = clock(t.endsAt - Date.now());
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'notif-x';
+    close.title = 'Batalkan timer';
+    close.setAttribute('aria-label', `Batalkan ${t.label}`);
+    close.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>';
+    close.addEventListener('click', () => window.kapsul.timer('cancel', { id: t.id }));
+    row.append('⏱ ', time, ` · ${t.label}`, close);
+    list.append(row);
+  }
+}
+
+window.kapsul.onTimers((list) => {
+  quickTimers = list ?? [];
+  renderTimers();
+  renderPillText();
+});
+
+setInterval(() => {
+  if (!quickTimers.length) return;
+  renderTimers();
+  if (tickKey === 'timer') renderPillText();
+}, 1000);
 
 // ---------- Pengingat berikutnya (footer panel) ----------
 
@@ -1621,9 +1691,25 @@ function pillOverride() {
   return null;
 }
 
-// Slide tersemat (fokus, Claude bekerja): tampil selang-seling dengan slide lain.
+// Slide tersemat (fokus, timer, Claude bekerja): tampil selang-seling dengan slide lain.
 function pinnedSlides() {
   const pinned = [];
+  const timer = quickTimers[0];
+  if (timer) {
+    pinned.push({
+      key: 'timer',
+      render: (el) => {
+        el.append('⏱ ');
+        const time = document.createElement('span');
+        time.className = 'tabular';
+        time.textContent = clock(timer.endsAt - Date.now());
+        const label = document.createElement('span');
+        label.className = 'dim';
+        label.textContent = ` · ${timer.label}`;
+        el.append(time, label);
+      },
+    });
+  }
   if (focusState.phase) {
     pinned.push({
       key: 'focus',
@@ -1701,7 +1787,7 @@ function renderPillText(animate = false) {
 
   const changed = slide.key !== tickKey;
   tickKey = slide.key;
-  pillSlide = override || slide.key === 'focus' || slide.key === 'claude' ? null : slide;
+  pillSlide = override || ['focus', 'claude', 'timer'].includes(slide.key) ? null : slide;
 
   const inner = document.createElement('span');
   inner.className = 'tick';

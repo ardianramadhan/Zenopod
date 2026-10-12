@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Tray, Menu, dialog, globalShortcut, ipcMain, nativeImage, screen, session, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, clipboard, dialog, globalShortcut, ipcMain, nativeImage, screen, session, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -14,6 +14,7 @@ const { Focus } = require('./lib/focus');
 const { ClipboardHistory } = require('./lib/clipboard');
 const devwatch = require('./lib/devwatch');
 const { Stats, duration, dayKey } = require('./lib/stats');
+const calc = require('./lib/calc');
 const season = require('./lib/season');
 const weather = require('./lib/weather');
 const voice = require('./lib/voice');
@@ -309,6 +310,8 @@ function peekAction(id, action) {
     const finish = permissionReplies.get(peek.id);
     finish?.(action === 'allow' ? 'allow' : action === 'deny' ? 'deny' : null);
     return; // finish() sudah menutup kartunya
+  } else if (peek.kind === 'timer') {
+    if (action === 'again') startTimer(peek.ref.total, peek.ref.label);
   } else if (peek.kind === 'power') {
     if (action === 'confirm') power(peek.ref);
   } else if (peek.kind === 'focus') {
@@ -1003,6 +1006,22 @@ async function runVoiceCommand(heard) {
       return reply(heard, `Halo${firstName ? ` ${firstName}` : ''}! Ada yang bisa aku bantu?`, 'greet');
     case 'power':
       return askPower(intent.command, heard);
+    case 'timer': {
+      const ms = calc.parseDuration(intent.text);
+      if (!ms) return reply(heard, 'Berapa lama? Coba bilang: timer 10 menit.', 'confused');
+      const timer = startTimer(ms);
+      return reply(heard, `${timer.label} dimulai.`, 'clock');
+    }
+    case 'timer-cancel':
+      if (!timers.length) return reply(heard, 'Tidak ada timer yang berjalan.', 'confused');
+      cancelTimer(null);
+      return reply(heard, 'Timer dibatalkan.', 'happy');
+    case 'calc': {
+      const value = calc.evaluate(intent.text);
+      if (value === null) return reply(heard, 'Maaf, aku belum bisa menghitung itu.', 'confused');
+      clipboard.writeText(String(value));
+      return reply(heard, `Hasilnya ${calc.format(value)}.`, 'happy');
+    }
     case 'stats': {
       const s = summaryText();
       return reply(heard, `${s.title}. ${s.body}`, 'happy');
@@ -1068,6 +1087,68 @@ function askPower(action, heard) {
       { id: 'confirm', label: POWER_LABELS[action], primary: true },
     ],
   });
+}
+
+// ---------- Timer cepat ----------
+
+const timers = []; // { id, label, endsAt, total, handle }
+
+function sendTimers() {
+  send('kapsul:timers', timers.map(({ handle, ...t }) => t).sort((a, b) => a.endsAt - b.endsAt));
+}
+
+function startTimer(ms, label) {
+  const id = crypto.randomUUID();
+  const timer = { id, label: label || `Timer ${calc.durationLabel(ms)}`, endsAt: Date.now() + ms, total: ms };
+  timer.handle = setTimeout(() => fireTimer(id), ms);
+  timers.push(timer);
+  sendTimers();
+  return timer;
+}
+
+function fireTimer(id) {
+  const index = timers.findIndex((t) => t.id === id);
+  if (index < 0) return;
+  const [timer] = timers.splice(index, 1);
+  sendTimers();
+  showPeek({
+    kind: 'timer',
+    mood: 'alarm',
+    sound: 'alarm',
+    app: `${config.buddy.name || 'Zeno'} · Timer`,
+    title: `${timer.label} selesai!`,
+    body: '',
+    sticky: true,
+    ref: { total: timer.total, label: timer.label },
+    actions: [
+      { id: 'again', label: 'Ulangi' },
+      { id: 'ok', label: 'Oke', primary: true },
+    ],
+  });
+}
+
+function cancelTimer(id) {
+  for (let i = timers.length - 1; i >= 0; i--) {
+    if (id && timers[i].id !== id) continue;
+    clearTimeout(timers[i].handle);
+    timers.splice(i, 1);
+  }
+  sendTimers();
+}
+
+// Kotak cari: "= 250.000*12" → hasil; "timer 10" → tawaran timer.
+function quickQuery(query) {
+  const q = String(query).trim();
+  const timer = q.match(/^(?:timer|tmr)\s+(.+)$/i);
+  if (timer) {
+    const ms = calc.parseDuration(timer[1]);
+    return ms ? { kind: 'timer', ms, label: `Timer ${calc.durationLabel(ms)}` } : null;
+  }
+  if (calc.looksLikeMath(q)) {
+    const value = calc.evaluate(q.replace(/^=/, ''));
+    return value === null ? null : { kind: 'math', value, text: calc.format(value) };
+  }
+  return null;
 }
 
 // ---------- Statistik harian ----------
@@ -1437,6 +1518,12 @@ ipcMain.on('kapsul:clip', (_event, action, id) => clipCommand(String(action), id
 ipcMain.on('kapsul:todo', (_event, action, payload) => todoCommand(String(action), payload ?? {}));
 ipcMain.on('kapsul:position', (_event, position) => setPosition(String(position)));
 ipcMain.on('kapsul:drag-start', () => dragStart());
+ipcMain.handle('kapsul:quick', (_event, query) => quickQuery(query));
+ipcMain.on('kapsul:copy', (_event, text) => clipboard.writeText(String(text)));
+ipcMain.on('kapsul:timer', (_event, action, payload = {}) => {
+  if (action === 'start' && Number(payload.ms) > 0) startTimer(Number(payload.ms), payload.label);
+  if (action === 'cancel') cancelTimer(payload.id ? String(payload.id) : null);
+});
 ipcMain.on('kapsul:power', (_event, action) => {
   if (String(action) in POWER_LABELS) power(String(action));
 });
@@ -1468,6 +1555,7 @@ ipcMain.on('kapsul:ready', (event) => {
   event.sender.send('kapsul:costume', costumeState);
   event.sender.send('kapsul:todos', config.todos);
   sendStats();
+  sendTimers();
   if (currentPeek) event.sender.send('kapsul:peek', currentPeek);
 });
 
