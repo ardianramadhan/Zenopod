@@ -365,6 +365,7 @@ function publicState() {
     buddyName: config.buddy.name,
     focus: config.focus,
     sound: config.sound,
+    ticker: config.ticker,
     userName: config.user.name,
     shortcut: shortcut ? shortcut.split('+').map((k) => (k === 'Control' ? 'Ctrl' : k)) : [],
   };

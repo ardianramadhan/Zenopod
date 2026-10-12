@@ -329,6 +329,11 @@ window.kapsul.onState((state) => {
   document.body.dataset.align = state.align;
   document.body.dataset.valign = state.valign ?? 'top';
   if (state.sound) soundSettings = state.sound;
+  if (state.ticker && (state.ticker.enabled !== tickerSettings.enabled || state.ticker.seconds !== tickerSettings.seconds)) {
+    tickerSettings = state.ticker;
+    startTicker();
+    renderPillText(true);
+  }
   profile = { userName: state.userName ?? '', buddyName: state.buddyName ?? '' };
   renderPage();
   if (state.focus) {
@@ -1355,7 +1360,8 @@ const timeFormat = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '
 // Yang mendesak tampil tetap (suara > Claude menunggu > fokus > Claude bekerja);
 // selain itu kapsul berputar tiap beberapa detik: jam, musik, cuaca, pengingat, tugas, notifikasi, server, sapaan.
 
-const TICK_MS = 5000;
+// Bisa diatur di Pengaturan › Tampilan (saklar & durasi).
+let tickerSettings = { enabled: true, seconds: 5 };
 const PILL_ICONS = {
   music: '<svg viewBox="0 0 16 16"><path d="M6 12V3.5l7-1.5V10.5" /><circle cx="4.5" cy="12" r="1.6" /><circle cx="11.5" cy="10.5" r="1.6" /></svg>',
   cloud: '<svg viewBox="0 0 16 16"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .2-5.6 4 4 0 0 0-7.7 1A2.3 2.3 0 0 0 4.5 12.5z" /></svg>',
@@ -1465,6 +1471,11 @@ function renderPillText(animate = false) {
   const text = $('pill-text');
   const override = pillOverride();
   let slide = override;
+  if (!slide && !tickerSettings.enabled) {
+    // Putaran dimatikan: tersemat (fokus/Claude) > lagu > jam.
+    const slides = pillSlides();
+    slide = pinnedSlides()[0] ?? slides.find((s) => s.key === 'music') ?? slides[0];
+  }
   if (!slide) {
     const slides = pillSlides();
     const pinned = pinnedSlides();
@@ -1507,11 +1518,19 @@ window.kapsul.onMedia((state) => {
 
 setInterval(renderBuddy, 15_000);
 
-// Putar isi kapsul (tidak berputar saat ada yang mendesak).
-setInterval(() => {
-  if (!pillOverride()) tickIndex++;
-  renderPillText(true);
-}, TICK_MS);
+// Putar isi kapsul (tidak berputar saat ada yang mendesak atau saat dimatikan).
+let tickTimer = null;
+
+function startTicker() {
+  clearInterval(tickTimer);
+  const ms = Math.max(2, Number(tickerSettings.seconds) || 5) * 1000;
+  tickTimer = setInterval(() => {
+    if (tickerSettings.enabled && !pillOverride()) tickIndex++;
+    renderPillText(tickerSettings.enabled);
+  }, ms);
+}
+
+startTicker();
 
 makeDraggable($('pill'), { clickToOpen: true });
 makeDraggable($('grip'));

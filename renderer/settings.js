@@ -769,10 +769,18 @@ function renderCostume() {
     : 'Peci saat Jumat & Ramadan, ketupat saat Lebaran, merah putih 17 Agustus, topi pesta saat ulang tahun. Payung / kacamata hitam di halaman Cuaca.';
 }
 
+$('ticker-enabled').addEventListener('change', (e) =>
+  save({ ticker: { ...state.config.ticker, enabled: e.target.checked } }).then(renderDisplay),
+);
+$('ticker-seconds').addEventListener('change', (e) => save({ ticker: { ...state.config.ticker, seconds: Number(e.target.value) } }));
+
 $('costume').addEventListener('change', (e) => save({ costume: e.target.value }).then(renderCostume));
 
 function renderDisplay() {
   renderCostume();
+  $('ticker-enabled').checked = state.config.ticker.enabled;
+  $('ticker-seconds').value = String(state.config.ticker.seconds);
+  $('ticker-seconds').disabled = !state.config.ticker.enabled;
   for (const input of document.querySelectorAll('[name="position"]')) input.checked = input.value === state.config.position;
   if (!$('shortcut').classList.contains('recording')) $('shortcut').value = state.config.shortcut.replace('Control', 'Ctrl');
   $('autostart').checked = state.autostart;
