@@ -22,7 +22,7 @@ const SIZE = {
   collapsed: { width: 236, height: 40 },
   peek: { width: 388, height: 84 },
   peekTall: { width: 388, height: 122 },
-  expanded: { width: 468, height: 384 },
+  expanded: { width: 468, height: 416 },
 };
 
 let win = null;
@@ -307,6 +307,8 @@ function peekAction(id, action) {
     const finish = permissionReplies.get(peek.id);
     finish?.(action === 'allow' ? 'allow' : action === 'deny' ? 'deny' : null);
     return; // finish() sudah menutup kartunya
+  } else if (peek.kind === 'power') {
+    if (action === 'confirm') power(peek.ref);
   } else if (peek.kind === 'focus') {
     if (action === 'start') focus.start('focus');
     if (action === 'break') focus.start();
@@ -995,6 +997,8 @@ async function runVoiceCommand(heard) {
       );
     case 'greet':
       return reply(heard, `Halo${firstName ? ` ${firstName}` : ''}! Ada yang bisa aku bantu?`, 'greet');
+    case 'power':
+      return askPower(intent.command, heard);
     default:
       return reply(heard, `Maaf, aku belum paham “${heard}”.`, 'confused');
   }
@@ -1016,6 +1020,47 @@ ipcMain.handle('kapsul:audio', async (_event, wav) => {
     return { ok: false };
   }
 });
+
+// ---------- Daya: kunci, tidur, mulai ulang, matikan, keluar akun ----------
+// Tanpa /f: aplikasi yang punya pekerjaan belum disimpan tetap bisa menahan/menanyakan.
+
+const POWER_LABELS = { lock: 'Kunci layar', sleep: 'Tidur', restart: 'Mulai ulang', shutdown: 'Matikan', signout: 'Keluar akun' };
+const POWER_CONFIRM = new Set(['restart', 'shutdown', 'signout']);
+
+function power(action) {
+  const run = (cmd, args) => spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  debugLog('power ' + action);
+  if (action === 'lock') run('rundll32.exe', ['user32.dll,LockWorkStation']);
+  else if (action === 'sleep') {
+    // SetSuspendState('Suspend') = tidur (bukan hibernasi).
+    run('powershell.exe', ['-NoProfile', '-Command', "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend', $false, $false)"]);
+  } else if (action === 'restart') run('shutdown.exe', ['/r', '/t', '0']);
+  else if (action === 'shutdown') run('shutdown.exe', ['/s', '/t', '0']);
+  else if (action === 'signout') run('shutdown.exe', ['/l']);
+}
+
+// Dari suara: kunci/tidur langsung; mulai ulang/matikan/keluar akun lewat kartu konfirmasi.
+function askPower(action, heard) {
+  if (!POWER_CONFIRM.has(action)) {
+    reply(heard, action === 'lock' ? 'Mengunci layar.' : 'Selamat istirahat, laptop.', 'sleep');
+    setTimeout(() => power(action), 1500);
+    return;
+  }
+  showPeek({
+    kind: 'power',
+    mood: 'cry',
+    sound: 'uhoh',
+    app: heard ? `Kamu: “${heard}”` : 'Daya',
+    title: `${POWER_LABELS[action]} sekarang?`,
+    body: 'Simpan pekerjaanmu dulu ya.',
+    sticky: true,
+    ref: action,
+    actions: [
+      { id: 'cancel', label: 'Batal' },
+      { id: 'confirm', label: POWER_LABELS[action], primary: true },
+    ],
+  });
+}
 
 // ---------- Sapaan ----------
 
@@ -1309,6 +1354,20 @@ ipcMain.on('kapsul:clip', (_event, action, id) => clipCommand(String(action), id
 ipcMain.on('kapsul:todo', (_event, action, payload) => todoCommand(String(action), payload ?? {}));
 ipcMain.on('kapsul:position', (_event, position) => setPosition(String(position)));
 ipcMain.on('kapsul:drag-start', () => dragStart());
+ipcMain.on('kapsul:power', (_event, action) => {
+  if (String(action) in POWER_LABELS) power(String(action));
+});
+ipcMain.handle('kapsul:installed', async () => {
+  const list = await apps.installedApps();
+  installedForVoice = list;
+  return list.map((a) => ({ key: a.key, name: a.name, icon: a.icon }));
+});
+ipcMain.on('kapsul:launch-installed', (_event, key) => {
+  const found = installedForVoice.find((a) => a.key === key);
+  if (!found) return;
+  apps.launch({ launch: found.aumid ? { aumid: found.aumid } : { target: found.target } });
+  setExpanded(false);
+});
 ipcMain.on('kapsul:drag-move', (_event, dx, dy) => dragMove(Number(dx), Number(dy)));
 ipcMain.on('kapsul:drag-end', () => dragEnd());
 ipcMain.on('kapsul:settings', () => openSettings());

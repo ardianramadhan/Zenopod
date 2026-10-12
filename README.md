@@ -6,7 +6,8 @@ Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama
 
 - 🎵 **Musik:** judul lagu dan tombol putar/jeda/lanjut untuk Spotify, YouTube di browser, dan pemutar lain.
 - 🔔 **Notifikasi:** notifikasi dari aplikasi lain (WhatsApp, Chrome, Outlook, …) muncul di kapsul, dan kamu bisa memilih aplikasi mana yang boleh masuk.
-- 🚀 **Peluncur aplikasi:** buka aplikasi atau website favorit dengan sekali klik atau tombol 1–9.
+- 🚀 **Peluncur dan pencarian aplikasi:** buka aplikasi atau website favorit dengan sekali klik atau tombol 1–9, atau ketik untuk mencari semua aplikasi terpasang.
+- ⏻ **Menu daya:** kunci, tidur, mulai ulang, matikan, dan keluar akun (dengan hitung mundur yang bisa dibatalkan).
 - 🤖 **Claude Code:** Zeno ikut "berpikir" saat Claude bekerja, kamu bisa menjawab izin Claude langsung dari kapsul, dan pesan terakhir Claude muncul saat selesai.
 - ⏰ **Pengingat, Pomodoro, catatan, dan riwayat clipboard.**
 - 🌦️ **Cuaca, tanggal Masehi dan Hijriah, serta peringatan baterai.**
@@ -114,6 +115,8 @@ Setelah itu, buka **Pengaturan** (lihat di bawah) untuk memilih aplikasi di pelu
 
 ### Panel
 
+**Menu daya:** klik ikon ⏻ di bawah panel. **Kunci** dan **Tidur** langsung berjalan. **Mulai ulang**, **Matikan**, dan **Keluar akun** menunggu 10 detik (tekan **Batal** untuk membatalkan, atau tutup panel). Aplikasi yang punya pekerjaan belum disimpan tetap bisa menahan Windows. Lewat suara: "Zeno, matikan laptop", "restart", "kunci layar", atau "mode tidur". Untuk mematikan dan memulai ulang, muncul kartu konfirmasi dulu.
+
 **Kartu atas** bisa di-swipe (seret, scroll horizontal, klik titik, atau tombol ← →):
 
 | Halaman | Isi |
@@ -129,7 +132,7 @@ Setelah itu, buka **Pengaturan** (lihat di bawah) untuk memilih aplikasi di pelu
 
 | Tab | Isi |
 |---|---|
-| Aplikasi | Tombol peluncur |
+| Aplikasi | Tombol peluncur dan kotak **Cari aplikasi** (ketik saja saat panel terbuka; ↑↓ pilih, Enter buka) |
 | Notif | Notifikasi masuk. Klik untuk membuka aplikasinya, × untuk menghapus |
 | Fokus | Timer Pomodoro (25 menit fokus, 5 menit istirahat) |
 | Klip | 20 teks atau gambar terakhir yang kamu salin. Klik untuk menyalin lagi |
@@ -145,7 +148,8 @@ Setelah itu, buka **Pengaturan** (lihat di bawah) untuk memilih aplikasi di pelu
 | `1` – `9` (saat panel terbuka) | Jalankan aplikasi ke-1 sampai ke-9 |
 | `Spasi` (saat panel terbuka) | Putar/jeda musik |
 | `←` `→` (saat panel terbuka) | Pindah halaman kartu atas |
-| `Esc` | Tutup panel |
+| Huruf apa saja (saat panel terbuka) | Langsung mencari aplikasi |
+| `Esc` | Tutup panel (atau tutup menu daya / kosongkan pencarian) |
 
 Semua tombol pintas bisa diganti di Pengaturan.
 
@@ -192,6 +196,7 @@ Biasanya langsung jalan. Kalau tab **Notif** bilang belum diizinkan:
    - "Catat beli kopi"
    - "Mulai fokus" · "Berhenti fokus"
    - "Jam berapa?" · "Hari ini tanggal berapa?" · "Gimana cuacanya?"
+   - "Kunci layar" · "Mode tidur" · "Restart" · "Matikan laptop" (selalu dikonfirmasi dulu)
 
 Kalau Windows meminta izin mikrofon, izinkan. Atau buka **Pengaturan Windows › Privasi & keamanan › Mikrofon** dan nyalakan akses untuk aplikasi desktop.
 

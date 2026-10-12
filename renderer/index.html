@@ -125,7 +125,14 @@
           <button type="button" class="link" id="tab-action" hidden></button>
         </div>
 
-        <section class="apps" id="apps" role="tabpanel"></section>
+        <section class="apps-tab" id="apps-tab" role="tabpanel">
+          <div class="search-box">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" /></svg>
+            <input id="app-search" placeholder="Cari aplikasi…" autocomplete="off" spellcheck="false" aria-label="Cari aplikasi" />
+          </div>
+          <div class="apps" id="apps"></div>
+          <div class="search-results" id="search-results" role="listbox" hidden></div>
+        </section>
         <section class="notifs" id="notifs" role="tabpanel" hidden></section>
         <section class="list-tab" id="clips" role="tabpanel" hidden></section>
         <section class="list-tab dev-tab" id="dev" role="tabpanel" hidden>
@@ -154,6 +161,25 @@
           </div>
         </section>
 
+        <!-- Menu daya -->
+        <div class="power-sheet" id="power-sheet" hidden>
+          <div class="power-menu" id="power-menu">
+            <button type="button" data-power="lock"><svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1.5" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>Kunci</button>
+            <button type="button" data-power="sleep"><svg viewBox="0 0 16 16"><path d="M12.5 9.5A5 5 0 1 1 6.5 3.5a4 4 0 0 0 6 6z" /></svg>Tidur</button>
+            <button type="button" data-power="restart"><svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5v3h-3" /></svg>Mulai ulang</button>
+            <button type="button" data-power="shutdown"><svg viewBox="0 0 16 16"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0" /></svg>Matikan</button>
+            <button type="button" data-power="signout"><svg viewBox="0 0 16 16"><path d="M6.5 13.5h-3v-11h3M10 5l3 3-3 3M13 8H6.5" /></svg>Keluar akun</button>
+          </div>
+          <div class="power-confirm" id="power-confirm" hidden>
+            <div class="power-title" id="power-title"></div>
+            <div class="power-sub">Simpan pekerjaanmu dulu ya.</div>
+            <div class="power-actions">
+              <button type="button" class="peek-btn" id="power-cancel">Batal</button>
+              <button type="button" class="peek-btn primary" id="power-now">Sekarang</button>
+            </div>
+          </div>
+        </div>
+
         <footer class="foot">
           <span class="hint" id="shortcut"></span>
           <span class="next-reminder" id="next-reminder" hidden>
@@ -172,6 +198,9 @@
                 <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="8" y="4" width="5" height="2" rx="1" /></svg>
               </button>
             </div>
+            <button type="button" class="icon-link" id="power-btn" title="Daya" aria-label="Daya">
+              <svg viewBox="0 0 16 16"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0" /></svg>
+            </button>
             <button type="button" class="link" id="edit">Pengaturan</button>
           </div>
         </footer>

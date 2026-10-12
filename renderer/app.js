@@ -85,7 +85,12 @@ window.kapsul.onExpanded((value) => {
   shell.classList.toggle('open', value);
   // Panel dibuka tak lama setelah notifikasi tampil = langsung ke tab Notifikasi.
   if (value && lastPeek.kind === 'notification' && Date.now() - lastPeek.at < 4000) selectTab('notifs');
-  if (!value) hoveringBig = false;
+  if (!value) {
+    hoveringBig = false;
+    if (!$('power-sheet').hidden) closePower();
+    $('app-search').value = '';
+    renderSearch();
+  }
   if (value) renderPage();
   renderBuddy();
   if (value) window.kapsul.media('refresh');
@@ -93,10 +98,22 @@ window.kapsul.onExpanded((value) => {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
+    if (!$('power-sheet').hidden) return closePower();
+    if (event.target === $('app-search') && $('app-search').value) {
+      $('app-search').value = '';
+      renderSearch();
+      return;
+    }
     window.kapsul.expand(false);
     return;
   }
   if (!open || event.target instanceof HTMLInputElement) return;
+  // Panel terbuka + ketik huruf = langsung cari aplikasi.
+  if (/^[a-z]$/i.test(event.key) && !event.ctrlKey && !event.altKey && !event.metaKey && $('power-sheet').hidden) {
+    selectTab('apps');
+    $('app-search').focus();
+    return;
+  }
   if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
     goToPage(pageIndex + (event.key === 'ArrowRight' ? 1 : -1));
     return;
@@ -346,6 +363,7 @@ window.kapsul.onState((state) => {
   }
   renderShortcut(state.shortcut);
   renderApps(state.apps);
+  launcherApps = state.apps;
 });
 
 // ---------- Notifikasi ----------
@@ -361,7 +379,7 @@ const ago = (time) => {
 };
 
 let currentTab = 'apps';
-const TAB_PANELS = { apps: 'apps', notifs: 'notifs', focus: 'focus-tab', clips: 'clips', todos: 'todos', dev: 'dev' };
+const TAB_PANELS = { apps: 'apps-tab', notifs: 'notifs', focus: 'focus-tab', clips: 'clips', todos: 'todos', dev: 'dev' };
 
 function selectTab(tab) {
   currentTab = tab;
@@ -1314,6 +1332,189 @@ window.kapsul.onSpeech((data) => {
     // tanpa suara
   }
 });
+
+// ---------- Cari aplikasi ----------
+// Tombol panel + semua aplikasi terpasang. ↑↓ pilih, Enter buka.
+
+let launcherApps = [];
+let installedList = null;
+let searchSelected = 0;
+let searchMatches = [];
+
+async function ensureInstalled() {
+  if (installedList) return;
+  installedList = [];
+  try {
+    installedList = await window.kapsul.installedApps();
+  } catch {
+    // daftar tidak tersedia
+  }
+  renderSearch();
+}
+
+function searchScore(name, query) {
+  const n = name.toLowerCase();
+  if (n.startsWith(query)) return 0;
+  if (n.split(/[\s\-_.]+/).some((w) => w.startsWith(query))) return 1;
+  if (n.includes(query)) return 2;
+  // Singkatan: "vsc" → Visual Studio Code
+  const initials = n.split(/[\s\-_.]+/).map((w) => w[0]).join('');
+  return initials.startsWith(query) ? 3 : null;
+}
+
+function renderSearch() {
+  const query = $('app-search').value.trim().toLowerCase();
+  const results = $('search-results');
+  $('apps').hidden = Boolean(query);
+  results.hidden = !query;
+  if (!query) return;
+
+  const seen = new Set();
+  const pool = [
+    ...launcherApps.map((a) => ({ name: a.name, icon: a.icon, color: a.color, tag: 'Panel', open: () => launch(a.index) })),
+    ...(installedList ?? []).map((a) => ({ name: a.name, icon: a.icon, tag: 'Aplikasi', open: () => openInstalled(a.key) })),
+  ];
+  searchMatches = pool
+    .map((item) => ({ item, score: searchScore(item.name, query) }))
+    .filter(({ item, score }) => score !== null && !seen.has(item.name.toLowerCase()) && seen.add(item.name.toLowerCase()))
+    .sort((a, b) => a.score - b.score || a.item.name.localeCompare(b.item.name))
+    .slice(0, 8)
+    .map(({ item }) => item);
+  searchSelected = Math.min(searchSelected, Math.max(0, searchMatches.length - 1));
+
+  results.replaceChildren();
+  if (!searchMatches.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = installedList ? `Tidak ada aplikasi “${query}”.` : 'Memuat daftar aplikasi…';
+    results.append(empty);
+    return;
+  }
+  searchMatches.forEach((item, i) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'result';
+    row.setAttribute('role', 'option');
+    row.setAttribute('aria-selected', String(i === searchSelected));
+    row.addEventListener('mouseenter', () => {
+      searchSelected = i;
+      [...results.children].forEach((r, j) => r.setAttribute('aria-selected', String(j === i)));
+    });
+    row.addEventListener('click', () => openResult(item));
+    const icon = document.createElement('span');
+    icon.className = 'result-icon';
+    if (item.icon) {
+      const img = document.createElement('img');
+      img.src = item.icon;
+      img.alt = '';
+      icon.append(img);
+    } else {
+      icon.textContent = item.name.slice(0, 1).toUpperCase();
+      if (item.color) icon.style.background = item.color;
+    }
+    const name = document.createElement('span');
+    name.className = 'result-name';
+    name.textContent = item.name;
+    const tag = document.createElement('span');
+    tag.className = 'result-tag';
+    tag.textContent = item.tag;
+    row.append(icon, name, tag);
+    results.append(row);
+  });
+}
+
+function openResult(item) {
+  item.open();
+  $('app-search').value = '';
+  renderSearch();
+}
+
+function openInstalled(key) {
+  sfx('blip');
+  window.kapsul.launchInstalled(key);
+  setTimeout(() => {
+    react('wink', 1600);
+    buddy.jump();
+  }, 180);
+}
+
+$('app-search').addEventListener('focus', ensureInstalled);
+$('app-search').addEventListener('input', () => {
+  searchSelected = 0;
+  renderSearch();
+});
+$('app-search').addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const n = searchMatches.length;
+    if (!n) return;
+    searchSelected = (searchSelected + (event.key === 'ArrowDown' ? 1 : -1) + n) % n;
+    [...$('search-results').children].forEach((r, j) => r.setAttribute('aria-selected', String(j === searchSelected)));
+    $('search-results').children[searchSelected]?.scrollIntoView({ block: 'nearest' });
+  } else if (event.key === 'Enter' && searchMatches[searchSelected]) {
+    event.preventDefault();
+    openResult(searchMatches[searchSelected]);
+  }
+});
+
+// ---------- Menu daya ----------
+// Kunci & tidur langsung; mulai ulang/matikan/keluar akun: hitung mundur 10 dtk yang bisa dibatalkan.
+
+const POWER_TEXT = { restart: 'Mulai ulang', shutdown: 'Matikan', signout: 'Keluar akun' };
+let powerTimer = null;
+
+function openPower() {
+  $('power-sheet').hidden = false;
+  $('power-menu').hidden = false;
+  $('power-confirm').hidden = true;
+}
+
+function closePower() {
+  clearInterval(powerTimer);
+  powerTimer = null;
+  $('power-sheet').hidden = true;
+  reaction = null;
+  renderBuddy();
+}
+
+function runPower(action) {
+  clearInterval(powerTimer);
+  powerTimer = null;
+  window.kapsul.power(action);
+  closePower();
+  window.kapsul.expand(false);
+}
+
+for (const button of document.querySelectorAll('[data-power]')) {
+  button.addEventListener('click', () => {
+    const action = button.dataset.power;
+    if (!POWER_TEXT[action]) {
+      // Kunci / tidur: langsung.
+      react(action === 'sleep' ? 'sleep' : 'wink', 1500);
+      sfx('tick');
+      setTimeout(() => runPower(action), 400);
+      return;
+    }
+    let left = 10;
+    const update = () => ($('power-title').textContent = `${POWER_TEXT[action]} dalam ${left} detik…`);
+    $('power-menu').hidden = true;
+    $('power-confirm').hidden = false;
+    $('power-now').textContent = `${POWER_TEXT[action]} sekarang`;
+    $('power-now').onclick = () => runPower(action);
+    update();
+    reaction = 'cry';
+    renderBuddy();
+    sfx('uhoh');
+    powerTimer = setInterval(() => {
+      left--;
+      if (left <= 0) runPower(action);
+      else update();
+    }, 1000);
+  });
+}
+
+$('power-btn').addEventListener('click', () => ($('power-sheet').hidden ? openPower() : closePower()));
+$('power-cancel').addEventListener('click', closePower);
 
 // ---------- Pengingat berikutnya (footer panel) ----------
 
