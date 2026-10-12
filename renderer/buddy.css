@@ -371,6 +371,52 @@
   animation: buddy-droop 3s ease-in-out infinite;
 }
 
+.buddy .food .bubble {
+  fill: #f4f4f5;
+}
+
+.buddy .food .cookie {
+  fill: #d6a35c;
+}
+
+.buddy .food .chip {
+  fill: #5b3a1a;
+}
+
+.buddy .food.on .cookie {
+  transform-origin: center;
+  animation: buddy-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.buddy .chew {
+  transform-origin: center;
+  animation: buddy-chew 0.32s ease-in-out infinite alternate;
+}
+
+.buddy .crumbs {
+  fill: #d6a35c;
+}
+
+.buddy .crumbs.on circle {
+  animation: buddy-drip 0.9s ease-in infinite;
+}
+
+.buddy .crumbs.on circle:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.buddy .crumbs.on circle:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+.buddy[data-mood="eat"] .b-body {
+  animation: buddy-giggle 0.32s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="hungry"] .b-body {
+  animation: buddy-droop 2.6s ease-in-out infinite;
+}
+
 .buddy .sweat {
   fill: #9fd3ff;
 }
@@ -618,6 +664,15 @@
   }
   50% {
     transform: translateY(1px) scale(1.06, 0.93);
+  }
+}
+
+@keyframes buddy-chew {
+  from {
+    transform: scaleY(0.25);
+  }
+  to {
+    transform: scaleY(1);
   }
 }
 

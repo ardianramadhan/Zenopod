@@ -520,6 +520,7 @@ function renderPeek(peek) {
   }
 
   peekBuddy.setMood(peek.mood || 'happy');
+  peekBuddy.setCostume(peek.costume ?? seasonalCostume);
   if (peek.mood === 'surprised') setTimeout(() => peekState === peek && peekBuddy.setMood('happy'), 1300);
   if (peek.sound) sfx(peek.sound);
 }
@@ -929,6 +930,7 @@ const PAGES = [
   { id: 'clock', label: 'Tanggal & jam', sound: 'ticktock' },
   { id: 'weather', label: 'Cuaca', sound: 'today' },
   { id: 'today', label: 'Hari ini', sound: 'today' },
+  { id: 'pet', label: 'Zeno', sound: 'pop' },
 ];
 
 // Halaman Cuaca hanya ada kalau cuaca aktif; halaman Claude hanya saat Claude bekerja.
@@ -953,6 +955,7 @@ function pageMood() {
   if (page === 'greeting') return 'greet';
   if (page === 'clock') return 'clock';
   if (page === 'weather') return weatherNow?.look?.mood ?? 'idle';
+  if (page === 'pet') return (petState?.hunger ?? 100) < 25 ? 'hungry' : 'happy';
   return 'focus';
 }
 
@@ -1599,6 +1602,37 @@ setInterval(() => {
   if (tickKey === 'timer') renderPillText();
 }, 1000);
 
+// ---------- Zeno peliharaan ----------
+
+function renderPet() {
+  if (!petState) return;
+  const hunger = Math.round(petState.hunger);
+  $('pet-level').textContent = `${profile.buddyName || 'Zeno'} · Level ${petState.level}`;
+  $('pet-xp').textContent = `${Math.floor(petState.xp)}/${petState.needed} XP`;
+  $('pet-hunger').style.width = `${hunger}%`;
+  $('pet-hunger').classList.toggle('low', hunger < 25);
+  $('pet-xpbar').style.width = `${Math.min(100, (petState.xp / petState.needed) * 100)}%`;
+  if (PAGES[pageIndex].id === 'pet') renderBuddy();
+}
+
+for (const button of document.querySelectorAll('[data-food]')) {
+  button.addEventListener('click', () => window.kapsul.pet('feed', button.dataset.food));
+}
+$('pet-play').addEventListener('click', () => window.kapsul.pet('play'));
+
+// Makan: mengunyah + suara nyam; main: lompat & tertawa.
+window.kapsul.onPetEvent((event) => {
+  if (event.type === 'eat') {
+    react('eat', 1800);
+    sfx('munch');
+  } else if (event.type === 'play') {
+    react('laugh', 1600);
+    bigBuddy.jump();
+    buddy.jump();
+    sfx('giggle');
+  }
+});
+
 // ---------- Pengingat berikutnya (footer panel) ----------
 
 window.kapsul.onReminders((next) => {
@@ -1757,6 +1791,9 @@ function pillSlides() {
       mood: 'surprised',
       render: slideContent('notif', `${notifs.items.length} notif`, `${latest.appName || 'Aplikasi'}: ${latest.title || latest.body || ''}`),
     });
+  }
+  if (petState && petState.hunger < 25) {
+    slides.push({ key: 'hungry', mood: 'hungry', render: slideContent(null, `${profile.buddyName || 'Zeno'} lapar`, 'beri makan yuk') });
   }
   const down = (lastDev?.services ?? []).filter((s) => s.status === 'down');
   if (down.length) slides.push({ key: 'dev', mood: 'surprised', render: slideContent('server', `${down.map((s) => s.name).join(', ')} mati`) });

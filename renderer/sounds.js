@@ -126,6 +126,16 @@
       bell(o, t + 0.08, 1174.7, 0.5, 0.1);
     },
 
+    // --- Peliharaan ---
+    munch: (o, t) => {
+      for (let i = 0; i < 4; i++) tone(o, t + i * 0.12, 220 + (i % 2) * 60, 0.07, { type: 'square', gain: 0.07, filter: 900, slide: 160 });
+      tone(o, t + 0.5, 880, 0.15, { gain: 0.12, slide: 1175 });
+    },
+    levelup: (o, t) => {
+      [523.3, 659.3, 784, 1046.5, 1318.5].forEach((f, i) => tone(o, t + i * 0.07, f, i === 4 ? 0.5 : 0.12, { type: 'triangle', gain: 0.18 }));
+      bell(o, t + 0.35, 2093, 0.6, 0.08);
+    },
+
     // --- Maskot ---
     pop: (o, t) => tone(o, t, 380, 0.09, { gain: 0.25, slide: 1150 }),
     giggle: (o, t) => {
@@ -181,6 +191,8 @@
     note: 'buddy',
     ticktock: 'buddy',
     today: 'buddy',
+    munch: 'buddy',
+    levelup: 'buddy',
     rain: 'weather',
     lowbat: 'weather',
     charge: 'weather',

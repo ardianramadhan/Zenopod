@@ -1960,3 +1960,83 @@ body[data-valign="bottom"] .shell {
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Halaman Zeno (peliharaan) ---------- */
+
+.pet-page {
+  gap: 3px;
+}
+
+.pet-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.pet-level {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.pet-xp {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pet-bar {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pet-bar i {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  overflow: hidden;
+}
+
+.pet-bar b {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: #4ade80;
+  transition: width 0.4s;
+}
+
+.pet-bar b.low {
+  background: #f59e0b;
+}
+
+.pet-bar.xp b {
+  background: var(--accent);
+}
+
+.pet-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 1px;
+}
+
+.pet-actions button {
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  font-size: 12px;
+  line-height: 20px;
+}
+
+.pet-actions button:hover {
+  background: #2e2e36;
+}
+
+.pet-actions .pet-play {
+  font-size: 11px;
+  font-weight: 600;
+}

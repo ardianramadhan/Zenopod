@@ -38,6 +38,8 @@
     clock: ['e-up', 'm-smile', 'blush', 'x-clock'],
     lowbat: ['e-closed', 'm-wavy', 'x-battery', 'x-sweat'],
     hear: ['e-wide', 'm-o', 'blush', 'x-waves'],
+    hungry: ['e-open', 'm-wavy', 'b-worried', 'x-food'],
+    eat: ['e-happy', 'm-chew', 'blush', 'x-crumbs'],
     stretch: ['e-happy', 'm-open', 'blush', 'x-sparkle'],
   };
 
@@ -114,6 +116,7 @@
           <g data-part="m-tongue"><path class="line" d="M17.7 26.1 Q20 28.6 22.3 26.1" /><path class="tongue" d="M20.3 27.3 q0 2.2 1.4 1.8 q0.9 -0.4 0.3 -2.2 z" /></g>
           <g data-part="m-kiss"><path class="line" d="M19.5 25.5 q1.9 0.5 0.2 1.25 q1.9 0.5 0 1.35" /></g>
           <g data-part="m-hmm"><path class="line" d="M18.4 27.3 q1.5 -0.7 3.2 -0.2" /></g>
+          <g data-part="m-chew"><ellipse class="mouth chew" cx="20" cy="27.2" rx="1.8" ry="1.3" /></g>
           <g data-part="m-smirk"><path class="line" d="M18 27.3 Q20.6 28.1 22.5 25.8" /></g>
 
           <g data-part="x-glasses" class="glasses">
@@ -220,6 +223,20 @@
         <path d="M36.8 13.8 q2.6 3.9 0 7.8" />
         <path d="M5.5 15.5 q-1.6 2.2 0 4.4" />
         <path d="M3.2 13.8 q-2.6 3.9 0 7.8" />
+      </g>
+      <g data-part="x-food" class="food">
+        <circle class="bubble" cx="30.6" cy="12.2" r="0.9" />
+        <circle class="bubble" cx="32.8" cy="9.4" r="1.4" />
+        <ellipse class="bubble" cx="36" cy="4" rx="5" ry="3.6" />
+        <circle class="cookie" cx="36" cy="4" r="2.3" />
+        <circle class="chip" cx="35.2" cy="3.3" r="0.4" />
+        <circle class="chip" cx="36.9" cy="4.4" r="0.4" />
+        <circle class="chip" cx="35.6" cy="5" r="0.35" />
+      </g>
+      <g data-part="x-crumbs" class="crumbs">
+        <circle cx="16" cy="33" r="0.5" />
+        <circle cx="23.5" cy="32" r="0.45" />
+        <circle cx="19.5" cy="35" r="0.4" />
       </g>
       <g data-part="x-sweat" class="sweat"><path d="M33 10 q-2.2 3.4 0 4.6 q2.2 -1.2 0 -4.6 z" /></g>
     `;

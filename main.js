@@ -310,6 +310,8 @@ function peekAction(id, action) {
     const finish = permissionReplies.get(peek.id);
     finish?.(action === 'allow' ? 'allow' : action === 'deny' ? 'deny' : null);
     return; // finish() sudah menutup kartunya
+  } else if (peek.kind === 'pet') {
+    if (action === 'feed') feedPet('cookie');
   } else if (peek.kind === 'water') {
     if (action === 'drank') statsAdd('water');
     // "Nanti" = ingatkan lagi 10 menit kemudian.
@@ -1026,6 +1028,13 @@ async function runVoiceCommand(heard) {
       clipboard.writeText(String(value));
       return reply(heard, `Hasilnya ${calc.format(value)}.`, 'happy');
     }
+    case 'feed': {
+      const { food } = feedPet('cookie');
+      return reply(heard, `Nyam! Terima kasih ${food.name}nya.`, 'eat');
+    }
+    case 'play':
+      playPet();
+      return reply(heard, 'Yeay, main!', 'laugh');
     case 'stats': {
       const s = summaryText();
       return reply(heard, `${s.title}. ${s.body}`, 'happy');
@@ -1155,6 +1164,51 @@ function quickQuery(query) {
   return null;
 }
 
+// ---------- Zeno peliharaan ----------
+
+const FOODS = { cookie: { name: 'kue', amount: 20 }, apple: { name: 'apel', amount: 25 }, rice: { name: 'nasi', amount: 40 } };
+let hungerWarned = false;
+let lastPlay = 0;
+
+function feedPet(food = 'cookie') {
+  const f = FOODS[food] ?? FOODS.cookie;
+  const pet = stats.feed(f.amount);
+  send('kapsul:pet-event', { type: 'eat', food });
+  sendStats();
+  return { pet, food: f };
+}
+
+// Ajak main: trik kecil; XP paling banyak sekali tiap 10 menit (biar tidak bisa "farming").
+function playPet() {
+  if (Date.now() - lastPlay > 10 * 60_000) {
+    stats.gainXp(3);
+    lastPlay = Date.now();
+  }
+  send('kapsul:pet-event', { type: 'play' });
+  sendStats();
+}
+
+function checkHunger() {
+  const pet = stats.pet();
+  if (pet.hunger > 40) hungerWarned = false;
+  if (pet.hunger < 20 && !hungerWarned) {
+    hungerWarned = true;
+    showPeek({
+      kind: 'pet',
+      mood: 'hungry',
+      sound: 'question',
+      app: config.buddy.name || 'Zeno',
+      title: `${config.buddy.name || 'Zeno'} lapar…`,
+      body: 'Boleh minta camilan?',
+      seconds: 15,
+      actions: [
+        { id: 'later', label: 'Nanti' },
+        { id: 'feed', label: 'Beri makan', primary: true },
+      ],
+    });
+  }
+}
+
 // ---------- Istirahat mata & minum air ----------
 // Menghitung menit aktif (ada gerakan kursor). Pergi > 5 menit = sudah istirahat → hitungan diulang.
 
@@ -1212,7 +1266,8 @@ const stats = new Stats(path.join(app.getPath('userData'), 'stats.json'), {
     showPeek({
       kind: 'pet',
       mood: 'laugh',
-      sound: 'success',
+      sound: 'levelup',
+      costume: 'party',
       app: `${config.buddy.name || 'Zeno'} naik level!`,
       title: `Level ${level}`,
       body: 'Terima kasih sudah rajin hari ini.',
@@ -1266,6 +1321,7 @@ function tickStats() {
   const [hh, mm] = String(config.stats.time || '20:00').split(':').map(Number);
   const now = new Date();
   const due = now.getHours() > hh || (now.getHours() === hh && now.getMinutes() >= mm);
+  checkHunger();
   if (config.stats.summary && due && stats.data.lastSummary !== dayKey()) {
     stats.data.lastSummary = dayKey();
     stats.save();
@@ -1572,6 +1628,10 @@ ipcMain.on('kapsul:clip', (_event, action, id) => clipCommand(String(action), id
 ipcMain.on('kapsul:todo', (_event, action, payload) => todoCommand(String(action), payload ?? {}));
 ipcMain.on('kapsul:position', (_event, position) => setPosition(String(position)));
 ipcMain.on('kapsul:drag-start', () => dragStart());
+ipcMain.on('kapsul:pet', (_event, action, food) => {
+  if (action === 'feed') feedPet(String(food));
+  if (action === 'play') playPet();
+});
 ipcMain.handle('kapsul:quick', (_event, query) => quickQuery(query));
 ipcMain.on('kapsul:copy', (_event, text) => clipboard.writeText(String(text)));
 ipcMain.on('kapsul:timer', (_event, action, payload = {}) => {
