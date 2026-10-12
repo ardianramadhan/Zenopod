@@ -1,6 +1,6 @@
 # Zenopod
 
-Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama **Zeno** yang ikut bereaksi saat kamu bekerja. Terinspirasi [Coucou](https://github.com/Louis-CFM/coucou).
+Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama **Zeno** yang ikut bereaksi saat kamu bekerja.
 
 **Yang bisa dilakukan Zenopod:**
 
@@ -219,7 +219,7 @@ Untuk yang memakai [Claude Code](https://claude.com/claude-code):
 
 Hook ditambahkan ke `%USERPROFILE%\.claude\settings.json` tanpa mengubah hook lain, dan salinannya disimpan sebagai `settings.json.kapsul-backup`.
 
-> Kalau kamu juga memakai Coucou, sebaiknya fitur "Jawab izin" hanya dinyalakan di salah satu aplikasi.
+> Kalau kamu memakai aplikasi lain yang juga memasang hook izin Claude Code, sebaiknya fitur "Jawab izin" hanya dinyalakan di salah satu aplikasi.
 
 ---
 
@@ -298,6 +298,5 @@ start.js             Menjalankan Electron tanpa ELECTRON_RUN_AS_NODE (diset oleh
 
 ### Kredit
 
-- Ide dari [Coucou](https://github.com/Louis-CFM/coucou) oleh Louis Raillé. Karakter Mochi tidak dipakai; Zeno adalah maskot baru.
 - Pengenal suara [whisper.cpp](https://github.com/ggml-org/whisper.cpp).
 - Data cuaca [Open-Meteo](https://open-meteo.com/).
