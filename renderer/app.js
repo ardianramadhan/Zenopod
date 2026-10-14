@@ -499,9 +499,14 @@ function initials(name) {
 function renderApps(apps) {
   appsEl.replaceChildren();
   if (apps.length === 0) {
-    const empty = document.createElement('p');
+    const empty = document.createElement('div');
     empty.className = 'empty';
-    empty.textContent = 'Belum ada aplikasi. Klik "Pengaturan".';
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'empty-action';
+    add.textContent = '+ Tambah aplikasi favorit';
+    add.addEventListener('click', () => window.kapsul.openSettings('apps'));
+    empty.append('Belum ada aplikasi di sini.', add);
     appsEl.append(empty);
     return;
   }
@@ -554,10 +559,6 @@ function renderShortcut(keys) {
   el.append(' buka');
 }
 
-for (const button of document.querySelectorAll('[data-position]')) {
-  button.addEventListener('click', () => window.kapsul.setPosition(button.dataset.position));
-}
-
 window.kapsul.onState((state) => {
   document.body.dataset.align = state.align;
   document.body.dataset.valign = state.valign ?? 'top';
@@ -575,9 +576,9 @@ window.kapsul.onState((state) => {
     renderFocus();
   }
   $('buddy-big').title = state.buddyName ? `Halo, aku ${state.buddyName}!` : 'Halo!';
-  for (const button of document.querySelectorAll('[data-position]')) {
-    button.setAttribute('aria-pressed', String(button.dataset.position === state.position));
-  }
+  // Tab Dev hanya untuk yang memantau server/project (diatur di Pengaturan › Dev).
+  $('tab-dev').hidden = !state.devEnabled;
+  if (!state.devEnabled && currentTab === 'dev') selectTab('apps');
   renderShortcut(state.shortcut);
   renderApps(state.apps);
   launcherApps = state.apps;
@@ -2105,6 +2106,7 @@ for (const button of document.querySelectorAll('[data-cmd]')) {
 }
 
 $('edit').addEventListener('click', () => window.kapsul.openSettings());
+$('next-reminder').addEventListener('click', () => window.kapsul.openSettings('reminders'));
 
 function renderMedia() {
   const hasTrack = Boolean(media.title);

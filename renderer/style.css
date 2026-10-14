@@ -382,9 +382,26 @@ body[data-align="left"] .shell {
 
 .empty {
   grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
   padding: 24px 0;
   text-align: center;
   color: var(--muted);
+}
+
+.empty-action {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.empty-action:hover {
+  background: #2e2e36;
 }
 
 /* ---------- Footer ---------- */
@@ -416,51 +433,8 @@ kbd {
 .foot-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-/* Pilihan posisi: kiri / tengah / kanan atas */
-.seg {
-  display: flex;
   gap: 2px;
-  padding: 2px;
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.seg button {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 20px;
-  border-radius: 6px;
-  color: var(--muted);
-}
-
-.seg button:hover {
-  color: var(--text);
-}
-
-.seg button[aria-pressed="true"] {
-  background: var(--surface-hover);
-  color: var(--text);
-}
-
-.seg svg {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.2;
-}
-
-.seg .mark {
-  fill: currentColor;
-  stroke: none;
-}
-
-.seg button[aria-pressed="true"] .mark {
-  fill: var(--accent);
+  flex: none;
 }
 
 .link {
@@ -829,10 +803,18 @@ kbd {
   align-items: center;
   gap: 5px;
   min-width: 0;
+  padding: 4px 6px;
+  margin-left: -6px;
+  border-radius: 8px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  font-size: 11px;
   color: var(--text);
+}
+
+.next-reminder:hover {
+  background: var(--surface);
 }
 
 .next-reminder span {
@@ -1823,24 +1805,27 @@ body[data-valign="bottom"] .shell {
 .icon-link {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 22px;
-  border-radius: 6px;
+  width: 30px;
+  height: 28px;
+  border-radius: 8px;
   color: var(--muted);
+  transition: background 0.15s, color 0.15s;
 }
 
-.icon-link:hover {
+.icon-link:hover,
+.icon-link:focus-visible {
   color: var(--text);
-  background: var(--surface);
+  background: var(--surface-hover);
 }
 
 .icon-link svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.6;
+  stroke-width: 1.5;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .power-sheet {

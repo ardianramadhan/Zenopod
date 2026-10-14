@@ -150,7 +150,7 @@
             <button type="button" role="tab" data-tab="todos" aria-selected="false">
               Catatan <span class="count" id="todo-count" hidden></span>
             </button>
-            <button type="button" role="tab" data-tab="dev" aria-selected="false">
+            <button type="button" role="tab" data-tab="dev" id="tab-dev" aria-selected="false" hidden>
               Dev <span class="dev-alert" id="dev-alert" hidden></span>
             </button>
           </div>
@@ -241,22 +241,11 @@
 
         <footer class="foot">
           <span class="hint" id="shortcut"></span>
-          <span class="next-reminder" id="next-reminder" hidden>
+          <button type="button" class="next-reminder" id="next-reminder" title="Buka pengingat" hidden>
             <svg viewBox="0 0 16 16"><circle cx="8" cy="9" r="5.2" /><path d="M8 6.4V9l1.8 1.2M3 3.2 4.6 2M13 3.2 11.4 2" /></svg>
             <span id="next-reminder-text"></span>
-          </span>
+          </button>
           <div class="foot-actions">
-            <div class="seg" role="group" aria-label="Posisi">
-              <button type="button" data-position="top-left" title="Kiri atas" aria-label="Kiri atas">
-                <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="3" y="4" width="5" height="2" rx="1" /></svg>
-              </button>
-              <button type="button" data-position="top-center" title="Tengah atas" aria-label="Tengah atas">
-                <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="5.5" y="4" width="5" height="2" rx="1" /></svg>
-              </button>
-              <button type="button" data-position="top-right" title="Kanan atas" aria-label="Kanan atas">
-                <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="8" y="4" width="5" height="2" rx="1" /></svg>
-              </button>
-            </div>
             <button type="button" class="icon-link" id="snip-btn" title="Ambil teks dari layar" aria-label="Ambil teks dari layar">
               <svg viewBox="0 0 16 16"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.5 6.5h5M5.5 9.5h3.5" /></svg>
             </button>
@@ -266,7 +255,9 @@
             <button type="button" class="icon-link" id="power-btn" title="Daya" aria-label="Daya">
               <svg viewBox="0 0 16 16"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0" /></svg>
             </button>
-            <button type="button" class="link" id="edit">Pengaturan</button>
+            <button type="button" class="icon-link" id="edit" title="Pengaturan" aria-label="Pengaturan">
+              <svg viewBox="0 0 16 16"><path d="M6.9 1.5h2.2l.4 1.7 1.3.6 1.5-.9 1.6 1.6-.9 1.5.6 1.3 1.7.4v2.2l-1.7.4-.6 1.3.9 1.5-1.6 1.6-1.5-.9-1.3.6-.4 1.7H6.9l-.4-1.7-1.3-.6-1.5.9-1.6-1.6.9-1.5-.6-1.3-1.7-.4V6.9l1.7-.4.6-1.3-.9-1.5 1.6-1.6 1.5.9 1.3-.6z" /><circle cx="8" cy="8" r="2" /></svg>
+            </button>
           </div>
         </footer>
       </div>

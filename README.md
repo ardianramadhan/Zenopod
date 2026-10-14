@@ -102,13 +102,15 @@ Setelah itu, buka **Pengaturan** (lihat di bawah) untuk memilih aplikasi di pelu
 - **Arahkan kursor** ke kapsul untuk membuka panel. Panel menutup sendiri saat kursor pergi.
 - **Klik** kapsul untuk membuka panel dan menahannya tetap terbuka. Tekan **Esc** atau klik di luar untuk menutup.
 - **Seret** kapsul untuk memindahkannya ke mana saja. Lepas di dekat kiri/tengah/kanan atas layar supaya menempel rapi. Saat panel terbuka, pakai pegangan **⋮⋮** di atas panel.
-- **Klik Zeno** dan lihat reaksinya. Kalau diklik terus, Zeno bisa marah lalu menangis.
+- **Main dengan Zeno:** klik kepala (dielus), pipi (dicolek), tengah (boop), atau bawah (digelitik). Di panel: tahan untuk memencet, klik dua kali untuk salto, gerakkan kursor bolak-balik untuk mengelus. Kalau diklik terus, Zeno kesal, pusing, lalu ngambek sebentar. Semua cara ini bisa dicoba di Pengaturan › **Panduan**.
 
 ### Panel
 
-**Kontrol cepat:** klik ikon kontrol cepat di sebelah ⏻ untuk menggeser volume dan kecerahan, membisukan suara, serta menyalakan/mematikan Wi-Fi dan Bluetooth. Lewat suara: "Zeno, volume 30", "kecilkan volume", "bisukan", "kecerahan 70", "redupkan layar", "matikan wifi", "nyalakan bluetooth". Kecerahan hanya untuk layar laptop, bukan monitor eksternal.
+**Kontrol cepat:** klik ikon kontrol cepat (slider) di pojok kanan bawah panel untuk menggeser volume dan kecerahan, membisukan suara, serta menyalakan/mematikan Wi-Fi dan Bluetooth. Lewat suara: "Zeno, volume 30", "kecilkan volume", "bisukan", "kecerahan 70", "redupkan layar", "matikan wifi", "nyalakan bluetooth". Kecerahan hanya untuk layar laptop, bukan monitor eksternal.
 
-**Ambil teks dari layar:** klik ikon pindai di bawah panel (atau `Ctrl` + `Alt` + `O`), lalu seret kotak di sekitar tulisan.
+**Ikon di pojok kanan bawah panel:** ambil teks dari layar, kontrol cepat, daya, dan ⚙ Pengaturan. Pengingat berikutnya tampil di kiri bawah; klik untuk membuka daftar pengingat.
+
+**Ambil teks dari layar:** klik ikon pindai di pojok kanan bawah panel (atau `Ctrl` + `Alt` + `O`), lalu seret kotak di sekitar tulisan.
 
 **Menu daya:** klik ikon ⏻ di bawah panel. **Kunci** dan **Tidur** langsung berjalan. **Mulai ulang**, **Matikan**, dan **Keluar akun** menunggu 10 detik (tekan **Batal** untuk membatalkan, atau tutup panel). Aplikasi yang punya pekerjaan belum disimpan tetap bisa menahan Windows. Lewat suara: "Zeno, matikan laptop", "restart", "kunci layar", atau "mode tidur". Untuk mematikan dan memulai ulang, muncul kartu konfirmasi dulu.
 
@@ -136,7 +138,7 @@ Setelah itu, buka **Pengaturan** (lihat di bawah) untuk memilih aplikasi di pelu
 | Fokus | Timer Pomodoro (25 menit fokus, 5 menit istirahat) dan timer cepat yang sedang berjalan |
 | Klip | 20 teks atau gambar terakhir yang kamu salin. Klik untuk menyalin lagi |
 | Catatan | Daftar tugas cepat |
-| Dev | Status server lokal dan Git (untuk programmer) |
+| Dev | Status server lokal dan Git (muncul setelah ada server/project di Pengaturan › Dev) |
 
 ### Kalkulator, timer, dan bertanya dari kotak cari
 
@@ -162,7 +164,7 @@ Halaman **Hari ini** menampilkan waktu fokus, tugas selesai, dan lagu yang palin
 
 ### Ambil teks dari layar
 
-1. Tekan `Ctrl` + `Alt` + `O`, klik ikon pindai di bawah panel, atau bilang "Zeno, ambil teks".
+1. Tekan `Ctrl` + `Alt` + `O`, klik ikon pindai di pojok kanan bawah panel, atau bilang "Zeno, ambil teks".
 2. Layar membeku. Seret kotak di sekitar tulisan (**Esc** atau klik kanan = batal).
 3. Teksnya langsung tersalin, siap ditempel. Kartu Zeno menampilkan cuplikannya.
 
@@ -215,10 +217,11 @@ Semua tombol pintas bisa diganti di Pengaturan.
 
 ## 5. Pengaturan
 
-Buka dari tombol **Pengaturan** di bawah panel, atau klik kanan ikon tray › **Pengaturan…**. Semua perubahan langsung tersimpan.
+Buka dari ikon ⚙ di pojok kanan bawah panel, atau klik kanan ikon tray › **Pengaturan…**. Semua perubahan langsung tersimpan. Menu dikelompokkan (Mulai, Panel, Produktivitas, Asisten, Info & sistem, Developer), dan kotak **Cari pengaturan** di atas menu membantu menemukan yang dicari (mis. ketik "rapat" atau "ocr").
 
 | Bagian | Yang bisa diatur |
 |---|---|
+| **Panduan** | Cara memakai kapsul & panel, cara bermain dengan Zeno (dengan tombol **Coba**), arti ikon, contoh kotak cari dan perintah suara |
 | **Profil** | Namamu, nama maskot, tanggal lahir (untuk topi pesta di hari ulang tahunmu), sapaan |
 | **Aplikasi** | **Tambah aplikasi** (pilih dari daftar aplikasi terpasang), **Tambah website**, atur urutan ↑↓, hapus |
 | **Notifikasi** | Kartu notifikasi baru dan lama tampilnya, saklar per aplikasi (aplikasi muncul setelah notifikasi pertamanya masuk), riwayat clipboard |

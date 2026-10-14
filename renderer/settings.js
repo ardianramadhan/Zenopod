@@ -116,8 +116,122 @@ for (const button of document.querySelectorAll('[data-section]')) {
   button.addEventListener('click', () => show(button.dataset.section));
 }
 
+// Cari pengaturan: menyaring menu berdasarkan nama dan kata kunci; Enter membuka hasil pertama.
+function filterNav() {
+  const query = $('nav-search').value.trim().toLowerCase();
+  let shown = 0;
+  for (const button of document.querySelectorAll('#nav [data-section]')) {
+    const text = `${button.textContent} ${button.dataset.keywords ?? ''}`.toLowerCase();
+    button.hidden = Boolean(query) && !query.split(/\s+/).every((word) => text.includes(word));
+    if (!button.hidden) shown++;
+  }
+  // Judul grup ikut hilang kalau semua menunya tersaring.
+  for (const group of document.querySelectorAll('#nav .nav-group')) {
+    let next = group.nextElementSibling;
+    let any = false;
+    while (next && !next.classList.contains('nav-group')) {
+      if (next.dataset.section && !next.hidden) any = true;
+      next = next.nextElementSibling;
+    }
+    group.hidden = !any;
+  }
+  $('nav-empty').hidden = shown > 0;
+}
+
+$('nav-search').addEventListener('input', filterNav);
+$('nav-search').addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    $('nav-search').value = '';
+    filterNav();
+  }
+  if (event.key !== 'Enter') return;
+  const first = [...document.querySelectorAll('#nav [data-section]')].find((b) => !b.hidden);
+  if (first) show(first.dataset.section);
+});
+
+for (const button of document.querySelectorAll('[data-goto]')) {
+  button.addEventListener('click', () => show(button.dataset.goto));
+}
+
+// ---------- Panduan ----------
+
+const GUIDE = [
+  { title: 'Klik kepala', how: 'Dielus, Zeno mendengkur senang.', mood: 'purr', anim: 'pat', sound: 'pat' },
+  { title: 'Klik pipi', how: 'Dicolek, memantul “boing!”.', mood: 'surprised', anim: 'boing', sound: 'boing' },
+  { title: 'Klik tengah', how: 'Boop hidungnya.', mood: 'boop', sound: 'boop' },
+  { title: 'Klik bawah', how: 'Digelitik sampai tertawa.', mood: 'tickle', sound: 'giggle' },
+  { title: 'Klik dua kali', how: 'Salto! (Zeno besar di panel)', mood: 'starstruck', anim: 'spin', sound: 'sparkle' },
+  { title: 'Tahan', how: 'Dipencet sampai gepeng, lalu memantul.', mood: 'squish', hold: true, sound: 'boop' },
+  { title: 'Elus', how: 'Gerakkan kursor bolak-balik di atas Zeno besar.', mood: 'purr', anim: 'pat', sound: 'purr' },
+  { title: 'Klik terus-terusan', how: 'Makin kesal, pusing, lalu ngambek.', steps: ['confused', 'pout', 'angry', 'cry', 'dizzy', 'sulk'], sound: 'grumble' },
+  { title: 'Bangunkan', how: 'Klik saat Zeno tidur: menguap.', mood: 'yawn', sound: 'yawn' },
+];
+
+function guideSound(name) {
+  const s = state.config.sound;
+  if (s.enabled && s.buddy !== false) window.KapsulSound.play(name, s.volume || 0.6);
+}
+
+function tryGuide(item, buddy) {
+  clearTimeout(buddy.timer);
+  if (item.steps) {
+    item.steps.forEach((mood, i) => {
+      setTimeout(() => {
+        buddy.setMood(mood);
+        if (mood === 'dizzy') buddy.play('spin');
+      }, i * 650);
+    });
+    guideSound(item.sound);
+    buddy.timer = setTimeout(() => buddy.setMood('happy'), item.steps.length * 650 + 1200);
+    return;
+  }
+  buddy.setMood(item.mood);
+  if (item.hold) {
+    buddy.hold(true);
+    setTimeout(() => {
+      buddy.hold(false);
+      buddy.jump();
+      buddy.setMood('love');
+    }, 900);
+  } else if (item.anim) {
+    buddy.play(item.anim);
+  }
+  guideSound(item.sound);
+  buddy.timer = setTimeout(() => buddy.setMood('happy'), 2000);
+}
+
+let guideBuilt = false;
+
+function renderGuide() {
+  $('guide-shortcut').textContent = state.config.shortcut.replace('Control', 'Ctrl');
+  $('guide-voice').textContent = state.config.voice.shortcut.replace('Control', 'Ctrl');
+  if (guideBuilt) return;
+  guideBuilt = true;
+  const grid = $('guide-interactions');
+  for (const item of GUIDE) {
+    const card = el('div', 'guide-card');
+    const buddy = window.createBuddy();
+    buddy.setMood('happy');
+    const stage = el('button', 'guide-buddy');
+    stage.type = 'button';
+    stage.title = 'Coba';
+    stage.setAttribute('aria-label', `Coba: ${item.title}`);
+    stage.append(buddy.el);
+    const text = el('div', 'guide-text');
+    text.append(el('div', 'item-title', item.title), el('div', 'item-sub', item.how));
+    const button = el('button', 'btn small', 'Coba');
+    button.type = 'button';
+    const run = () => tryGuide(item, buddy);
+    stage.addEventListener('click', run);
+    button.addEventListener('click', run);
+    card.append(stage, text, button);
+    grid.append(card);
+  }
+}
+
 function render() {
   renderIdentity();
+  if (section === 'guide') renderGuide();
   if (section === 'profile') renderProfile();
   if (section === 'apps') renderLauncher();
   if (section === 'notifications') renderNotifications();
@@ -192,7 +306,7 @@ function startIntro() {
     setTimeout(() => {
       $('intro').hidden = true;
       $('layout').hidden = false;
-      show('profile');
+      show('guide');
     }, 2200);
   });
 
@@ -1136,5 +1250,5 @@ api.onSection((next) => (next === 'intro' ? startIntro() : show(next)));
   resetReminderForm();
   const requested = new URLSearchParams(location.search).get('section');
   if (requested === 'intro' || !state.config.user.name) startIntro();
-  else show(requested || 'profile');
+  else show(requested || 'guide');
 })();

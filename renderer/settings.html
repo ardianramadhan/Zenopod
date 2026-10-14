@@ -30,28 +30,90 @@
             <div class="side-sub">Pengaturan</div>
           </div>
         </div>
+        <div class="nav-search">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" /></svg>
+          <input id="nav-search" placeholder="Cari pengaturan…" autocomplete="off" spellcheck="false" aria-label="Cari pengaturan" />
+        </div>
         <nav class="nav" id="nav">
-          <button type="button" data-section="profile">Profil</button>
-          <button type="button" data-section="apps">Aplikasi</button>
-          <button type="button" data-section="notifications">Notifikasi</button>
-          <button type="button" data-section="reminders">Pengingat</button>
-          <button type="button" data-section="calendar">Kalender</button>
-          <button type="button" data-section="focus">Fokus</button>
-          <button type="button" data-section="habits">Kebiasaan</button>
-          <button type="button" data-section="claude">Claude Code</button>
-          <button type="button" data-section="dev">Dev</button>
-          <button type="button" data-section="stats">Statistik</button>
-          <button type="button" data-section="voice">Perintah suara</button>
-          <button type="button" data-section="chat">Ngobrol</button>
-          <button type="button" data-section="weather">Cuaca & baterai</button>
-          <button type="button" data-section="system">Sistem & layar</button>
-          <button type="button" data-section="sound">Suara</button>
-          <button type="button" data-section="display">Tampilan</button>
+          <div class="nav-group">Mulai</div>
+          <button type="button" data-section="guide" data-keywords="tutorial cara pakai interaksi klik elus tahan bantuan help"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" /><path d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1v.4M8 11.6v.1" /></svg>Panduan</button>
+          <button type="button" data-section="profile" data-keywords="nama maskot ulang tahun sapaan"><svg viewBox="0 0 16 16"><circle cx="8" cy="5.6" r="2.6" /><path d="M3 13.5c.6-2.6 2.6-4 5-4s4.4 1.4 5 4" /></svg>Profil</button>
+          <button type="button" data-section="display" data-keywords="posisi kostum tombol pintas shortcut windows mulai autostart versi pembaruan update kapsul"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="9" rx="1.6" /><path d="M6 14h4" /></svg>Tampilan</button>
+          <button type="button" data-section="sound" data-keywords="volume efek bunyi"><svg viewBox="0 0 16 16"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M11 5.5a3.5 3.5 0 0 1 0 5" /></svg>Suara</button>
+
+          <div class="nav-group">Panel</div>
+          <button type="button" data-section="apps" data-keywords="peluncur website launcher"><svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1.2" /><rect x="9" y="2.5" width="4.5" height="4.5" rx="1.2" /><rect x="2.5" y="9" width="4.5" height="4.5" rx="1.2" /><rect x="9" y="9" width="4.5" height="4.5" rx="1.2" /></svg>Aplikasi</button>
+          <button type="button" data-section="notifications" data-keywords="notif clipboard klip whatsapp"><svg viewBox="0 0 16 16"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3zM6.5 14h3" /></svg>Notifikasi</button>
+
+          <div class="nav-group">Produktivitas</div>
+          <button type="button" data-section="reminders" data-keywords="alarm jadwal ingatkan"><svg viewBox="0 0 16 16"><circle cx="8" cy="9" r="5" /><path d="M8 6.5V9l1.7 1.1M3 3.2 4.6 2M13 3.2 11.4 2" /></svg>Pengingat</button>
+          <button type="button" data-section="calendar" data-keywords="rapat meeting google outlook agenda zoom teams meet"><svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></svg>Kalender</button>
+          <button type="button" data-section="focus" data-keywords="pomodoro istirahat mata minum air"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2.2" /></svg>Fokus & istirahat</button>
+          <button type="button" data-section="habits" data-keywords="streak kebiasaan olahraga baca"><svg viewBox="0 0 16 16"><path d="M8 14a4.5 4.5 0 0 0 4.5-4.5C12.5 6 9 5 9 2c-2 1-3.5 3-3 5.5C5 7 4.5 6 4.6 5A4.5 4.5 0 0 0 8 14z" /></svg>Kebiasaan</button>
+          <button type="button" data-section="stats" data-keywords="ringkasan rekap riwayat"><svg viewBox="0 0 16 16"><path d="M3 13.5V8M6.5 13.5V4M10 13.5V9.5M13.5 13.5V6" /></svg>Statistik</button>
+
+          <div class="nav-group">Asisten</div>
+          <button type="button" data-section="voice" data-keywords="mikrofon whisper bicara tts"><svg viewBox="0 0 16 16"><rect x="6" y="2" width="4" height="7.5" rx="2" /><path d="M3.8 8a4.2 4.2 0 0 0 8.4 0M8 12.2V14" /></svg>Perintah suara</button>
+          <button type="button" data-section="chat" data-keywords="claude api key tanya ai"><svg viewBox="0 0 16 16"><path d="M2.5 4.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v4.5a2 2 0 0 1-2 2H7l-3 2.5V11h.5a2 2 0 0 1-2-2z" /></svg>Ngobrol</button>
+
+          <div class="nav-group">Info & sistem</div>
+          <button type="button" data-section="weather" data-keywords="hujan kota baterai"><svg viewBox="0 0 16 16"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .2-5.6 4 4 0 0 0-7.7 1A2.3 2.3 0 0 0 4.5 12.5z" /></svg>Cuaca & baterai</button>
+          <button type="button" data-section="system" data-keywords="ocr ambil teks layar internet cpu ram disk"><svg viewBox="0 0 16 16"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.5 6.5h5M5.5 9.5h3.5" /></svg>Sistem & layar</button>
+
+          <div class="nav-group">Developer</div>
+          <button type="button" data-section="claude" data-keywords="hook izin coding"><svg viewBox="0 0 16 16"><path d="M8 2.5v11M2.5 8h11M4.1 4.1l7.8 7.8M11.9 4.1l-7.8 7.8" /></svg>Claude Code</button>
+          <button type="button" data-section="dev" data-keywords="server port git project localhost"><svg viewBox="0 0 16 16"><path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" /></svg>Dev</button>
+          <p class="nav-empty" id="nav-empty" hidden>Tidak ditemukan.</p>
         </nav>
         <p class="saved" id="saved" aria-live="polite"></p>
       </aside>
 
       <main class="content">
+        <!-- Panduan -->
+        <section data-panel="guide" hidden>
+          <header>
+            <h1>Panduan</h1>
+            <p>Cara cepat memakai Zenopod dan bermain dengan Zeno. Tekan <b>Coba</b> untuk melihat reaksinya.</p>
+          </header>
+
+          <h2>Kapsul & panel</h2>
+          <div class="card guide-steps">
+            <div class="guide-step"><span class="guide-num">1</span><div><b>Arahkan kursor</b> ke kapsul untuk membuka panel. Panel menutup sendiri saat kursor pergi.</div></div>
+            <div class="guide-step"><span class="guide-num">2</span><div><b>Klik kapsul</b> (atau <kbd id="guide-shortcut">Ctrl+Alt+K</kbd>) supaya panel tetap terbuka. <kbd>Esc</kbd> untuk menutup.</div></div>
+            <div class="guide-step"><span class="guide-num">3</span><div><b>Seret</b> kapsul untuk memindahkannya. Lepas di dekat tepi atas supaya menempel rapi.</div></div>
+            <div class="guide-step"><span class="guide-num">4</span><div><b>Geser kartu atas</b> (seret, scroll ke samping, atau klik titik) untuk melihat lagu, jam, agenda, cuaca, kebiasaan, Zeno, dan sistem.</div></div>
+          </div>
+
+          <h2>Bermain dengan Zeno</h2>
+          <div class="guide-grid" id="guide-interactions"></div>
+          <p class="muted small">Klik beruntun membuat Zeno makin kesal: bingung → cemberut → marah → menangis → pusing → ngambek. Tunggu sebentar, lalu klik lagi untuk baikan.</p>
+
+          <h2>Ikon di bawah panel</h2>
+          <div class="card guide-icons">
+            <div><svg viewBox="0 0 16 16"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.5 6.5h5M5.5 9.5h3.5" /></svg><span><b>Ambil teks</b> dari layar: seret kotak, teksnya tersalin</span></div>
+            <div><svg viewBox="0 0 16 16"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7" /><circle cx="11" cy="4.5" r="1.6" /><circle cx="5" cy="11.5" r="1.6" /></svg><span><b>Kontrol cepat</b>: volume, kecerahan, Wi-Fi, Bluetooth</span></div>
+            <div><svg viewBox="0 0 16 16"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0" /></svg><span><b>Daya</b>: kunci, tidur, mulai ulang, matikan</span></div>
+            <div><svg viewBox="0 0 16 16"><path d="M6.9 1.5h2.2l.4 1.7 1.3.6 1.5-.9 1.6 1.6-.9 1.5.6 1.3 1.7.4v2.2l-1.7.4-.6 1.3.9 1.5-1.6 1.6-1.5-.9-1.3.6-.4 1.7H6.9l-.4-1.7-1.3-.6-1.5.9-1.6-1.6.9-1.5-.6-1.3-1.7-.4V6.9l1.7-.4.6-1.3-.9-1.5 1.6-1.6 1.5.9 1.3-.6z" /><circle cx="8" cy="8" r="2" /></svg><span><b>Pengaturan</b> (halaman ini)</span></div>
+          </div>
+
+          <h2>Kotak cari bisa apa saja</h2>
+          <div class="card guide-examples">
+            <div><code>chrome</code><span>Cari dan buka aplikasi</span></div>
+            <div><code>250.000 x 3</code><span>Kalkulator, Enter = salin hasil</span></div>
+            <div><code>timer 10 menit</code><span>Timer cepat</span></div>
+            <div><code>apa itu inflasi?</code><span>Tanya Zeno (perlu API key di Ngobrol)</span></div>
+          </div>
+
+          <h2>Bilang ke Zeno</h2>
+          <div class="card guide-examples">
+            <div><code>Zeno, buka WhatsApp</code><span>Tekan <kbd id="guide-voice">Ctrl+Alt+Z</kbd>, bicara, lalu diam sebentar</span></div>
+            <div><code>ingatkan aku rapat jam 3</code><span>Pengingat</span></div>
+            <div><code>sudah olahraga</code><span>Centang kebiasaan</span></div>
+            <div><code>jadwal hari ini</code><span>Agenda dari kalender</span></div>
+          </div>
+          <button type="button" class="btn" data-goto="voice">Lihat semua perintah suara</button>
+        </section>
+
         <!-- Profil -->
         <section data-panel="profile" hidden>
           <header>

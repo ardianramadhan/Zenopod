@@ -408,6 +408,7 @@ function publicState() {
     position: config.position,
     buddyName: config.buddy.name,
     chatReady: chatReady(),
+    devEnabled: config.dev.services.length > 0 || config.dev.projects.length > 0,
     focus: config.focus,
     sound: config.sound,
     ticker: config.ticker,
@@ -2269,7 +2270,7 @@ ipcMain.on('kapsul:launch-installed', (_event, key) => {
 });
 ipcMain.on('kapsul:drag-move', (_event, dx, dy) => dragMove(Number(dx), Number(dy)));
 ipcMain.on('kapsul:drag-end', () => dragEnd());
-ipcMain.on('kapsul:settings', () => openSettings());
+ipcMain.on('kapsul:settings', (_event, section) => openSettings(typeof section === 'string' ? section : undefined));
 ipcMain.on('kapsul:snip', () => setTimeout(startSnip, 250));
 ipcMain.on('kapsul:habit', (_event, id, done) => habitDone(String(id), Boolean(done)));
 ipcMain.on('kapsul:meeting', (_event, url) => openMeeting(String(url)));

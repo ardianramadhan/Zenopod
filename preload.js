@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('kapsul', {
   expand: (next, focus = false) => ipcRenderer.send('kapsul:expand', next, focus),
   launch: (index) => ipcRenderer.send('kapsul:launch', index),
   media: (command) => ipcRenderer.send('kapsul:media', command),
-  openSettings: () => ipcRenderer.send('kapsul:settings'),
+  openSettings: (section) => ipcRenderer.send('kapsul:settings', section),
   setPosition: (position) => ipcRenderer.send('kapsul:position', position),
   dragStart: () => ipcRenderer.send('kapsul:drag-start'),
   dragMove: (dx, dy) => ipcRenderer.send('kapsul:drag-move', dx, dy),
