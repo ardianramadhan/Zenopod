@@ -148,6 +148,26 @@
     },
     cry: (o, t) => tone(o, t, 720, 0.7, { gain: 0.16, slide: 420, vibrato: 14 }),
     blip: (o, t) => tone(o, t, 880, 0.09, { type: 'triangle', gain: 0.18, slide: 1320 }),
+    boop: (o, t) => tone(o, t, 1400, 0.08, { type: 'triangle', gain: 0.16, slide: 700 }),
+    boing: (o, t) => tone(o, t, 180, 0.4, { gain: 0.24, slide: 520, vibrato: 30 }),
+    pat: (o, t) => {
+      tone(o, t, 520, 0.09, { gain: 0.12, slide: 640, filter: 1800 });
+      tone(o, t + 0.16, 560, 0.09, { gain: 0.12, slide: 700, filter: 1800 });
+    },
+    purr: (o, t) => tone(o, t, 70, 0.9, { type: 'sawtooth', gain: 0.08, vibrato: 9, filter: 320 }),
+    yawn: (o, t) => {
+      tone(o, t, 440, 0.55, { gain: 0.14, slide: 700, vibrato: 4 });
+      tone(o, t + 0.55, 700, 0.5, { gain: 0.12, slide: 330 });
+    },
+    sparkle: (o, t) => {
+      [1568, 2093, 2637, 3136].forEach((f, i) => bell(o, t + i * 0.05, f, 0.35, 0.06));
+    },
+    dizzy: (o, t) => tone(o, t, 900, 0.8, { gain: 0.13, slide: 300, vibrato: 40 }),
+    hmph: (o, t) => tone(o, t, 260, 0.16, { type: 'triangle', gain: 0.16, slide: 180, filter: 1200 }),
+    shy: (o, t) => {
+      tone(o, t, 1046.5, 0.12, { gain: 0.1, slide: 880 });
+      tone(o, t + 0.13, 987.8, 0.18, { gain: 0.08, slide: 784 });
+    },
     tick: (o, t) => {
       tone(o, t, 1568, 0.05, { gain: 0.14 });
       tone(o, t + 0.06, 2093, 0.08, { gain: 0.12 });
@@ -187,6 +207,15 @@
     cry: 'buddy',
     blip: 'buddy',
     tick: 'buddy',
+    boop: 'buddy',
+    boing: 'buddy',
+    pat: 'buddy',
+    purr: 'buddy',
+    yawn: 'buddy',
+    sparkle: 'buddy',
+    dizzy: 'buddy',
+    hmph: 'buddy',
+    shy: 'buddy',
     swipe: 'buddy',
     note: 'buddy',
     ticktock: 'buddy',

@@ -161,7 +161,7 @@
 
 .buddy .clockprop .hand {
   stroke: #27272a;
-  stroke-width: 0.8;
+  stroke-width: 0.9;
   stroke-linecap: round;
   transform-box: view-box;
   transform-origin: 35px 7.5px;
@@ -354,7 +354,7 @@
 .buddy .battery .shell {
   fill: none;
   stroke: #f87171;
-  stroke-width: 0.8;
+  stroke-width: 0.9;
 }
 
 .buddy .battery .tip,
@@ -842,6 +842,208 @@
   100% {
     opacity: 0;
     transform: translateY(3px);
+  }
+}
+
+/* ---------- Reaksi interaksi (klik, elus, tahan) ---------- */
+
+.buddy .line.thin {
+  stroke-width: 0.9;
+}
+
+.buddy .star,
+.buddy .stars {
+  fill: #fbbf24;
+}
+
+.buddy .teeth {
+  fill: #fff;
+}
+
+.buddy .blush.strong {
+  opacity: 0.75;
+}
+
+.buddy[data-mood="starstruck"] .star {
+  transform-origin: center;
+  animation: buddy-pulse 0.45s ease-in-out infinite alternate;
+}
+
+.buddy .stars.on {
+  transform-origin: center;
+  animation: buddy-orbit 1.6s linear infinite;
+}
+
+/* Ngambek: wajah dipalingkan (menimpa arah lirikan dari JS). */
+.buddy[data-mood="sulk"] .b-face {
+  transform: translate(-3.4px, 1.2px) rotate(-10deg) scale(0.92, 1) !important;
+}
+
+.buddy[data-mood="dizzy"] .b-body {
+  animation: buddy-wobble 0.9s ease-in-out infinite;
+}
+
+.buddy[data-mood="starstruck"] .b-body {
+  animation: buddy-hop 0.7s ease-in-out infinite;
+}
+
+.buddy[data-mood="shy"] .b-body {
+  animation: buddy-sway 1.6s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="pout"] .b-body {
+  animation: buddy-puff 0.9s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="yawn"] .b-body {
+  animation: buddy-yawn 1.8s ease-in-out 1;
+}
+
+.buddy[data-mood="purr"] .b-body {
+  animation: buddy-purr 0.12s linear infinite alternate;
+}
+
+.buddy[data-mood="tickle"] .b-body {
+  animation: buddy-wiggle 0.18s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="sulk"] .b-body {
+  animation: buddy-droop 3s ease-in-out infinite;
+}
+
+.buddy[data-mood="mischief"] .b-body {
+  animation: buddy-tilt 0.8s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="boop"] .b-body {
+  animation: buddy-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
+}
+
+/* Gerak sekali jalan (buddy.play) & ditahan (buddy.hold) */
+.buddy.spin .b-body {
+  transform-origin: 50% 55%;
+  animation: buddy-flip 0.75s cubic-bezier(0.4, 1.4, 0.5, 1) 1;
+}
+
+.buddy.boing .b-body {
+  animation: buddy-boing 0.55s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
+}
+
+.buddy.pat .b-body {
+  animation: buddy-pat 0.7s ease-in-out 1;
+}
+
+.buddy.held .b-body {
+  animation: none;
+  transform: scale(1.2, 0.76);
+  transition: transform 0.18s ease-out;
+}
+
+@keyframes buddy-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes buddy-wobble {
+  0%,
+  100% {
+    transform: rotate(-9deg) translateX(-0.6px);
+  }
+  50% {
+    transform: rotate(9deg) translateX(0.6px);
+  }
+}
+
+@keyframes buddy-sway {
+  from {
+    transform: rotate(-4deg) scale(0.97);
+  }
+  to {
+    transform: rotate(3deg) scale(0.97);
+  }
+}
+
+@keyframes buddy-puff {
+  from {
+    transform: scale(1.02, 0.99);
+  }
+  to {
+    transform: scale(1.09, 0.95);
+  }
+}
+
+@keyframes buddy-yawn {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  45% {
+    transform: scale(0.93, 1.12) translateY(-1px);
+  }
+}
+
+@keyframes buddy-purr {
+  from {
+    transform: translateX(-0.25px) rotate(-1deg);
+  }
+  to {
+    transform: translateX(0.25px) rotate(1deg);
+  }
+}
+
+@keyframes buddy-wiggle {
+  from {
+    transform: rotate(-8deg) scale(1.03, 0.97);
+  }
+  to {
+    transform: rotate(8deg) scale(0.97, 1.03);
+  }
+}
+
+@keyframes buddy-flip {
+  0% {
+    transform: rotate(0) scale(1);
+  }
+  60% {
+    transform: rotate(380deg) scale(0.85);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes buddy-boing {
+  0% {
+    transform: scale(1, 1);
+  }
+  25% {
+    transform: scale(0.78, 1.12);
+  }
+  55% {
+    transform: scale(1.12, 0.9);
+  }
+  80% {
+    transform: scale(0.96, 1.04);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes buddy-pat {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  25% {
+    transform: scale(1.08, 0.88);
+  }
+  50% {
+    transform: scale(0.98, 1.02);
+  }
+  75% {
+    transform: scale(1.05, 0.92);
   }
 }
 

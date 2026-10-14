@@ -973,8 +973,12 @@ const SOUND_GROUPS = [
   {
     key: 'buddy',
     title: 'Zeno',
-    sub: 'Sapaan, saat diklik, menjalankan aplikasi, mencentang catatan.',
-    sounds: [['hello', 'Sapaan'], ['giggle', 'Klik'], ['grumble', 'Kesal'], ['angry', 'Marah'], ['cry', 'Menangis'], ['blip', 'Buka aplikasi'], ['tick', 'Centang']],
+    sub: 'Sapaan, saat diklik/dielus/dipencet, menjalankan aplikasi, mencentang catatan.',
+    sounds: [
+      ['hello', 'Sapaan'], ['giggle', 'Geli'], ['pat', 'Dielus'], ['boing', 'Pipi dicolek'], ['boop', 'Boop'], ['purr', 'Mendengkur'],
+      ['shy', 'Malu'], ['yawn', 'Menguap'], ['sparkle', 'Salto'], ['hmph', 'Ngambek'], ['grumble', 'Kesal'], ['angry', 'Marah'],
+      ['cry', 'Menangis'], ['dizzy', 'Pusing'], ['blip', 'Buka aplikasi'], ['tick', 'Centang'],
+    ],
   },
 ];
 

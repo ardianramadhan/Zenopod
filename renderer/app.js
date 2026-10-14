@@ -192,33 +192,241 @@ function react(mood, ms) {
   }, ms);
 }
 
-// Klik maskot: 1x tertawa, 2-3x kesal, 4-7x marah, 8x atau lebih menangis.
+// ---------- Interaksi dengan Zeno ----------
+// Bagian yang diklik menentukan reaksi: kepala = dielus, pipi = dicolek, tengah = hidung (boop),
+// bawah = digelitik. Klik beruntun makin lama makin kesal: bingung → cemberut → kesal → marah →
+// menangis → pusing → ngambek (klik diabaikan sebentar, lalu baikan lagi).
+// Panel: tahan = dipencet, elus (kursor bolak-balik di atas Zeno) = mendengkur, klik dua kali = salto.
+
 let clicks = 0;
 let lastClick = 0;
+let lastLine = null;
+let sulkUntil = 0;
+let makeUp = false;
+let ignoreClickUntil = 0;
 
-function poke(target) {
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+// Pilihan acak yang tidak sama dengan sebelumnya, supaya terasa variatif.
+function pickFresh(list, previous) {
+  const options = list.length > 1 ? list.filter((item) => item !== previous) : list;
+  return pick(options);
+}
+
+const ZONE_REACTIONS = {
+  head: [
+    { mood: 'purr', sound: 'pat', anim: 'pat', say: ['Hehe, enak dielus~', 'Lagi dong~', 'Nyaman…'] },
+    { mood: 'shy', sound: 'shy', anim: 'pat', say: ['Ih, jadi malu…', 'Hehe… makasih'] },
+    { mood: 'happy', sound: 'pat', anim: 'pat', say: ['Hihi~', 'Aku anak baik ya?'] },
+  ],
+  cheek: [
+    { mood: 'surprised', sound: 'boing', anim: 'boing', say: ['Boing!', 'Eh, pipiku!'] },
+    { mood: 'pout', sound: 'boing', anim: 'boing', say: ['Jangan dicubit…', 'Pipiku empuk ya?'] },
+    { mood: 'wink', sound: 'boing', anim: 'boing', say: ['Hehe~', 'Colek balik!'] },
+  ],
+  nose: [
+    { mood: 'boop', sound: 'boop', say: ['Boop!', 'Hidungku!'] },
+    { mood: 'starstruck', sound: 'sparkle', anim: 'jump', say: ['Wah, halo!', 'Ada apa nih?'] },
+    { mood: 'kiss', sound: 'boop', say: ['Muah~', 'Hehe, boop balik'] },
+    { mood: 'mischief', sound: 'giggle', say: ['Hehehe…', 'Aku punya rencana…'] },
+  ],
+  tummy: [
+    { mood: 'tickle', sound: 'giggle', say: ['Hahaha geli!', 'Ampun, geli!', 'Hihihi!'] },
+    { mood: 'laugh', sound: 'giggle', anim: 'jump', say: ['Hehehe!', 'Jangan di situ!'] },
+  ],
+};
+
+// Klik beruntun (jarak < 1,5 dtk). Sebelum tahap ini: reaksi per bagian yang diklik.
+const ESCALATION = [
+  { from: 12, mood: 'dizzy', sound: 'dizzy', anim: 'spin', ms: 2400, say: ['Pusing… muter-muter…', 'Bintangnya banyak…'] },
+  { from: 10, mood: 'cry', sound: 'cry', ms: 4000, say: ['Huaaa… jahat…', 'Hiks… sakit…'] },
+  { from: 8, mood: 'angry', sound: 'angry', ms: 3500, say: ['IH! Aku marah!', 'Grrr!'] },
+  { from: 6, mood: 'annoyed', sound: 'grumble', ms: 2600, say: ['Berhenti dong!', 'Aku lagi kerja lho…'] },
+  { from: 4, mood: 'pout', sound: 'hmph', ms: 2400, say: ['Ih, udah dong…', 'Hmph!'] },
+  { from: 3, mood: 'confused', sound: 'boop', ms: 2000, say: ['Hm? Kenapa?', 'Ada apa sih?'] },
+];
+
+function zoneOf(el, event) {
+  const rect = el.getBoundingClientRect();
+  if (!rect.width) return 'nose';
+  const x = (event.clientX - rect.left) / rect.width;
+  const y = (event.clientY - rect.top) / rect.height;
+  if (y < 0.42) return 'head';
+  if (y > 0.74) return 'tummy';
+  if (Math.abs(x - 0.5) > 0.2) return 'cheek';
+  return 'nose';
+}
+
+// Balon kata: di panel muncul di samping Zeno besar, di kapsul tampil sebagai teks kapsul.
+let saying = null;
+let sayTimer = null;
+
+function say(lines) {
+  const text = pickFresh(lines, lastLine);
+  lastLine = text;
+  saying = text;
+  const bubble = $('buddy-say');
+  bubble.textContent = text;
+  bubble.hidden = !open;
+  bubble.classList.remove('pop');
+  void bubble.offsetWidth;
+  bubble.classList.add('pop');
+  renderPillText();
+  clearTimeout(sayTimer);
+  sayTimer = setTimeout(() => {
+    saying = null;
+    bubble.hidden = true;
+    renderPillText();
+  }, 1900);
+}
+
+function perform(target, reaction, ms = 1800) {
+  react(reaction.mood, reaction.ms ?? ms);
+  if (reaction.anim === 'jump') target.jump();
+  else if (reaction.anim) target.play(reaction.anim);
+  if (reaction.sound) sfx(reaction.sound);
+  if (reaction.say) say(reaction.say);
+}
+
+// Klik pertama yang mengikuti keadaan: dibangunkan, sedang fokus, lagu diputar, lapar.
+function contextReaction() {
+  if (sleepy() && !media.playing && !open) {
+    lastMove = Date.now();
+    return { mood: 'yawn', sound: 'yawn', ms: 1900, say: ['Hoaam… aku bangun!', 'Lima menit lagi…'] };
+  }
+  if (focusState.phase === 'focus' && focusState.running) return { mood: 'pout', sound: 'hmph', say: ['Ssst, lagi fokus nih!', 'Nanti dulu, fokus!'] };
+  if ((petState?.hunger ?? 100) < 25) return { mood: 'hungry', sound: 'hmph', ms: 2200, say: ['Laper… kasih makan dong', 'Perutku bunyi…'] };
+  if (media.playing && Math.random() < 0.3) return { mood: 'music', sound: 'note', anim: 'jump', say: ['♪ Asik!', 'Lagunya enak!'] };
+  return null;
+}
+
+let lastZoneReaction = null;
+
+function poke(target, event) {
   const now = Date.now();
+  if (now < ignoreClickUntil) return;
+
+  // Ngambek: klik tidak dihitung, Zeno cuma mendengus.
+  if (now < sulkUntil) {
+    target.play('boing');
+    sfx('hmph');
+    say(['Hmph!', 'Nggak denger…', 'Aku masih ngambek.', '…']);
+    return;
+  }
+  // Klik pertama sesudah ngambek = baikan.
+  if (makeUp) {
+    makeUp = false;
+    clicks = 0;
+    perform(target, { mood: 'shy', sound: 'shy', anim: 'pat', ms: 2400, say: ['Iya iya, aku maafin…', 'Jangan gitu lagi ya…'] });
+    return;
+  }
+
   clicks = now - lastClick < 1500 ? clicks + 1 : 1;
   lastClick = now;
 
-  if (clicks >= 8) {
-    react('cry', 4000);
-    sfx('cry');
-  } else if (clicks >= 4) {
-    react('angry', 3500);
-    sfx('angry');
-  } else if (clicks >= 2) {
-    react('annoyed', 2500);
-    sfx('grumble');
-  } else {
-    react('laugh', 1800);
-    target.jump();
-    sfx('giggle');
+  const stage = ESCALATION.find((s) => clicks >= s.from);
+  if (stage) {
+    perform(target, stage);
+    if (stage.mood === 'dizzy') {
+      // Setelah pusing: ngambek beberapa detik, lalu mau baikan.
+      sulkUntil = now + 2400 + 7000;
+      setTimeout(() => {
+        react('sulk', 7000);
+        say(['Hmph, aku ngambek.', 'Udah, aku nggak mau main.']);
+        setTimeout(() => {
+          makeUp = true;
+          clicks = 0;
+        }, 7000);
+      }, 2400);
+    }
+    return;
   }
+
+  const context = clicks === 1 ? contextReaction() : null;
+  if (context) return perform(target, context);
+
+  const pool = ZONE_REACTIONS[zoneOf(target.el, event)];
+  const choice = pickFresh(pool, lastZoneReaction);
+  lastZoneReaction = choice;
+  perform(target, choice);
 }
 
-buddy.el.addEventListener('click', () => poke(buddy));
-$('buddy-big').addEventListener('click', () => poke(bigBuddy));
+buddy.el.addEventListener('click', (event) => poke(buddy, event));
+$('buddy-big').addEventListener('click', (event) => poke(bigBuddy, event));
+
+// Klik dua kali: salto.
+$('buddy-big').addEventListener('dblclick', () => {
+  if (Date.now() < sulkUntil) return;
+  bigBuddy.play('spin');
+  react('starstruck', 1600);
+  sfx('sparkle');
+  say(['Salto!', 'Ta-da!', 'Wiii~']);
+});
+
+// Tahan = dipencet sampai gepeng; lepas = memantul.
+(() => {
+  const el = $('buddy-big');
+  let timer = null;
+  let held = false;
+  const release = () => {
+    clearTimeout(timer);
+    if (!held) return;
+    held = false;
+    bigBuddy.hold(false);
+    bigBuddy.jump();
+    ignoreClickUntil = Date.now() + 350;
+    react('love', 2000);
+    sfx('pat');
+    say(['Peluk balik!', 'Hehe, sesak tapi suka~']);
+  };
+  el.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || Date.now() < sulkUntil) return;
+    timer = setTimeout(() => {
+      held = true;
+      bigBuddy.hold(true);
+      react('squish', 60_000);
+      sfx('boop');
+      say(['Uugh, gepeng!', 'Aku dipencet!']);
+    }, 450);
+  });
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointerleave', release);
+  el.addEventListener('pointercancel', release);
+})();
+
+// Elus-elus: kursor bolak-balik ≥ 4 kali dalam 1,2 dtk di atas Zeno besar = mendengkur.
+(() => {
+  let lastX = null;
+  let direction = 0;
+  let turns = [];
+  let cooldown = 0;
+  $('buddy-big').addEventListener('mousemove', (event) => {
+    if (lastX !== null) {
+      const dx = event.clientX - lastX;
+      if (Math.abs(dx) >= 3) {
+        const next = Math.sign(dx);
+        if (direction && next !== direction) turns.push(Date.now());
+        direction = next;
+      }
+    }
+    lastX = event.clientX;
+    const now = Date.now();
+    turns = turns.filter((t) => now - t < 1200);
+    if (turns.length >= 4 && now > cooldown && now > sulkUntil && !reaction) {
+      turns = [];
+      cooldown = now + 3500;
+      bigBuddy.play('pat');
+      react('purr', 2600);
+      sfx('purr');
+      say(['Purrr… nyaman~', 'Elus terus~', 'Zzz… enak…']);
+    }
+  });
+  $('buddy-big').addEventListener('mouseleave', () => {
+    lastX = null;
+    turns = [];
+  });
+})();
+
 $('buddy-big').addEventListener('mouseenter', () => {
   hoveringBig = true;
   renderBuddy();
@@ -1966,6 +2174,7 @@ function pillOverride() {
   if (voiceState) {
     return { key: 'voice', render: slideContent(null, voiceState === 'listening' ? 'Mendengarkan…' : 'Sebentar, aku pikir dulu…') };
   }
+  if (saying) return { key: `say:${saying}`, render: slideContent(null, saying) };
   const session = claudeState.active[0];
   if (session && claudeWaiting()) return { key: 'claude-wait', render: slideContent(null, session.label || 'Menunggu kamu', session.project), typing: false };
   return null;

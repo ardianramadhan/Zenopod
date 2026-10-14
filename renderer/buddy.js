@@ -41,7 +41,30 @@
     hungry: ['e-open', 'm-wavy', 'b-worried', 'x-food'],
     eat: ['e-happy', 'm-chew', 'blush', 'x-crumbs'],
     stretch: ['e-happy', 'm-open', 'blush', 'x-sparkle'],
+    // Reaksi interaksi (klik, elus, tahan)
+    dizzy: ['e-spiral', 'm-wavy', 'x-stars'],
+    starstruck: ['e-star', 'm-open', 'blush', 'x-sparkle'],
+    shy: ['e-down', 'm-smile', 'blush-big'],
+    pout: ['e-half', 'm-pout', 'blush-big'],
+    yawn: ['e-closed', 'm-yawn', 'x-zzz'],
+    purr: ['e-happy', 'm-cat', 'blush', 'x-hearts'],
+    tickle: ['e-squint', 'm-laugh', 'blush', 't-joy'],
+    sulk: ['e-closed', 'm-frown', 'b-worried'],
+    mischief: ['e-half', 'm-grin', 'b-angry', 'x-sparkle'],
+    squish: ['e-squint', 'm-o', 'blush-big'],
+    boop: ['e-wide', 'm-kiss', 'blush'],
   };
+
+  // Bintang 5 sudut (mata bintang).
+  const star = (cx, cy, outer, inner) =>
+    Array.from({ length: 10 }, (_, i) => {
+      const r = i % 2 ? inner : outer;
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      return `${i ? 'L' : 'M'}${(cx + r * Math.cos(a)).toFixed(2)} ${(cy + r * Math.sin(a)).toFixed(2)}`;
+    }).join(' ') + 'Z';
+
+  // Mata spiral (pusing): busur setengah lingkaran yang makin besar.
+  const spiral = (x) => `M${x} ${EYE_Y} a0.6 0.6 0 0 1 1.2 0 a1.2 1.2 0 0 1 -2.4 0 a1.8 1.8 0 0 1 3.6 0 a2.4 2.4 0 0 1 -4.8 0`;
 
   const heart = (x, y, s) =>
     `M${x} ${y + 1.3 * s} C${x - 1.8 * s} ${y} ${x - 1.3 * s} ${y - 1.4 * s} ${x} ${y - 0.6 * s} ` +
@@ -100,6 +123,17 @@
           </g>
           <g data-part="e-heart">${perEye((x) => `<path class="heart" d="${heart(x, EYE_Y, 1.7)}" /><circle class="shine" cx="${x - 1}" cy="${EYE_Y - 0.6}" r="0.5" />`)}</g>
           <g data-part="e-half">${perEye((x) => `<path class="ink" d="M${x - 2.2} ${EYE_Y - 0.2} h4.4 a2.2 2.2 0 0 1 -4.4 0z" /><path class="line" d="M${x - 2.7} ${EYE_Y - 0.4} h5.4" />`)}</g>
+          <g data-part="e-spiral">${perEye((x) => `<path class="line thin" d="${spiral(x)}" />`)}</g>
+          <g data-part="e-star">${perEye((x) => `<path class="star" d="${star(x, EYE_Y, 3.2, 1.35)}" />`)}</g>
+          <g data-part="e-down">${perEye((x) => roundEye(x, 1.8, 2.2, 0.7).replace(`translate(${x} ${EYE_Y})`, `translate(${x - 0.4} ${EYE_Y + 1.4})`))}</g>
+          <g data-part="blush-big">
+            <ellipse class="blush strong" cx="11.2" cy="25.4" rx="3.1" ry="1.9" />
+            <ellipse class="blush strong" cx="28.8" cy="25.4" rx="3.1" ry="1.9" />
+          </g>
+          <g data-part="t-joy">
+            <path class="tear" d="M11 22.4 q-1.4 1.7 -0.5 2.9 q1.1 0.5 1.3 -0.9 z" />
+            <path class="tear" d="M29 22.4 q1.4 1.7 0.5 2.9 q-1.1 0.5 -1.3 -0.9 z" />
+          </g>
 
           <g data-part="b-angry"><path class="line" d="M11.6 16.4 l4.8 2" /><path class="line" d="M28.4 16.4 l-4.8 2" /></g>
           <g data-part="b-worried"><path class="line" d="M12 18.2 l4.4 -1.9" /><path class="line" d="M28 18.2 l-4.4 -1.9" /></g>
@@ -118,6 +152,10 @@
           <g data-part="m-hmm"><path class="line" d="M18.4 27.3 q1.5 -0.7 3.2 -0.2" /></g>
           <g data-part="m-chew"><ellipse class="mouth chew" cx="20" cy="27.2" rx="1.8" ry="1.3" /></g>
           <g data-part="m-smirk"><path class="line" d="M18 27.3 Q20.6 28.1 22.5 25.8" /></g>
+          <g data-part="m-cat"><path class="line" d="M17.4 26.3 q1.3 1.6 2.6 0 q1.3 1.6 2.6 0" /></g>
+          <g data-part="m-pout"><ellipse class="mouth" cx="21" cy="27.5" rx="0.95" ry="0.8" /></g>
+          <g data-part="m-yawn"><ellipse class="mouth" cx="20" cy="27.8" rx="2.1" ry="2.7" /><ellipse class="tongue" cx="20" cy="29.4" rx="1.3" ry="0.7" /></g>
+          <g data-part="m-grin"><path class="mouth" d="M16.8 25.6 Q20 30.4 23.2 25.6 Z" /><path class="teeth" d="M17.5 25.95 h5 l-0.35 0.95 h-4.3 z" /></g>
 
           <g data-part="x-glasses" class="glasses">
             <circle cx="${EYE_L}" cy="${EYE_Y}" r="3.6" />
@@ -239,6 +277,12 @@
         <circle cx="19.5" cy="35" r="0.4" />
       </g>
       <g data-part="x-sweat" class="sweat"><path d="M33 10 q-2.2 3.4 0 4.6 q2.2 -1.2 0 -4.6 z" /></g>
+      <g data-part="x-stars" class="stars">
+        <path d="${star(11, 7, 1.7, 0.75)}" />
+        <path d="${star(29, 7, 1.7, 0.75)}" />
+        <path d="${star(20, 2.6, 1.4, 0.6)}" />
+        <path d="${star(20, 11.4, 1.2, 0.5)}" />
+      </g>
     `;
   }
 
@@ -298,13 +342,30 @@
       svg.classList.add('jump');
     }
 
+    // Gerak sekali jalan: spin (berputar), boing (pipi dicolek), wobble (kepala dielus).
+    const ONE_SHOT = { spin: 'buddy-flip', boing: 'buddy-boing', pat: 'buddy-pat' };
+    function play(name) {
+      if (!(name in ONE_SHOT)) return;
+      svg.classList.remove('jump', 'morph', ...Object.keys(ONE_SHOT));
+      void svg.getBoundingClientRect();
+      svg.classList.add(name);
+    }
+
+    // Ditahan (dipencet): tetap gepeng sampai dilepas.
+    function hold(on) {
+      svg.classList.toggle('held', Boolean(on));
+    }
+
     svg.addEventListener('animationend', (event) => {
       if (event.animationName === 'buddy-jump') svg.classList.remove('jump');
       if (event.animationName === 'buddy-morph') svg.classList.remove('morph');
+      for (const [name, animation] of Object.entries(ONE_SHOT)) {
+        if (event.animationName === animation) svg.classList.remove(name);
+      }
     });
 
     setMood('idle');
-    return { el: svg, setMood, setCostume, look, jump, morph, get mood() { return mood; } };
+    return { el: svg, setMood, setCostume, look, jump, morph, play, hold, get mood() { return mood; } };
   }
 
   window.createBuddy = createBuddy;
