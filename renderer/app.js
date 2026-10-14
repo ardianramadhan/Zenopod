@@ -11,6 +11,9 @@ let focusSettings = { focusMinutes: 25, cycles: 4 };
 let open = false;
 let peekState = null;
 let lastPeek = { kind: null, at: 0 };
+let calendarEvents = null; // null = kalender belum disambungkan
+let habitItems = [];
+let systemNow = null;
 
 // Claude sedang bekerja (berpikir / menjalankan tool) atau menunggu jawaban.
 const claudeBusy = () => claudeState.active.some((s) => s.state === 'thinking' || s.state === 'working');
@@ -934,15 +937,21 @@ const PAGES = [
   { id: 'music', label: 'Musik', sound: 'note' },
   { id: 'greeting', label: 'Sapaan', sound: 'hello' },
   { id: 'clock', label: 'Tanggal & jam', sound: 'ticktock' },
+  { id: 'agenda', label: 'Agenda', sound: 'today' },
   { id: 'weather', label: 'Cuaca', sound: 'today' },
   { id: 'today', label: 'Hari ini', sound: 'today' },
+  { id: 'habits', label: 'Kebiasaan', sound: 'tick' },
   { id: 'pet', label: 'Zeno', sound: 'pop' },
+  { id: 'system', label: 'Sistem', sound: 'tick' },
 ];
 
-// Halaman Cuaca hanya ada kalau cuaca aktif; halaman Claude hanya saat Claude bekerja.
+// Halaman Cuaca hanya ada kalau cuaca aktif; halaman Claude hanya saat Claude bekerja;
+// Agenda kalau kalender tersambung; Kebiasaan kalau sudah ada kebiasaan.
 function pageAvailable(page) {
   if (page.id === 'weather') return Boolean(weatherNow);
   if (page.id === 'claude') return claudeState.active.length > 0;
+  if (page.id === 'agenda') return calendarEvents !== null;
+  if (page.id === 'habits') return habitItems.length > 0;
   return true;
 }
 
@@ -962,6 +971,9 @@ function pageMood() {
   if (page === 'clock') return 'clock';
   if (page === 'weather') return weatherNow?.look?.mood ?? 'idle';
   if (page === 'pet') return (petState?.hunger ?? 100) < 25 ? 'hungry' : 'happy';
+  if (page === 'agenda') return 'clock';
+  if (page === 'habits') return habitItems.length && habitItems.every((h) => h.done || !h.scheduled) ? 'laugh' : 'happy';
+  if (page === 'system') return systemNow?.online === false ? 'cry' : 'focus';
   return 'focus';
 }
 
@@ -1081,6 +1093,7 @@ const ICON = {
   check: '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="3" /><path d="M5.3 8.2l1.9 1.9 3.6-4" /></svg>',
   target: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2.2" /></svg>',
   cloud: '<svg viewBox="0 0 16 16"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .2-5.6 4 4 0 0 0-7.7 1A2.3 2.3 0 0 0 4.5 12.5z" /></svg>',
+  calendar: '<svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></svg>',
 };
 
 function todayRow(icon, text) {
@@ -1141,11 +1154,19 @@ function renderPage() {
     const open = todoItems.filter((t) => !t.done);
     if (weatherNow) list.append(todayRow('cloud', weatherText()));
     list.append(todayRow('bell', nextReminder ? `${nextReminder.title} · ${nextReminder.when}` : 'Tidak ada pengingat'));
+    const meeting = nextMeeting();
+    if (meeting) list.append(todayRow('calendar', `${meeting.title} · ${eventTime(meeting)}`));
     list.append(todayRow('check', open.length ? `${open.length} tugas: ${open[0].text}` : 'Semua tugas beres'));
     const t = statsToday ?? {};
     const minutes = Math.round((t.claudeMs ?? 0) / 60_000);
     const claudeText = minutes >= 60 ? `${Math.floor(minutes / 60)} j ${minutes % 60} m` : `${minutes} m`;
     list.append(todayRow('target', `${t.focus ?? 0} fokus · ${t.todos ?? 0} tugas selesai${minutes ? ` · Claude ${claudeText}` : ''}`));
+  } else if (page === 'agenda') {
+    renderAgenda();
+  } else if (page === 'habits') {
+    renderHabits();
+  } else if (page === 'system') {
+    renderSystem();
   }
 }
 
@@ -1599,6 +1620,128 @@ window.kapsul.onStats((data) => {
   if (typeof renderPet === 'function') renderPet();
 });
 
+// ---------- Agenda (kalender) ----------
+
+const hm = (ms) => timeFormat.format(new Date(ms)).replace('.', ':');
+
+// "14:00", "Besok 09:00", "Seharian", "Sedang berlangsung"
+function eventTime(e, now = Date.now()) {
+  if (e.allDay) return new Date(e.start).toDateString() === new Date(now).toDateString() || e.start < now ? 'Seharian' : 'Besok, seharian';
+  if (e.start <= now) return `Berlangsung · sampai ${hm(e.end)}`;
+  const tomorrow = new Date(e.start).toDateString() !== new Date(now).toDateString();
+  return `${tomorrow ? 'Besok ' : ''}${hm(e.start)}`;
+}
+
+const nextMeeting = (now = Date.now()) => (calendarEvents ?? []).find((e) => !e.allDay && e.end > now) ?? null;
+
+function renderAgenda() {
+  const now = Date.now();
+  const list = $('agenda-list');
+  list.replaceChildren();
+  const events = (calendarEvents ?? []).filter((e) => e.end > now).slice(0, 3);
+  $('agenda-kicker').textContent = events.length ? 'Agenda' : 'Agenda · kosong';
+  if (!events.length) {
+    const li = document.createElement('li');
+    li.className = 'dim';
+    li.textContent = 'Tidak ada acara hari ini & besok.';
+    list.append(li);
+  }
+  for (const e of events) {
+    const li = document.createElement('li');
+    // Kolom jam dibuat pendek; "Kini" = sedang berlangsung.
+    const time = document.createElement('b');
+    time.textContent = e.allDay ? (e.start <= now ? 'Hari ini' : 'Besok') : e.start <= now ? 'Kini' : eventTime(e, now);
+    const title = document.createElement('span');
+    title.textContent = e.title;
+    li.append(time, title);
+    if (e.start <= now && !e.allDay) li.classList.add('now');
+    list.append(li);
+  }
+  // Tombol Gabung untuk rapat berikutnya (atau yang sedang berjalan) yang punya link.
+  const next = nextMeeting(now);
+  const join = $('agenda-join');
+  join.hidden = !(next?.link && next.start - now < 60 * 60_000);
+  join.onclick = () => next?.link && window.kapsul.meeting(next.link);
+}
+
+window.kapsul.onCalendar((data) => {
+  calendarEvents = data?.connected ? data.events : null;
+  goToPage(pageIndex, { sound: false });
+  renderPillText();
+});
+
+setInterval(() => {
+  if (open && PAGES[pageIndex].id === 'agenda') renderAgenda();
+}, 30_000);
+
+// ---------- Kebiasaan ----------
+
+function renderHabits() {
+  const chips = $('habit-chips');
+  chips.replaceChildren();
+  const todayList = habitItems.filter((h) => h.scheduled);
+  const done = todayList.filter((h) => h.done).length;
+  $('habits-kicker').textContent = todayList.length ? `Kebiasaan hari ini · ${done}/${todayList.length}` : 'Hari ini libur kebiasaan';
+  for (const h of habitItems) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'habit-chip';
+    chip.classList.toggle('done', h.done);
+    chip.classList.toggle('off', !h.scheduled);
+    chip.setAttribute('aria-pressed', String(h.done));
+    chip.title = h.done ? 'Batal centang' : h.scheduled ? 'Tandai selesai' : 'Bukan jadwal hari ini';
+    const streak = document.createElement('small');
+    streak.textContent = h.streak ? `🔥${h.streak}` : '';
+    chip.append(`${h.emoji} ${h.name}`, streak);
+    chip.addEventListener('click', () => {
+      if (!h.done) sfx('tick');
+      window.kapsul.habit(h.id, !h.done);
+    });
+    chips.append(chip);
+  }
+}
+
+window.kapsul.onHabits((list) => {
+  habitItems = list ?? [];
+  goToPage(pageIndex, { sound: false });
+  renderPillText();
+});
+
+// ---------- Sistem & internet ----------
+
+function bar(id, percent, text, warn) {
+  $(id).style.width = `${percent ?? 0}%`;
+  $(id).classList.toggle('low', Boolean(warn));
+  $(`${id}-text`).textContent = text;
+}
+
+function renderSystem() {
+  const s = systemNow;
+  if (!s) return;
+  const net = $('system-net');
+  net.className = `system-net ${s.online === false ? 'off' : s.online ? 'on' : ''}`;
+  net.textContent = s.online == null ? 'Mengecek internet…' : s.online ? `Internet tersambung${s.ms ? ` · ${s.ms} ms` : ''}` : 'Internet putus';
+  bar('system-cpu', s.cpu, s.cpu != null ? `${s.cpu}%` : '–', s.cpu >= 90);
+  bar('system-ram', s.memory?.percent, s.memory ? `${s.memory.percent}%` : '–', s.memory?.percent >= 90);
+  const diskFree = s.disk ? 100 - s.disk.percent : null;
+  $('system-disk-label').textContent = s.disk ? `Disk ${s.disk.drive}` : 'Disk';
+  bar('system-disk', s.disk?.percent, s.disk ? `sisa ${bytesText(s.disk.free)}` : '–', diskFree != null && diskFree < 10);
+}
+
+function bytesText(n) {
+  const gb = n / 1024 ** 3;
+  return gb >= 1 ? `${gb.toFixed(gb >= 100 ? 0 : 1).replace('.', ',')} GB` : `${Math.round(n / 1024 ** 2)} MB`;
+}
+
+window.kapsul.onSystem((state) => {
+  const was = systemNow?.online;
+  systemNow = state;
+  if (PAGES[pageIndex].id === 'system') renderPage();
+  if (was !== state?.online) renderPillText();
+});
+
+$('snip-btn').addEventListener('click', () => window.kapsul.snip());
+
 // ---------- Timer cepat ----------
 
 let quickTimers = [];
@@ -1658,6 +1801,10 @@ window.kapsul.onPetEvent((event) => {
   if (event.type === 'eat') {
     react('eat', 1800);
     sfx('munch');
+  } else if (event.type === 'habit') {
+    react('laugh', 1400);
+    bigBuddy.jump();
+    buddy.jump();
   } else if (event.type === 'play') {
     react('laugh', 1600);
     bigBuddy.jump();
@@ -1785,6 +1932,9 @@ const PILL_ICONS = {
   check: '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="3" /><path d="M5.3 8.2l1.9 1.9 3.6-4" /></svg>',
   notif: '<svg viewBox="0 0 16 16"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3zM6.5 14h3" /></svg>',
   server: '<svg viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="4" rx="1.2" /><rect x="2.5" y="9" width="11" height="4" rx="1.2" /><path d="M5 5h.01M5 11h.01" /></svg>',
+  calendar: '<svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></svg>',
+  offline: '<svg viewBox="0 0 16 16"><path d="M1.8 6a9 9 0 0 1 12.4 0M4 8.4a6 6 0 0 1 8 0M6.2 10.8a3 3 0 0 1 3.6 0M2.5 2.5l11 11" /></svg>',
+  flame: '<svg viewBox="0 0 16 16"><path d="M8 14a4.5 4.5 0 0 0 4.5-4.5C12.5 6 9 5 9 2c-2 1-3.5 3-3 5.5C5 7 4.5 6 4.6 5A4.5 4.5 0 0 0 8 14z" /></svg>',
   wave: '<svg viewBox="0 0 16 16"><path d="M5.5 8.5V4a1 1 0 0 1 2 0v3.5M7.5 7V3a1 1 0 0 1 2 0v4M9.5 7V4a1 1 0 0 1 2 0v5.5a4 4 0 0 1-7.4 2.1L2.7 9.3a1 1 0 0 1 1.6-1.2l1.2 1.2" /></svg>',
 };
 
@@ -1871,6 +2021,12 @@ function pillSlides() {
       },
     },
   ];
+  if (systemNow?.online === false) slides.push({ key: 'offline', mood: 'cry', render: slideContent('offline', 'Internet putus') });
+  // Rapat dalam 2 jam ke depan (atau yang sedang berjalan).
+  const meeting = nextMeeting(now.getTime());
+  if (meeting && meeting.start - now.getTime() < 2 * 3_600_000) {
+    slides.push({ key: 'meeting', mood: 'clock', render: slideContent('calendar', meeting.title, eventTime(meeting, now.getTime())) });
+  }
   if (media.title) slides.push({ key: 'music', mood: media.playing ? 'music' : 'listen', eq: media.playing, render: slideContent('music', media.title, media.artist) });
   if (weatherNow) {
     const look = weatherNow.look ?? {};
@@ -1887,6 +2043,11 @@ function pillSlides() {
       mood: 'surprised',
       render: slideContent('notif', `${notifs.items.length} notif`, `${latest.appName || 'Aplikasi'}: ${latest.title || latest.body || ''}`),
     });
+  }
+  // Sore/malam: kebiasaan hari ini yang belum dicentang.
+  const pendingHabits = habitItems.filter((h) => h.scheduled && !h.done);
+  if (pendingHabits.length && now.getHours() >= 16) {
+    slides.push({ key: 'habits', mood: 'happy', render: slideContent('flame', `${pendingHabits.length} kebiasaan`, pendingHabits.map((h) => h.name).join(', ')) });
   }
   if (petState && petState.hunger < 25) {
     slides.push({ key: 'hungry', mood: 'hungry', render: slideContent(null, `${profile.buddyName || 'Zeno'} lapar`, 'beri makan yuk') });

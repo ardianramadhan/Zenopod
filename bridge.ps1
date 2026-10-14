@@ -3,7 +3,7 @@
 # - Notifikasi: membaca notifikasi semua aplikasi lewat UserNotificationListener
 #   (Pengaturan > Privasi > Notifikasi > izinkan aplikasi desktop).
 # Menulis satu baris JSON per perubahan: {type: media|notifications|icon, ...}.
-# Perintah dari stdin: toggle | next | prev | refresh | dismiss <id> | clear.
+# Perintah dari stdin: toggle | next | prev | refresh | dismiss <id> | clear | speak | quick | ocr <id> <file>.
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -228,6 +228,40 @@ function Set-Quick($what, $value) {
     }
 }
 
+# ---------- Ambil teks dari layar (OCR bawaan Windows, offline) ----------
+
+[void][Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType = WindowsRuntime]
+[void][Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics, ContentType = WindowsRuntime]
+[void][Windows.Graphics.Imaging.SoftwareBitmap, Windows.Graphics, ContentType = WindowsRuntime]
+[void][Windows.Storage.StorageFile, Windows.Storage, ContentType = WindowsRuntime]
+[void][Windows.Storage.Streams.IRandomAccessStream, Windows.Storage.Streams, ContentType = WindowsRuntime]
+
+# Perintah: ocr <id> <path PNG> → {type: ocr, id, text, lang} atau {type: ocr, id, error}
+function Read-Text($id, $file) {
+    $stream = $null
+    try {
+        # Bahasa profil Windows dulu; tanpa paket OCR-nya, pakai bahasa OCR apa saja yang terpasang.
+        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+        if (-not $engine) {
+            $lang = [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages | Select-Object -First 1
+            if ($lang) { $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($lang) }
+        }
+        if (-not $engine) { Send @{ type = 'ocr'; id = $id; error = 'no-language' }; return }
+        $sf = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($file)) ([Windows.Storage.StorageFile])
+        $stream = Await ($sf.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
+        $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
+        $bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+        $result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
+        $text = ($result.Lines | ForEach-Object { $_.Text }) -join "`n"
+        Send @{ type = 'ocr'; id = $id; text = $text; lang = $engine.RecognizerLanguage.LanguageTag }
+    } catch {
+        Send @{ type = 'ocr'; id = $id; error = $_.Exception.Message }
+    } finally {
+        if ($stream) { $stream.Dispose() }
+        Remove-Item -LiteralPath $file -ErrorAction SilentlyContinue
+    }
+}
+
 # ---------- Suara Zeno (TTS) ----------
 
 $synth = $null
@@ -286,6 +320,7 @@ while ($true) {
                 'clear'   { if ($listener) { $listener.ClearNotifications() } }
                 'voices'  { Emit-Voices }
                 'speak'   { $p = $parts[1] -split '\s+', 2; Speak $p[0] $p[1] }
+                'ocr'     { $p = $parts[1] -split '\s+', 2; Read-Text $p[0] $p[1] }
                 'quick'   { $p = $parts[1] -split '\s+', 2; Set-Quick $p[0] $p[1]; Start-Sleep -Milliseconds 250; Emit-Quick $true }
             }
         } catch { }

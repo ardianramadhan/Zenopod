@@ -131,6 +131,9 @@ function render() {
   if (section === 'stats') renderStats();
   if (section === 'chat') renderChat();
   if (section === 'display') renderDisplay();
+  if (section === 'calendar') renderCalendar();
+  if (section === 'habits') renderHabitSettings();
+  if (section === 'system') renderSystemSettings();
 }
 
 // ---------- Perkenalan ----------
@@ -623,6 +626,176 @@ $('chat-test').addEventListener('click', async () => {
   out.textContent = result.ok ? `“${result.answer}”` : result.error;
 });
 
+// ---------- Kalender ----------
+
+const timeFmt = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
+const shortDay = new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+
+function renderCalendar() {
+  const c = state.config.calendar;
+  const status = state.calendarStatus ?? {};
+  $('calendar-enabled').checked = c.enabled;
+  $('calendar-remind').value = String(c.remindMinutes);
+  $('calendar-refresh').disabled = !c.feeds.length;
+  const next = status.next;
+  $('calendar-status').textContent = !c.feeds.length
+    ? 'Belum ada kalender. Sambungkan di bawah.'
+    : !c.enabled
+      ? 'Nonaktif.'
+      : status.checkedAt
+        ? `${status.count} acara hari ini & besok${next ? ` · berikutnya: ${next.title}, ${shortDay.format(next.start)} ${timeFmt.format(next.start)}` : ''}`
+        : 'Memuat…';
+
+  const list = $('calendar-list');
+  list.replaceChildren();
+  if (!c.feeds.length) list.append(el('p', 'empty', 'Belum ada kalender.'));
+  for (const feed of c.feeds) {
+    const row = el('div', 'item');
+    const main = el('div', 'item-main');
+    const error = status.errors?.[feed.id];
+    main.append(el('div', 'item-title', feed.name), el('div', `item-sub${error ? ' error-text' : ''}`, error ? `Gagal dibaca: ${error}` : feed.host));
+    row.append(
+      main,
+      iconButton('remove', 'Lepas kalender', () =>
+        save({ calendar: { ...state.config.calendar, feeds: state.config.calendar.feeds.filter((f) => f.id !== feed.id) } }).then(renderCalendar),
+      ),
+    );
+    list.append(row);
+  }
+}
+
+$('calendar-enabled').addEventListener('change', (e) => save({ calendar: { ...state.config.calendar, enabled: e.target.checked } }).then(renderCalendar));
+$('calendar-remind').addEventListener('change', (e) => save({ calendar: { ...state.config.calendar, remindMinutes: Number(e.target.value) } }));
+$('calendar-refresh').addEventListener('click', async () => {
+  $('calendar-status').textContent = 'Memuat…';
+  state = await api.calendarRefresh();
+  renderCalendar();
+});
+$('calendar-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = $('calendar-add');
+  button.disabled = true;
+  button.textContent = 'Memeriksa…';
+  $('calendar-error').textContent = '';
+  const result = await api.calendarAdd($('calendar-name').value, $('calendar-url').value);
+  button.disabled = false;
+  button.textContent = 'Sambungkan';
+  if (!result.ok) {
+    $('calendar-error').textContent = result.error;
+    return;
+  }
+  $('calendar-form').reset();
+  state = result.state;
+  renderCalendar();
+});
+
+// ---------- Kebiasaan ----------
+
+const DAY_LABELS = [[1, 'Sen'], [2, 'Sel'], [3, 'Rab'], [4, 'Kam'], [5, 'Jum'], [6, 'Sab'], [0, 'Min']];
+
+function daysText(days) {
+  const set = [...days].sort().join(',');
+  if (set === '0,1,2,3,4,5,6') return 'Setiap hari';
+  if (set === '1,2,3,4,5') return 'Hari kerja';
+  if (set === '0,6') return 'Akhir pekan';
+  return DAY_LABELS.filter(([d]) => days.includes(d)).map(([, label]) => label).join(', ');
+}
+
+function dayPicker(container, selected, onChange) {
+  container.replaceChildren();
+  for (const [day, label] of DAY_LABELS) {
+    const button = el('button', 'day', label);
+    button.type = 'button';
+    button.setAttribute('aria-pressed', String(selected.includes(day)));
+    button.addEventListener('click', () => {
+      const next = selected.includes(day) ? selected.filter((d) => d !== day) : [...selected, day];
+      if (next.length) onChange(next);
+    });
+    container.append(button);
+  }
+}
+
+let newHabitDays = [0, 1, 2, 3, 4, 5, 6];
+
+function saveHabits(list) {
+  return save({ habits: list }).then(renderHabitSettings);
+}
+
+function renderHabitSettings() {
+  const list = $('habit-list');
+  list.replaceChildren();
+  const today = new Map((state.habitsToday ?? []).map((h) => [h.id, h]));
+  if (!state.config.habits.length) list.append(el('p', 'empty', 'Belum ada kebiasaan. Mulai dari satu yang kecil dulu.'));
+  state.config.habits.forEach((habit, i) => {
+    const info = today.get(habit.id) ?? {};
+    const row = el('div', 'item');
+    const icon = el('span', 'item-icon habit-icon', habit.emoji);
+    const main = el('div', 'item-main');
+    const sub = [daysText(habit.days), habit.remind ? `ingatkan ${habit.remind.replace(':', '.')}` : '', info.streak ? `🔥 ${info.streak} hari` : ''].filter(Boolean).join(' · ');
+    main.append(el('div', 'item-title', habit.name), el('div', 'item-sub', sub));
+    const check = el('button', `btn small${info.done ? ' done' : ''}`, info.done ? 'Selesai ✓' : 'Centang');
+    check.type = 'button';
+    check.disabled = !info.scheduled && !info.done;
+    check.title = info.scheduled ? '' : 'Bukan jadwal hari ini';
+    check.addEventListener('click', async () => {
+      state = await api.habitDone(habit.id, !info.done);
+      renderHabitSettings();
+    });
+    const move = (to) => {
+      const next = [...state.config.habits];
+      [next[i], next[to]] = [next[to], next[i]];
+      saveHabits(next);
+    };
+    row.append(
+      icon,
+      main,
+      check,
+      iconButton('up', 'Naikkan', () => move(i - 1), i === 0),
+      iconButton('down', 'Turunkan', () => move(i + 1), i === state.config.habits.length - 1),
+      iconButton('remove', 'Hapus', () => saveHabits(state.config.habits.filter((h) => h.id !== habit.id))),
+    );
+    list.append(row);
+  });
+  dayPicker($('habit-days'), newHabitDays, (days) => {
+    newHabitDays = days;
+    renderHabitSettings();
+  });
+}
+
+$('habit-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const name = $('habit-name').value.trim();
+  if (!name) return;
+  const habit = { id: uid(), name, emoji: $('habit-emoji').value.trim() || '✅', days: newHabitDays, remind: $('habit-remind').value || '' };
+  saveHabits([...state.config.habits, habit]);
+  $('habit-form').reset();
+  newHabitDays = [0, 1, 2, 3, 4, 5, 6];
+});
+
+// ---------- Sistem & layar ----------
+
+function renderSystemSettings() {
+  const s = state.config.system;
+  $('system-internet').checked = s.internetAlerts;
+  $('system-resources').checked = s.resourceAlerts;
+  if (!$('ocr-shortcut').classList.contains('recording')) $('ocr-shortcut').value = (state.config.ocr.shortcut || '').replace('Control', 'Ctrl');
+  const now = state.systemNow;
+  $('system-now').textContent = now
+    ? [
+        now.online == null ? '' : now.online ? `Internet tersambung${now.ms ? ` (${now.ms} ms)` : ''}` : 'Internet putus',
+        now.cpu != null ? `CPU ${now.cpu}%` : '',
+        now.memory ? `RAM ${now.memory.percent}%` : '',
+        now.disk ? `Disk ${now.disk.drive} terpakai ${now.disk.percent}%` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
+}
+
+$('system-internet').addEventListener('change', (e) => save({ system: { ...state.config.system, internetAlerts: e.target.checked } }));
+$('system-resources').addEventListener('change', (e) => save({ system: { ...state.config.system, resourceAlerts: e.target.checked } }));
+shortcutRecorder($('ocr-shortcut'), renderSystemSettings, (combo) => save({ ocr: { ...state.config.ocr, shortcut: combo } }));
+
 // ---------- Statistik ----------
 
 function fmtDuration(ms) {
@@ -635,7 +808,7 @@ function renderStats() {
   const table = $('stats-table');
   table.replaceChildren();
   const head = el('tr');
-  for (const label of ['Hari', 'Claude', 'Fokus', 'Tugas', 'Pengingat', 'Aplikasi', 'Lagu favorit']) head.append(el('th', '', label));
+  for (const label of ['Hari', 'Claude', 'Fokus', 'Tugas', 'Kebiasaan', 'Pengingat', 'Aplikasi', 'Lagu favorit']) head.append(el('th', '', label));
   table.append(head);
   const dayFormat = new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
   const week = [...(state.statsWeek ?? [])].reverse();
@@ -647,6 +820,7 @@ function renderStats() {
       el('td', '', fmtDuration(d.claudeMs)),
       el('td', '', String(d.focus || '–')),
       el('td', '', String(d.todos || '–')),
+      el('td', '', String(d.habits || '–')),
       el('td', '', String(d.reminders || '–')),
       el('td', '', String(d.apps || '–')),
       el('td', 'song', d.top ? d.top[0] : '–'),
@@ -915,30 +1089,33 @@ $('autostart').addEventListener('change', async (e) => {
 });
 
 // Rekam tombol pintas: minimal satu modifier + satu tombol biasa.
-const shortcutInput = $('shortcut');
-shortcutInput.addEventListener('focus', () => {
-  shortcutInput.classList.add('recording');
-  shortcutInput.value = 'Tekan kombinasi…';
-});
-shortcutInput.addEventListener('blur', () => {
-  shortcutInput.classList.remove('recording');
-  renderDisplay();
-});
-shortcutInput.addEventListener('keydown', (event) => {
-  event.preventDefault();
-  if (event.key === 'Escape') return shortcutInput.blur();
-  const mods = [];
-  if (event.ctrlKey) mods.push('Control');
-  if (event.altKey) mods.push('Alt');
-  if (event.shiftKey) mods.push('Shift');
-  if (event.metaKey) mods.push('Super');
-  let key = event.key;
-  if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return;
-  if (key === ' ') key = 'Space';
-  else if (key.length === 1) key = key.toUpperCase();
-  if (!mods.length) return;
-  save({ shortcut: [...mods, key].join('+') }).then(() => shortcutInput.blur());
-});
+function shortcutRecorder(input, rerender, store) {
+  input.addEventListener('focus', () => {
+    input.classList.add('recording');
+    input.value = 'Tekan kombinasi…';
+  });
+  input.addEventListener('blur', () => {
+    input.classList.remove('recording');
+    rerender();
+  });
+  input.addEventListener('keydown', (event) => {
+    event.preventDefault();
+    if (event.key === 'Escape') return input.blur();
+    const mods = [];
+    if (event.ctrlKey) mods.push('Control');
+    if (event.altKey) mods.push('Alt');
+    if (event.shiftKey) mods.push('Shift');
+    if (event.metaKey) mods.push('Super');
+    let key = event.key;
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) return;
+    if (key === ' ') key = 'Space';
+    else if (key.length === 1) key = key.toUpperCase();
+    if (!mods.length) return;
+    store([...mods, key].join('+')).then(() => input.blur());
+  });
+}
+
+shortcutRecorder($('shortcut'), renderDisplay, (combo) => save({ shortcut: combo }));
 
 // ---------- Mulai ----------
 

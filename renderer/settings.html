@@ -35,13 +35,16 @@
           <button type="button" data-section="apps">Aplikasi</button>
           <button type="button" data-section="notifications">Notifikasi</button>
           <button type="button" data-section="reminders">Pengingat</button>
+          <button type="button" data-section="calendar">Kalender</button>
           <button type="button" data-section="focus">Fokus</button>
+          <button type="button" data-section="habits">Kebiasaan</button>
           <button type="button" data-section="claude">Claude Code</button>
           <button type="button" data-section="dev">Dev</button>
           <button type="button" data-section="stats">Statistik</button>
           <button type="button" data-section="voice">Perintah suara</button>
           <button type="button" data-section="chat">Ngobrol</button>
           <button type="button" data-section="weather">Cuaca & baterai</button>
+          <button type="button" data-section="system">Sistem & layar</button>
           <button type="button" data-section="sound">Suara</button>
           <button type="button" data-section="display">Tampilan</button>
         </nav>
@@ -178,6 +181,50 @@
           <div class="card list" id="reminder-list"></div>
         </section>
 
+        <!-- Kalender -->
+        <section data-panel="calendar" hidden>
+          <header>
+            <h1>Kalender</h1>
+            <p>Rapat berikutnya tampil di kapsul dan halaman Agenda. Zeno mengingatkan sebelum mulai, lengkap dengan tombol Gabung untuk Zoom, Google Meet, dan Teams.</p>
+          </header>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kalender</div>
+              <div class="row-sub" id="calendar-status"></div>
+            </div>
+            <button type="button" class="btn small" id="calendar-refresh">Muat ulang</button>
+            <label class="switch"><input type="checkbox" id="calendar-enabled" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Ingatkan sebelum rapat</div>
+              <div class="row-sub">Kartu muncul sekali per acara. Acara seharian tidak diingatkan.</div>
+            </div>
+            <select id="calendar-remind">
+              <option value="0">Jangan ingatkan</option>
+              <option value="1">1 menit sebelum</option>
+              <option value="5">5 menit sebelum</option>
+              <option value="10">10 menit sebelum</option>
+              <option value="15">15 menit sebelum</option>
+              <option value="30">30 menit sebelum</option>
+            </select>
+          </div>
+
+          <h2>Kalender tersambung</h2>
+          <div class="card list" id="calendar-list"></div>
+          <form class="card" id="calendar-form">
+            <div class="grid-2">
+              <label class="field"><span>Nama</span><input id="calendar-name" maxlength="30" placeholder="mis. Kantor" /></label>
+              <label class="field"><span>Alamat iCal rahasia</span><input id="calendar-url" type="password" required placeholder="https://… .ics" autocomplete="off" spellcheck="false" /></label>
+            </div>
+            <p class="small error-text" id="calendar-error"></p>
+            <div class="actions-row"><button type="submit" class="btn primary" id="calendar-add">Sambungkan</button></div>
+            <p class="muted small"><b>Google Calendar:</b> di calendar.google.com buka ⚙ Setelan › pilih kalendermu di kiri › <i>Integrasikan kalender</i> › salin <i>Alamat rahasia dalam format iCal</i>.</p>
+            <p class="muted small"><b>Outlook / Microsoft 365:</b> di outlook.office.com buka ⚙ Pengaturan › Kalender › <i>Kalender bersama</i> › <i>Publikasikan kalender</i> › pilih kalender dan <i>Dapat melihat semua detail</i> › Publikasikan › salin tautan <b>ICS</b>.</p>
+            <p class="muted small">Alamat ini seperti kunci baca kalendermu: disimpan terenkripsi oleh Windows di laptop ini dan tidak pernah ditampilkan utuh. Kalender diperbarui tiap 10 menit.</p>
+          </form>
+        </section>
+
         <!-- Fokus -->
         <section data-panel="focus" hidden>
           <header>
@@ -234,6 +281,30 @@
             </div>
             <label class="switch"><input type="checkbox" id="focus-mute" /><span></span></label>
           </div>
+        </section>
+
+        <!-- Kebiasaan -->
+        <section data-panel="habits" hidden>
+          <header>
+            <h1>Kebiasaan</h1>
+            <p>Kebiasaan harian dengan streak. Centang dari halaman Kebiasaan di panel, kartu pengingat, atau suara (“Zeno, sudah olahraga”). Setiap centang memberi Zeno 10 XP.</p>
+          </header>
+          <div class="card list" id="habit-list"></div>
+          <form class="card" id="habit-form">
+            <div class="habit-form-grid">
+              <label class="field"><span>Ikon</span><input id="habit-emoji" maxlength="4" placeholder="🏃" /></label>
+              <label class="field"><span>Kebiasaan</span><input id="habit-name" maxlength="40" required placeholder="mis. Olahraga 15 menit" /></label>
+              <label class="field">
+                <span>Ingatkan jam (opsional)</span>
+                <input id="habit-remind" type="time" class="time-input" />
+              </label>
+            </div>
+            <div class="field">
+              <span>Hari</span>
+              <div class="day-picker" id="habit-days"></div>
+            </div>
+            <div class="actions-row"><button type="submit" class="btn primary">Tambah kebiasaan</button></div>
+          </form>
         </section>
 
         <!-- Claude Code -->
@@ -412,6 +483,36 @@
             <div class="actions-row"><button type="button" class="btn" id="chat-test">Coba tanya Zeno</button></div>
             <p class="small" id="chat-test-result"></p>
           </div>
+        </section>
+
+        <!-- Sistem & layar -->
+        <section data-panel="system" hidden>
+          <header>
+            <h1>Sistem & layar</h1>
+            <p>Ambil teks dari layar, dan kabar soal internet, CPU, RAM, serta disk. Semuanya berjalan di laptop ini.</p>
+          </header>
+          <div class="card row">
+            <div>
+              <div class="row-title">Ambil teks dari layar</div>
+              <div class="row-sub">Tekan tombol pintas, seret kotak di sekitar tulisan (gambar, PDF hasil scan, video), dan teksnya langsung tersalin. Memakai OCR bawaan Windows, offline.</div>
+            </div>
+            <input class="shortcut" id="ocr-shortcut" readonly />
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kabari saat internet putus</div>
+              <div class="row-sub">Juga saat tersambung lagi, lengkap dengan lama putusnya. Diperiksa tiap 15 detik.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="system-internet" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kabari saat laptop kewalahan</div>
+              <div class="row-sub">CPU ≥ 90% selama satu menit, RAM ≥ 90%, atau disk sistem tinggal kurang dari 10%.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="system-resources" /><span></span></label>
+          </div>
+          <p class="muted small" id="system-now"></p>
         </section>
 
         <!-- Cuaca & baterai -->

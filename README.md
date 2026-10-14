@@ -7,9 +7,7 @@ Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama
 - 🎵 **Musik:** judul lagu dan tombol putar/jeda/lanjut untuk Spotify, YouTube di browser, dan pemutar lain.
 - 🔔 **Notifikasi:** notifikasi dari aplikasi lain (WhatsApp, Chrome, Outlook, …) muncul di kapsul, dan kamu bisa memilih aplikasi mana yang boleh masuk.
 - 🚀 **Peluncur dan pencarian aplikasi:** buka aplikasi atau website favorit dengan sekali klik atau tombol 1–9, atau ketik untuk mencari semua aplikasi terpasang.
-- ⏻ **Kontrol cepat:** klik ikon kontrol cepat di sebelah ⏻ untuk menggeser volume dan kecerahan, membisukan suara, serta menyalakan/mematikan Wi-Fi dan Bluetooth. Lewat suara: "Zeno, volume 30", "kecilkan volume", "bisukan", "kecerahan 70", "redupkan layar", "matikan wifi", "nyalakan bluetooth". Kecerahan hanya untuk layar laptop, bukan monitor eksternal.
-
-**Menu daya:** kunci, tidur, mulai ulang, matikan, dan keluar akun (dengan hitung mundur yang bisa dibatalkan).
+- ⏻ **Menu daya:** kunci, tidur, mulai ulang, matikan, dan keluar akun (dengan hitung mundur yang bisa dibatalkan).
 - 🤖 **Claude Code:** Zeno ikut "berpikir" saat Claude bekerja, kamu bisa menjawab izin Claude langsung dari kapsul, dan pesan terakhir Claude muncul saat selesai.
 - ⏰ **Pengingat, Pomodoro, catatan, dan riwayat clipboard.**
 - 🌦️ **Cuaca, tanggal Masehi dan Hijriah, serta peringatan baterai.**
@@ -20,6 +18,10 @@ Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama
 - ⏱️ **Timer dan kalkulator cepat:** ketik `250.000 x 3` atau `timer 10 menit` di kotak cari.
 - 🔊 **Kontrol cepat Windows:** volume, kecerahan layar, Wi-Fi, dan Bluetooth dari panel atau suara.
 - 💬 **Ngobrol dengan Zeno** lewat Claude API (pakai API key milikmu sendiri).
+- 📅 **Rapat berikutnya** dari Google Calendar atau Outlook, dengan pengingat dan tombol **Gabung** untuk Zoom, Meet, dan Teams.
+- 🔍 **Ambil teks dari layar:** seret kotak di atas gambar, PDF hasil scan, atau video, dan teksnya langsung tersalin (offline).
+- 📶 **Monitor sistem & internet:** CPU, RAM, disk, dan kabar saat internet putus atau tersambung lagi.
+- 🔥 **Kebiasaan harian:** centang kebiasaan, jaga streak, dan Zeno dapat XP.
 - 🎭 **Maskot hidup:** puluhan ekspresi, mata mengikuti kursor, suara-suara kecil, dan kostum musiman (peci saat Jumat dan Ramadan, ketupat saat Lebaran, merah putih saat 17 Agustus, topi pesta saat ulang tahunmu).
 
 > Zenopod saat ini **hanya untuk Windows 10/11**.
@@ -96,13 +98,17 @@ Setelah itu, buka **Pengaturan** (lihat di bawah) untuk memilih aplikasi di pelu
 
 ### Kapsul kecil
 
-- **Berganti isi sendiri** setiap 5 detik: jam, lagu, cuaca, pengingat, tugas, notifikasi, dan sapaan.
+- **Berganti isi sendiri** setiap 5 detik: jam, rapat berikutnya, lagu, cuaca, pengingat, tugas, kebiasaan yang belum dicentang (sore/malam), notifikasi, internet putus, dan sapaan.
 - **Arahkan kursor** ke kapsul untuk membuka panel. Panel menutup sendiri saat kursor pergi.
 - **Klik** kapsul untuk membuka panel dan menahannya tetap terbuka. Tekan **Esc** atau klik di luar untuk menutup.
 - **Seret** kapsul untuk memindahkannya ke mana saja. Lepas di dekat kiri/tengah/kanan atas layar supaya menempel rapi. Saat panel terbuka, pakai pegangan **⋮⋮** di atas panel.
 - **Klik Zeno** dan lihat reaksinya. Kalau diklik terus, Zeno bisa marah lalu menangis.
 
 ### Panel
+
+**Kontrol cepat:** klik ikon kontrol cepat di sebelah ⏻ untuk menggeser volume dan kecerahan, membisukan suara, serta menyalakan/mematikan Wi-Fi dan Bluetooth. Lewat suara: "Zeno, volume 30", "kecilkan volume", "bisukan", "kecerahan 70", "redupkan layar", "matikan wifi", "nyalakan bluetooth". Kecerahan hanya untuk layar laptop, bukan monitor eksternal.
+
+**Ambil teks dari layar:** klik ikon pindai di bawah panel (atau `Ctrl` + `Alt` + `O`), lalu seret kotak di sekitar tulisan.
 
 **Menu daya:** klik ikon ⏻ di bawah panel. **Kunci** dan **Tidur** langsung berjalan. **Mulai ulang**, **Matikan**, dan **Keluar akun** menunggu 10 detik (tekan **Batal** untuk membatalkan, atau tutup panel). Aplikasi yang punya pekerjaan belum disimpan tetap bisa menahan Windows. Lewat suara: "Zeno, matikan laptop", "restart", "kunci layar", atau "mode tidur". Untuk mematikan dan memulai ulang, muncul kartu konfirmasi dulu.
 
@@ -114,9 +120,12 @@ Setelah itu, buka **Pengaturan** (lihat di bawah) untuk memilih aplikasi di pelu
 | Musik | Lagu yang diputar dan kontrolnya |
 | Sapaan | Selamat pagi/siang/sore/malam |
 | Tanggal & jam | Jam, tanggal Masehi dan Hijriah |
+| Agenda | 3 acara berikutnya dan tombol **Gabung** rapat online (kalau kalender disambungkan) |
 | Cuaca | Suhu, kondisi, perkiraan 3 jam (kalau cuaca diaktifkan) |
-| Hari ini | Pengingat berikutnya, tugas, sesi fokus, dan statistik hari ini |
+| Hari ini | Pengingat berikutnya, rapat berikutnya, tugas, sesi fokus, dan statistik hari ini |
+| Kebiasaan | Kebiasaan hari ini: klik untuk mencentang, 🔥 = streak (kalau sudah ada kebiasaan) |
 | Zeno | Peliharaanmu: rasa kenyang, level, tombol beri makan (🍪 🍎 🍙) dan ajak main |
+| Sistem | Internet (tersambung/putus, waktu respons), CPU, RAM, dan sisa disk |
 
 **Tab di bawahnya:**
 
@@ -151,6 +160,35 @@ Lewat suara: "Zeno, berapa 250 ribu kali 3", "timer 10 menit", "batalkan timer".
 
 Halaman **Hari ini** menampilkan waktu fokus, tugas selesai, dan lagu yang paling sering diputar hari ini. Setiap malam (bawaan jam 20.00) Zeno mengirim ringkasan hari itu. Riwayat 7 hari ada di Pengaturan › **Statistik**. Lewat suara: "Zeno, statistik hari ini".
 
+### Ambil teks dari layar
+
+1. Tekan `Ctrl` + `Alt` + `O`, klik ikon pindai di bawah panel, atau bilang "Zeno, ambil teks".
+2. Layar membeku. Seret kotak di sekitar tulisan (**Esc** atau klik kanan = batal).
+3. Teksnya langsung tersalin, siap ditempel. Kartu Zeno menampilkan cuplikannya.
+
+Memakai OCR bawaan Windows, jadi offline dan gratis. Cocok untuk gambar, PDF hasil scan, slide di video, atau pesan error yang tidak bisa diseleksi.
+
+### Kebiasaan harian
+
+- Tambahkan kebiasaan di Pengaturan › **Kebiasaan**: ikon, nama, hari (setiap hari, hari kerja, atau pilih sendiri), dan jam pengingat (opsional).
+- Centang dari halaman **Kebiasaan** di panel, tombol **Sudah** di kartu pengingat, atau suara: "Zeno, sudah olahraga".
+- 🔥 **Streak** = hari terjadwal berturut-turut yang dicentang. Hari yang tidak dijadwalkan tidak memutus streak, dan hari ini baru dihitung putus besok.
+- Setiap kebiasaan yang dicentang memberi Zeno 10 XP (sekali per hari).
+
+### Rapat dan agenda
+
+Setelah kalender disambungkan (lihat [bagian 6](#6-menyiapkan-fitur-khusus)):
+
+- Rapat 2 jam ke depan tampil di kapsul, dan 3 acara berikutnya di halaman **Agenda**.
+- 10 menit sebelum mulai (bisa diatur), Zeno memunculkan kartu rapat. Kalau ada link Zoom, Google Meet, Teams, atau Webex, tekan **Gabung**.
+- Lewat suara: "Zeno, jadwal hari ini" atau "ada rapat besok?".
+
+### Sistem & internet
+
+- Internet dicek tiap 15 detik. Saat putus, Zeno sedih dan kapsul menampilkan "Internet putus". Saat tersambung lagi, Zeno memberi tahu berapa lama tadi putus.
+- Zeno memberi tahu saat CPU ≥ 90% selama satu menit, RAM ≥ 90%, atau disk sistem tinggal kurang dari 10%.
+- Lewat suara: "Zeno, internetnya nyala?" atau "status laptop".
+
 ### Istirahat sehat
 
 - **Mata:** setiap 20 menit di depan layar, Zeno mengajak memandang sesuatu sekitar 6 meter selama 20 detik.
@@ -164,6 +202,7 @@ Pengingat tidak muncul saat laptop tidak dipakai, dan bisa diatur atau dimatikan
 |---|---|
 | `Ctrl` + `Alt` + `K` | Buka/tutup panel |
 | `Ctrl` + `Alt` + `Z` | Perintah suara (bicara, lalu diam sebentar) |
+| `Ctrl` + `Alt` + `O` | Ambil teks dari layar |
 | `1` – `9` (saat panel terbuka) | Jalankan aplikasi ke-1 sampai ke-9 |
 | `Spasi` (saat panel terbuka) | Putar/jeda musik |
 | `←` `→` (saat panel terbuka) | Pindah halaman kartu atas |
@@ -184,13 +223,16 @@ Buka dari tombol **Pengaturan** di bawah panel, atau klik kanan ikon tray › **
 | **Aplikasi** | **Tambah aplikasi** (pilih dari daftar aplikasi terpasang), **Tambah website**, atur urutan ↑↓, hapus |
 | **Notifikasi** | Kartu notifikasi baru dan lama tampilnya, saklar per aplikasi (aplikasi muncul setelah notifikasi pertamanya masuk), riwayat clipboard |
 | **Pengingat** | Judul, tanggal, jam, dan pengulangan: sekali, setiap hari, atau hari kerja |
+| **Kalender** | Sambungkan Google Calendar / Outlook, kapan diingatkan sebelum rapat |
 | **Fokus** | Durasi fokus, istirahat, dan istirahat panjang; istirahat otomatis; tahan notifikasi saat fokus; pengingat istirahat mata dan minum air |
+| **Kebiasaan** | Tambah, urutkan, hapus kebiasaan; hari dan jam pengingat; centang hari ini |
 | **Statistik** | Tabel 7 hari terakhir, ringkasan harian dan jamnya |
 | **Claude Code** | Pasang/lepas hook, jawab izin dari Zenopod, kartu Claude |
 | **Dev** | Daftar server lokal (website atau port) dan folder project Git yang dipantau |
 | **Ngobrol** | API key Claude, pilihan model, tombol coba |
 | **Perintah suara** | Unduh mesin suara, tombol pintas, suara jawaban Zeno, kecepatan dan nada |
 | **Cuaca & baterai** | Pilih kota, kabar saat hujan, peringatan baterai |
+| **Sistem & layar** | Tombol pintas ambil teks, kabar internet putus, kabar CPU/RAM/disk |
 | **Suara** | Saklar utama, volume, saklar per kategori, dan tombol ▶ untuk mendengarkan tiap suara |
 | **Tampilan** | Posisi, kostum Zeno (otomatis atau pilih sendiri), tombol pintas panel, versi dan **Cek pembaruan**, **Jalankan saat Windows mulai** |
 
@@ -233,6 +275,24 @@ Tanpa suara itu, jawaban Zeno tetap muncul sebagai kartu.
 
 Pengaturan › **Cuaca & baterai** › ketik nama kota › **Cari kota** › pilih. Halaman Cuaca langsung muncul di panel.
 
+### 📅 Kalender (Google Calendar / Outlook)
+
+Zenopod membaca kalender lewat **alamat iCal rahasia** (hanya-baca, tanpa login):
+
+**Google Calendar**
+1. Buka [calendar.google.com](https://calendar.google.com/) › ⚙ **Setelan**.
+2. Di kiri, pilih kalendermu › **Integrasikan kalender**.
+3. Salin **Alamat rahasia dalam format iCal** (berakhiran `basic.ics`).
+
+**Outlook / Microsoft 365**
+1. Buka [outlook.office.com](https://outlook.office.com/) › ⚙ **Pengaturan** › **Kalender** › **Kalender bersama**.
+2. Di **Publikasikan kalender**, pilih kalender dan **Dapat melihat semua detail**, lalu **Publikasikan**.
+3. Salin tautan **ICS**.
+
+Lalu di Zenopod: Pengaturan › **Kalender** › isi nama dan alamatnya › **Sambungkan**. Bisa lebih dari satu kalender. Kalender diperbarui tiap 10 menit.
+
+> Alamat iCal rahasia seperti kunci baca kalendermu. Zenopod menyimpannya terenkripsi dan tidak pernah menampilkannya utuh. Kalau alamatnya bocor, buat ulang di Google/Outlook (alamat lama langsung mati), lalu sambungkan lagi.
+
 ### 💬 Ngobrol dengan Zeno
 
 Zeno menjawab pertanyaan singkat memakai Claude API. Kamu butuh API key sendiri, dan pemakaiannya **berbayar** sesuai tarif Anthropic (ditagih ke akunmu, bukan ke Zenopod).
@@ -265,6 +325,9 @@ Hook ditambahkan ke `%USERPROFILE%\.claude\settings.json` tanpa mengubah hook la
 - **Lokal:** semua data tersimpan di laptopmu: pengaturan di `config.json` (versi installer: `%APPDATA%\kapsul`, versi kode sumber: folder Zenopod), statistik dan peliharaan di `%APPDATA%\kapsul\stats.json`. Tidak ada akun dan tidak ada server Zenopod.
 - **Ngobrol:** hanya pertanyaan yang kamu kirim ke Zeno (dan percakapan 10 menit terakhir) yang dikirim ke Anthropic. Mati kalau tidak ada API key.
 - **Pembaruan:** versi installer mengecek GitHub Releases tiap 6 jam.
+- **Kalender:** Zenopod hanya mengunduh file kalender dari Google/Outlook. Alamatnya disimpan terenkripsi oleh Windows.
+- **Ambil teks:** gambar potongan layar diproses OCR Windows di laptop ini lalu langsung dihapus. Teksnya hanya masuk clipboard.
+- **Internet:** dicek ke alamat uji koneksi Microsoft (`msftconnecttest.com`), yang juga dipakai Windows untuk ikon jaringan.
 - **Suara:** diproses offline oleh whisper.cpp dan tidak pernah dikirim ke internet. Mikrofon hanya menyala selama Zeno mendengar.
 - **Notifikasi dan clipboard:** hanya dibaca untuk ditampilkan. Riwayat clipboard hanya ada di memori (hilang saat Zenopod ditutup), dan salinan dari password manager dilewati.
 - **Cuaca:** yang dikirim ke [Open-Meteo](https://open-meteo.com/) hanya nama kota yang kamu cari dan koordinatnya.
@@ -278,6 +341,9 @@ Hook ditambahkan ke `%USERPROFILE%\.claude\settings.json` tanpa mengubah hook la
 | "Windows protected your PC" saat memasang | Installer belum ditandatangani. Klik **More info › Run anyway** |
 | Ngobrol: "API key Claude tidak valid" | Periksa key di Pengaturan › Ngobrol, atau buat key baru di console.anthropic.com |
 | Ngobrol: saldo habis | Isi saldo di console.anthropic.com › Billing |
+| Kalender: "alamat tidak valid atau sudah diganti" | Salin ulang alamat iCal rahasia (Google) atau tautan ICS (Outlook). Alamat lama mati kalau pernah dibuat ulang |
+| Rapat tidak muncul | Pastikan kalendernya yang benar disambungkan, lalu Pengaturan › Kalender › **Muat ulang**. Outlook bisa butuh beberapa menit sampai perubahan terbit |
+| Ambil teks: "Paket OCR Windows belum ada" | Tambahkan bahasa Inggris di Pengaturan Windows › Waktu & bahasa › Bahasa & wilayah |
 | Kecerahan tidak berubah | Hanya layar laptop yang didukung; monitor eksternal diatur dari tombol monitornya |
 | `npm` atau `node` tidak dikenali | Node.js belum terpasang, atau PowerShell dibuka sebelum Node.js terpasang. Pasang Node.js, lalu buka PowerShell baru |
 | Setelah `npm start` tidak muncul apa-apa | Lihat pesan error di PowerShell. Pastikan `npm install` sudah selesai tanpa error |
@@ -321,13 +387,16 @@ Kalau memakai ZIP: unduh ZIP terbaru, lalu salin `config.json` dari folder lama 
 ```text
 main.js              Proses utama Electron: jendela kapsul, kartu, tray, shortcut, Pengaturan
 bridge.ps1           Helper PowerShell (WinRT): musik, notifikasi Windows, suara Zeno (TTS),
-                     volume, kecerahan, Wi-Fi, Bluetooth
+                     volume, kecerahan, Wi-Fi, Bluetooth, OCR
 lib/
   config.js          Baca/tulis config.json
   paths.js           Lokasi file (kode sumber vs versi terpasang)
   stats.js           Statistik harian dan Zeno peliharaan (stats.json)
   calc.js            Kalkulator aman (tanpa eval) dan pengurai durasi timer
   chat.js            Ngobrol lewat Claude API (@anthropic-ai/sdk)
+  calendar.js        Kalender dari alamat iCal (node-ical): acara berulang, link rapat
+  habits.js          Kebiasaan & streak
+  sysmon.js          CPU, RAM, disk, dan cek internet
   apps.js            Peluncur dan daftar aplikasi terpasang
   claude.js          Server hook Claude Code (127.0.0.1:47821) dan pemasang hook
   commands.js        Pengurai perintah suara (bahasa Indonesia)
@@ -346,6 +415,8 @@ start.js             Menjalankan Electron tanpa ELECTRON_RUN_AS_NODE (diset oleh
 
 - Untuk diagnosa, jalankan dengan variabel `KAPSUL_DEBUG` berisi path file log. Lognya mencatat kapan helper PowerShell mulai, error-nya, dan kapan ia keluar.
 - Mesin suara diunduh ke `vendor/whisper` (tidak masuk Git; versi terpasang: `%APPDATA%\kapsul\whisper`).
+
+- Mencoba versi kode di samping versi terpasang: isi variabel `ZENOPOD_DATA_DIR` dengan folder lain. Config, statistik, dan kunci tunggal (single instance) ikut pindah ke sana, jadi keduanya bisa jalan bersamaan.
 
 ### Membuat installer dan rilis
 

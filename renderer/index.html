@@ -85,6 +85,13 @@
                 <div class="page-sub" id="clock-date"></div>
                 <div class="page-sub dim" id="clock-hijri"></div>
               </div>
+              <div class="page agenda-page" data-page="agenda" aria-label="Agenda">
+                <div class="agenda-head">
+                  <span class="page-kicker" id="agenda-kicker">Agenda</span>
+                  <button type="button" class="agenda-join" id="agenda-join" hidden>Gabung</button>
+                </div>
+                <ul class="agenda-list" id="agenda-list"></ul>
+              </div>
               <div class="page" data-page="weather" aria-label="Cuaca">
                 <div class="page-kicker" id="weather-city"></div>
                 <div class="weather-main">
@@ -100,6 +107,10 @@
                 <div class="page-kicker">Hari ini</div>
                 <ul class="today-list" id="today-list"></ul>
               </div>
+              <div class="page habits-page" data-page="habits" aria-label="Kebiasaan">
+                <div class="page-kicker" id="habits-kicker">Kebiasaan hari ini</div>
+                <div class="habit-chips" id="habit-chips"></div>
+              </div>
               <div class="page pet-page" data-page="pet" aria-label="Zeno">
                 <div class="pet-head">
                   <span class="pet-level" id="pet-level"></span>
@@ -113,6 +124,12 @@
                   <button type="button" data-food="rice" title="Nasi (+40)">🍙</button>
                   <button type="button" class="pet-play" id="pet-play">Main</button>
                 </div>
+              </div>
+              <div class="page system-page" data-page="system" aria-label="Sistem">
+                <div class="system-net" id="system-net"></div>
+                <div class="pet-bar"><span>CPU</span><i><b id="system-cpu"></b></i><em id="system-cpu-text"></em></div>
+                <div class="pet-bar"><span>RAM</span><i><b id="system-ram"></b></i><em id="system-ram-text"></em></div>
+                <div class="pet-bar"><span id="system-disk-label">Disk</span><i><b id="system-disk"></b></i><em id="system-disk-text"></em></div>
               </div>
             </div>
           </div>
@@ -239,6 +256,9 @@
                 <svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" /><rect class="mark" x="8" y="4" width="5" height="2" rx="1" /></svg>
               </button>
             </div>
+            <button type="button" class="icon-link" id="snip-btn" title="Ambil teks dari layar" aria-label="Ambil teks dari layar">
+              <svg viewBox="0 0 16 16"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.5 6.5h5M5.5 9.5h3.5" /></svg>
+            </button>
             <button type="button" class="icon-link" id="quick-btn" title="Kontrol cepat" aria-label="Kontrol cepat">
               <svg viewBox="0 0 16 16"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7" /><circle cx="11" cy="4.5" r="1.6" /><circle cx="5" cy="11.5" r="1.6" /></svg>
             </button>

@@ -6,15 +6,17 @@ if (process.argv.includes('--zenopod-hook')) {
   return;
 }
 
-const { app, BrowserWindow, Tray, Menu, clipboard, dialog, globalShortcut, ipcMain, nativeImage, screen, session, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, nativeImage, screen, session, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 // Folder data selalu %APPDATA%\kapsul (dari kode maupun versi terpasang "Zenopod"),
 // supaya config, statistik, dan token hook Claude tetap di tempat yang sama.
-app.setPath('userData', path.join(app.getPath('appData'), 'kapsul'));
+// ZENOPOD_DATA_DIR = folder lain (untuk mencoba versi kode di samping versi terpasang).
+app.setPath('userData', process.env.ZENOPOD_DATA_DIR || path.join(app.getPath('appData'), 'kapsul'));
 
 const { CONFIG_FILE, DEFAULT_OFFSET, normalize, readConfig, writeConfig } = require('./lib/config');
 const paths = require('./lib/paths');
@@ -31,6 +33,9 @@ const season = require('./lib/season');
 const weather = require('./lib/weather');
 const voice = require('./lib/voice');
 const commands = require('./lib/commands');
+const calendar = require('./lib/calendar');
+const sysmon = require('./lib/sysmon');
+const habits = require('./lib/habits');
 
 const SIZE = {
   collapsed: { width: 236, height: 40 },
@@ -336,6 +341,12 @@ function peekAction(id, action) {
     }
   } else if (peek.kind === 'timer') {
     if (action === 'again') startTimer(peek.ref.total, peek.ref.label);
+  } else if (peek.kind === 'meeting') {
+    if (action === 'join') openMeeting(peek.ref);
+  } else if (peek.kind === 'habit') {
+    if (action === 'done') habitDone(peek.ref, true);
+  } else if (peek.kind === 'ocr') {
+    if (action === 'again') setTimeout(startSnip, 300);
   } else if (peek.kind === 'power') {
     if (action === 'confirm') power(peek.ref);
   } else if (peek.kind === 'focus') {
@@ -359,6 +370,7 @@ async function loadConfig() {
   config = readConfig(config);
   registerShortcut();
   registerVoiceShortcut();
+  registerOcrShortcut();
   if (win) win.setBounds(boundsFor(currentState()));
   tray?.setContextMenu(buildTrayMenu());
   items = await apps.resolveItems(config.apps);
@@ -367,10 +379,12 @@ async function loadConfig() {
   sendReminders();
   sendTodos();
   syncClipboard();
+  sendHabits();
   if (devTimers) {
     pollServices();
     pollGit();
     pollWeather();
+    pollCalendarIfChanged();
   }
   settingsWin?.webContents.send('settings:changed');
 }
@@ -475,6 +489,8 @@ function handleBridge(message) {
     send('kapsul:quick-state', quickState);
   } else if (message.type === 'speech') {
     send('kapsul:speech', message.data);
+  } else if (message.type === 'ocr') {
+    onOcr(message);
   }
 }
 
@@ -1084,17 +1100,41 @@ async function runVoiceCommand(heard) {
       const s = summaryText();
       return reply(heard, `${s.title}. ${s.body}`, 'happy');
     }
-    default:
-      // Bukan perintah: tanya Zeno (Claude) kalau sudah diatur.
-      if (chatReady()) {
-        try {
-          return showAnswer(heard, await askZeno(heard));
-        } catch (error) {
-          return reply(heard, error.message, 'confused');
-        }
+    case 'habit': {
+      const found = habits.findByText(config.habits, intent.text);
+      if (found) {
+        const after = habitDone(found.id, true);
+        return reply(heard, `Mantap! ${found.name} tercatat${after?.streak > 1 ? `, ${after.streak} hari berturut-turut` : ''}.`, 'laugh');
       }
-      return reply(heard, `Maaf, aku belum paham “${heard}”.`, 'confused');
+      if (/\bminum\b/.test(intent.text)) {
+        statsAdd('water');
+        return reply(heard, 'Sip, minum air tercatat.', 'happy');
+      }
+      if (chatReady()) return fallbackAnswer(heard);
+      return reply(heard, `Kebiasaan “${intent.text}” belum ada. Tambahkan di Pengaturan › Kebiasaan ya.`, 'confused');
+    }
+    case 'ocr':
+      setTimeout(startSnip, 400);
+      return reply(heard, 'Seret kotak di sekitar teksnya ya.', 'wink');
+    case 'agenda':
+      return reply(heard, agendaText(intent.tomorrow), 'clock');
+    case 'system':
+      return reply(heard, systemText(intent.what), systemState.online === false ? 'cry' : 'happy');
+    default:
+      return fallbackAnswer(heard);
   }
+}
+
+// Bukan perintah: tanya Zeno (Claude) kalau sudah diatur.
+async function fallbackAnswer(heard) {
+  if (chatReady()) {
+    try {
+      return showAnswer(heard, await askZeno(heard));
+    } catch (error) {
+      return reply(heard, error.message, 'confused');
+    }
+  }
+  return reply(heard, `Maaf, aku belum paham “${heard}”.`, 'confused');
 }
 
 ipcMain.handle('kapsul:audio', async (_event, wav) => {
@@ -1158,10 +1198,10 @@ function askPower(action, heard) {
 // ---------- Update otomatis (versi terpasang, dari GitHub Releases) ----------
 
 let updater = null;
-let updateStatus = { state: app.isPackaged ? 'idle' : 'dev', version: null };
+let updateStatus = { state: paths.packaged ? 'idle' : 'dev', version: null };
 
 function setupUpdates() {
-  if (!app.isPackaged) return;
+  if (!paths.packaged) return;
   const { autoUpdater } = require('electron-updater');
   updater = autoUpdater;
   autoUpdater.autoDownload = true;
@@ -1428,6 +1468,7 @@ function summaryText() {
     d.claudeMs ? `Claude ${duration(d.claudeMs)}` : '',
     d.focus ? `${d.focus} fokus` : '',
     d.todos ? `${d.todos} tugas selesai` : '',
+    d.habits ? `${d.habits} kebiasaan` : '',
     d.reminders ? `${d.reminders} pengingat` : '',
   ].filter(Boolean);
   return {
@@ -1457,6 +1498,347 @@ function tickStats() {
     showSummary();
   }
   sendStats();
+}
+
+// ---------- Kalender (alamat iCal Google / Outlook) ----------
+
+let calendarState = { events: [], errors: {}, checkedAt: null };
+let calendarKey = null;
+const calendarReminded = new Set();
+
+const calendarFeeds = () => config.calendar.feeds.map((f) => ({ id: f.id, name: f.name, url: chat.decryptKey(f.urlEnc) }));
+
+function sendCalendar() {
+  const now = Date.now();
+  const connected = config.calendar.enabled && config.calendar.feeds.length > 0;
+  send('kapsul:calendar', { connected, events: calendarState.events.filter((e) => e.end > now).slice(0, 10) });
+}
+
+async function pollCalendar() {
+  const feeds = config.calendar.enabled ? calendarFeeds() : [];
+  if (!feeds.length) {
+    calendarState = { events: [], errors: {}, checkedAt: null };
+  } else {
+    const result = await calendar.upcoming(feeds);
+    // Semua gagal (mis. internet putus sebentar) = pakai daftar terakhir.
+    const failedAll = Object.keys(result.errors).length === feeds.length;
+    calendarState = {
+      events: failedAll ? calendarState.events : result.events,
+      errors: result.errors,
+      checkedAt: Date.now(),
+    };
+    if (Object.keys(result.errors).length) debugLog('kalender: ' + JSON.stringify(result.errors));
+  }
+  sendCalendar();
+  settingsWin?.webContents.send('settings:changed');
+}
+
+// Muat ulang hanya bila daftar kalender berubah (loadConfig dipanggil tiap kali config disimpan).
+function pollCalendarIfChanged() {
+  const key = JSON.stringify([config.calendar.enabled, config.calendar.feeds.map((f) => f.id + f.urlEnc)]);
+  if (key === calendarKey) return;
+  calendarKey = key;
+  pollCalendar();
+}
+
+const isMeetingLink = (url) => /^https:\/\//i.test(String(url ?? ''));
+
+function openMeeting(url) {
+  if (isMeetingLink(url)) shell.openExternal(url);
+  setExpanded(false);
+}
+
+// Kartu rapat beberapa menit sebelum mulai (sekali per acara), dengan tombol Gabung kalau ada link.
+function checkCalendar() {
+  const lead = Number(config.calendar.remindMinutes) || 0;
+  const now = Date.now();
+  sendCalendar();
+  if (!lead) return;
+  for (const e of calendarState.events) {
+    if (e.allDay || calendarReminded.has(e.id)) continue;
+    if (e.start - now > lead * 60_000 || e.start < now - 60_000) continue;
+    calendarReminded.add(e.id);
+    const minutes = Math.max(0, Math.round((e.start - now) / 60_000));
+    showPeek({
+      kind: 'meeting',
+      mood: 'alarm',
+      sound: 'alarm',
+      app: `${e.calendar} · ${hhmm(new Date(e.start))}–${hhmm(new Date(e.end))}`,
+      title: e.title,
+      body: [minutes ? `Mulai ${minutes} menit lagi` : 'Mulai sekarang', e.link ? '' : e.location].filter(Boolean).join(' · '),
+      sticky: true,
+      ref: e.link,
+      actions: e.link
+        ? [
+            { id: 'later', label: 'Nanti' },
+            { id: 'join', label: 'Gabung', primary: true },
+          ]
+        : [{ id: 'ok', label: 'Oke', primary: true }],
+    });
+  }
+}
+
+// Jawaban suara "jadwal hari ini" / "rapat besok".
+function agendaText(tomorrow = false) {
+  if (!config.calendar.feeds.length) return 'Kalender belum disambungkan. Tambahkan di Pengaturan › Kalender ya.';
+  const now = new Date();
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (tomorrow ? 1 : 0));
+  const dayEnd = day.getTime() + 86_400_000;
+  const list = calendarState.events.filter((e) => e.start < dayEnd && e.end > Math.max(day.getTime(), tomorrow ? 0 : now.getTime()));
+  const when = tomorrow ? 'Besok' : 'Hari ini';
+  if (!list.length) return `${when} tidak ada acara lagi.`;
+  const parts = list.slice(0, 4).map((e) => (e.allDay ? `${e.title} (seharian)` : `${e.title} jam ${hhmm(new Date(e.start))}`));
+  return `${when} ada ${list.length} acara: ${parts.join(', ')}${list.length > 4 ? ', dan lainnya' : ''}.`;
+}
+
+// ---------- Ambil teks dari layar (OCR) ----------
+// Tangkap layar di bawah kursor → jendela pilih area → potong → OCR Windows (bridge.ps1) → clipboard.
+
+let snipWin = null;
+let snipShot = null; // { image, display }
+let ocrShortcut = null;
+const ocrJobs = new Map(); // id → file gambar sementara
+
+function registerOcrShortcut() {
+  const wanted = config.ocr.shortcut || null;
+  if (ocrShortcut === wanted) return;
+  if (ocrShortcut) globalShortcut.unregister(ocrShortcut);
+  ocrShortcut = null;
+  if (!wanted) return;
+  try {
+    if (globalShortcut.register(wanted, () => startSnip())) ocrShortcut = wanted;
+    else console.warn(`Shortcut ambil teks ${wanted} sudah dipakai aplikasi lain.`);
+  } catch (error) {
+    console.warn(`Shortcut ambil teks ${wanted} tidak valid:`, error.message);
+  }
+}
+
+async function startSnip() {
+  if (snipWin) return snipWin.focus();
+  setExpanded(false);
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const size = { width: Math.round(display.bounds.width * display.scaleFactor), height: Math.round(display.bounds.height * display.scaleFactor) };
+  // Kapsul disembunyikan sebentar supaya tidak ikut tertangkap.
+  win?.setOpacity(0);
+  let sources = [];
+  try {
+    sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
+  } catch (error) {
+    debugLog('tangkap layar gagal: ' + error.message);
+  } finally {
+    win?.setOpacity(1);
+  }
+  const source = sources.find((s) => String(s.display_id) === String(display.id)) ?? (sources.length === 1 ? sources[0] : null);
+  if (!source || source.thumbnail.isEmpty()) {
+    showPeek({ kind: 'ocr', mood: 'confused', app: 'Ambil teks', title: 'Layar tidak bisa ditangkap', body: 'Coba lagi sebentar lagi.', seconds: 6 });
+    return;
+  }
+  snipShot = { image: source.thumbnail, display };
+  snipWin = new BrowserWindow({
+    ...display.bounds,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    alwaysOnTop: true,
+    show: false,
+    backgroundColor: '#000000',
+    webPreferences: { preload: path.join(__dirname, 'preload-snip.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  snipWin.setAlwaysOnTop(true, 'screen-saver');
+  snipWin.loadFile(path.join(__dirname, 'renderer', 'snip.html'));
+  snipWin.webContents.once('did-finish-load', () => {
+    snipWin?.webContents.send('snip:image', snipShot.image.toDataURL());
+    snipWin?.setBounds(display.bounds);
+    snipWin?.show();
+    snipWin?.focus();
+  });
+  snipWin.on('blur', () => closeSnip());
+  snipWin.on('closed', () => {
+    snipWin = null;
+  });
+}
+
+function closeSnip() {
+  const target = snipWin;
+  snipWin = null;
+  if (target && !target.isDestroyed()) target.destroy();
+}
+
+ipcMain.on('snip:done', (_event, rect) => {
+  const shot = snipShot;
+  snipShot = null;
+  closeSnip();
+  if (!shot || !rect) return;
+  const scale = shot.image.getSize().width / shot.display.bounds.width;
+  const crop = {
+    x: Math.max(0, Math.round(Number(rect.x) * scale)),
+    y: Math.max(0, Math.round(Number(rect.y) * scale)),
+    width: Math.round(Number(rect.width) * scale),
+    height: Math.round(Number(rect.height) * scale),
+  };
+  if (!(crop.width > 4 && crop.height > 4)) return;
+  let image = shot.image.crop(crop);
+  // Teks kecil lebih mudah dibaca OCR kalau gambarnya diperbesar.
+  if (crop.height < 120) image = image.resize({ height: crop.height * 2, quality: 'best' });
+  const id = crypto.randomUUID().slice(0, 8);
+  const file = path.join(os.tmpdir(), `zenopod-ocr-${id}.png`);
+  fs.writeFileSync(file, image.toPNG());
+  ocrJobs.set(id, file);
+  bridgeCommand(`ocr ${id} ${file}`);
+  setTimeout(() => {
+    fs.rmSync(file, { force: true });
+    if (!ocrJobs.delete(id)) return;
+    showPeek({ kind: 'ocr', mood: 'confused', app: 'Ambil teks', title: 'Teksnya tidak terbaca', body: 'Helper Windows tidak menjawab. Coba lagi ya.', seconds: 6 });
+  }, 20_000);
+});
+
+function onOcr(message) {
+  const file = ocrJobs.get(String(message.id));
+  if (!file) return;
+  ocrJobs.delete(String(message.id));
+  // Gambar potongan layar tidak disimpan (bridge juga menghapusnya; ini cadangan).
+  setTimeout(() => fs.rmSync(file, { force: true }), 1000);
+  const ocrPeek = (mood, title, body, extra = {}) =>
+    showPeek({ kind: 'ocr', mood, app: 'Ambil teks dari layar', title, body, seconds: 8, actions: [{ id: 'again', label: 'Ambil lagi' }, { id: 'ok', label: 'Oke', primary: true }], ...extra });
+  if (message.error) {
+    debugLog('ocr gagal: ' + message.error);
+    return message.error === 'no-language'
+      ? ocrPeek('confused', 'Paket OCR Windows belum ada', 'Tambahkan bahasa Inggris di Pengaturan Windows › Waktu & bahasa › Bahasa, lalu coba lagi.')
+      : ocrPeek('confused', 'Teksnya tidak terbaca', 'Coba pilih area yang lebih pas ya.');
+  }
+  const text = String(message.text ?? '').trim();
+  if (!text) return ocrPeek('confused', 'Tidak ada teks di area itu', 'Coba pilih area yang berisi tulisan ya.');
+  clipboard.writeText(text);
+  statsAdd('ocr');
+  const lines = text.split('\n').length;
+  ocrPeek('happy', `Teks tersalin · ${lines} baris`, text.replace(/\s+/g, ' ').slice(0, 160), { sound: 'pop' });
+}
+
+// ---------- Sistem & internet ----------
+
+let systemState = { cpu: null, memory: null, disk: null, online: null, ms: null, offlineSince: null };
+const systemWarned = { cpu: false, memory: false, disk: null };
+let cpuHighTicks = 0;
+let probeFails = 0;
+
+function systemPeek(mood, title, body, sound = 'uhoh') {
+  showPeek({ kind: 'system', mood, sound, app: `${config.buddy.name || 'Zeno'} · Sistem`, title, body, seconds: 9 });
+}
+
+async function pollSystem() {
+  const cpu = sysmon.cpuPercent();
+  const memory = sysmon.memory();
+  const disk = sysmon.disk();
+  const probe = await sysmon.probe();
+  const before = systemState.online;
+  let { online, offlineSince } = systemState;
+
+  // Dua kali gagal berturut-turut baru dianggap putus (satu kali bisa cuma lambat).
+  if (probe.online) {
+    if (before === false && config.system.internetAlerts) {
+      const minutes = Math.max(1, Math.round((Date.now() - offlineSince) / 60_000));
+      systemPeek('laugh', 'Internet tersambung lagi', `Tadi putus sekitar ${minutes} menit.`, 'success');
+    }
+    probeFails = 0;
+    online = true;
+    offlineSince = null;
+  } else if (++probeFails >= 2 && before !== false) {
+    online = false;
+    offlineSince = Date.now() - 15_000;
+    if (before === true && config.system.internetAlerts) systemPeek('cry', 'Internet putus', 'Aku kabari lagi kalau sudah tersambung.');
+  }
+
+  if (config.system.resourceAlerts) {
+    // CPU ≥ 90% selama ±1 menit, RAM ≥ 90%, disk sisa < 10% (sekali sehari).
+    cpuHighTicks = cpu != null && cpu >= 90 ? cpuHighTicks + 1 : 0;
+    if (cpuHighTicks >= 4 && !systemWarned.cpu) {
+      systemWarned.cpu = true;
+      systemPeek('stretch', `CPU sibuk ${cpu}%`, 'Laptop sedang kerja keras. Tutup aplikasi yang tidak dipakai ya.');
+    }
+    if (cpu != null && cpu < 70) systemWarned.cpu = false;
+    if (memory.percent >= 90 && !systemWarned.memory) {
+      systemWarned.memory = true;
+      systemPeek('stretch', `RAM terpakai ${memory.percent}%`, `Sisa ${sysmon.bytes(memory.total - memory.used)}. Tutup tab atau aplikasi yang berat ya.`);
+    }
+    if (memory.percent < 80) systemWarned.memory = false;
+    if (disk && 100 - disk.percent < 10 && systemWarned.disk !== dayKey()) {
+      systemWarned.disk = dayKey();
+      systemPeek('surprised', `Disk ${disk.drive} hampir penuh`, `Sisa ${sysmon.bytes(disk.free)}. Kosongkan Downloads atau Recycle Bin ya.`);
+    }
+  }
+
+  systemState = { cpu: cpu ?? systemState.cpu, memory, disk, online, ms: probe.online ? probe.ms : null, offlineSince };
+  send('kapsul:system', systemState);
+}
+
+function systemText(what) {
+  const s = systemState;
+  if (what === 'internet') {
+    if (s.online == null) return 'Sebentar, aku cek dulu koneksinya.';
+    return s.online ? `Internet tersambung${s.ms ? `, waktu respons ${s.ms} milidetik` : ''}.` : 'Internet sedang putus.';
+  }
+  const parts = [s.cpu != null ? `CPU ${s.cpu}%` : '', s.memory ? `RAM ${s.memory.percent}%` : '', s.disk ? `disk ${s.disk.drive} sisa ${sysmon.bytes(s.disk.free)}` : ''];
+  return `${parts.filter(Boolean).join(', ')}.`;
+}
+
+// ---------- Kebiasaan (streak) ----------
+
+const habitReminded = new Set(); // `${id}:${tanggal}`
+
+function habitList() {
+  return habits.today(config.habits, stats.data.habits);
+}
+
+function sendHabits() {
+  send('kapsul:habits', habitList());
+}
+
+// XP hanya sekali per kebiasaan per hari (centang-batal-centang tidak menambah XP lagi).
+function habitDone(id, done = true) {
+  if (!config.habits.some((h) => h.id === id)) return null;
+  stats.data.habits = habits.setDone(stats.data.habits, id, done);
+  const day = stats.day();
+  day.habitIds ??= [];
+  if (done && !day.habitIds.includes(id)) {
+    day.habitIds.push(id);
+    statsAdd('habits');
+  } else {
+    stats.save();
+  }
+  if (done) send('kapsul:pet-event', { type: 'habit' });
+  sendHabits();
+  settingsWin?.webContents.send('settings:changed');
+  return habitList().find((h) => h.id === id) ?? null;
+}
+
+function checkHabits() {
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  for (const h of habitList()) {
+    const key = `${h.id}:${dayKey(now)}`;
+    if (!h.remind || !h.scheduled || h.done || time < h.remind || habitReminded.has(key)) continue;
+    habitReminded.add(key);
+    showPeek({
+      kind: 'habit',
+      mood: 'happy',
+      sound: 'today',
+      app: `${config.buddy.name || 'Zeno'} · Kebiasaan`,
+      title: `${h.emoji} Sudah ${h.name.toLowerCase()} hari ini?`,
+      body: h.streak ? `Streak ${h.streak} hari, jangan sampai putus!` : 'Yuk mulai streak-nya hari ini.',
+      sticky: true,
+      ref: h.id,
+      actions: [
+        { id: 'later', label: 'Nanti' },
+        { id: 'done', label: 'Sudah', primary: true },
+      ],
+    });
+  }
+  sendHabits(); // ganti hari = status centang ikut berganti
 }
 
 // ---------- Sapaan ----------
@@ -1563,7 +1945,7 @@ function openSettings(section) {
 }
 
 // Dari kode: electron.exe <folder project>. Versi terpasang: Zenopod.exe tanpa argumen.
-const loginArgs = () => (app.isPackaged ? [] : [app.getAppPath()]);
+const loginArgs = () => (paths.packaged ? [] : [app.getAppPath()]);
 
 function autostartEnabled() {
   return app.getLoginItemSettings({ path: process.execPath, args: loginArgs() }).openAtLogin;
@@ -1591,6 +1973,14 @@ function settingsState() {
     chatModels: chat.MODELS,
     chatKeyMask: chat.maskKey(config.chat.apiKeyEnc),
     chatEnvKey: Boolean(process.env.ANTHROPIC_API_KEY),
+    calendarStatus: {
+      checkedAt: calendarState.checkedAt,
+      errors: calendarState.errors,
+      count: calendarState.events.length,
+      next: calendar.nextTimed(calendarState.events),
+    },
+    habitsToday: habitList(),
+    systemNow: systemState,
     ttsVoices,
     ttsAuto: ttsVoice(),
     notificationIcons: Object.fromEntries((config.notifications.seen ?? []).map((s) => [s.name, appIcons[s.app] ?? null])),
@@ -1674,6 +2064,33 @@ ipcMain.handle('settings:chat-test', async () => {
   }
 });
 
+// Alamat iCal = kunci baca kalender: dienkripsi, hanya host-nya yang ditampilkan.
+ipcMain.handle('settings:calendar-add', async (_event, name, url) => {
+  const clean = calendar.normalizeUrl(url);
+  if (!clean) return { ok: false, error: 'Alamat kalender diawali https:// atau webcal:// dan berakhiran .ics.' };
+  const feed = { id: crypto.randomUUID(), name: String(name || '').trim().slice(0, 30) || 'Kalender', url: clean };
+  const test = await calendar.upcoming([feed]);
+  if (test.errors[feed.id]) return { ok: false, error: `Kalender tidak bisa dibaca: ${test.errors[feed.id]}.` };
+  try {
+    const stored = { id: feed.id, name: feed.name, host: new URL(clean).host, urlEnc: chat.encryptKey(clean) };
+    saveConfig({ ...config, calendar: { ...config.calendar, enabled: true, feeds: [...config.calendar.feeds, stored] } });
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+  await loadConfig();
+  return { ok: true, state: settingsState() };
+});
+
+ipcMain.handle('settings:calendar-refresh', async () => {
+  await pollCalendar();
+  return settingsState();
+});
+
+ipcMain.handle('settings:habit-done', (_event, id, done) => {
+  habitDone(String(id), Boolean(done));
+  return settingsState();
+});
+
 ipcMain.handle('settings:check-update', async () => {
   if (!updater) return updateStatus;
   try {
@@ -1722,6 +2139,7 @@ function buildTrayMenu() {
       click: () => setExpanded(true, { focus: true }),
     },
     { label: 'Pengaturan…', click: () => openSettings() },
+    { label: ocrShortcut ? `Ambil teks dari layar (${ocrShortcut.replace('Control', 'Ctrl')})` : 'Ambil teks dari layar', click: () => startSnip() },
     {
       label: 'Posisi',
       submenu: [
@@ -1852,6 +2270,9 @@ ipcMain.on('kapsul:launch-installed', (_event, key) => {
 ipcMain.on('kapsul:drag-move', (_event, dx, dy) => dragMove(Number(dx), Number(dy)));
 ipcMain.on('kapsul:drag-end', () => dragEnd());
 ipcMain.on('kapsul:settings', () => openSettings());
+ipcMain.on('kapsul:snip', () => setTimeout(startSnip, 250));
+ipcMain.on('kapsul:habit', (_event, id, done) => habitDone(String(id), Boolean(done)));
+ipcMain.on('kapsul:meeting', (_event, url) => openMeeting(String(url)));
 ipcMain.on('kapsul:ready', (event) => {
   event.sender.send('kapsul:state', publicState());
   event.sender.send('kapsul:media', lastMedia);
@@ -1866,6 +2287,9 @@ ipcMain.on('kapsul:ready', (event) => {
   event.sender.send('kapsul:todos', config.todos);
   sendStats();
   sendTimers();
+  sendCalendar();
+  sendHabits();
+  event.sender.send('kapsul:system', systemState);
   if (quickState) event.sender.send('kapsul:quick-state', quickState);
   if (currentPeek) event.sender.send('kapsul:peek', currentPeek);
 });
@@ -1892,12 +2316,18 @@ app.whenReady().then(async () => {
   setInterval(sendClaude, 60_000);
   setInterval(tickStats, 30_000);
   setInterval(tickWellness, 60_000);
+  setInterval(checkCalendar, 30_000);
+  setInterval(checkHabits, 60_000);
+  setInterval(pollSystem, 15_000);
   devTimers = [
     setInterval(pollServices, 30_000),
     setInterval(pollGit, 20_000),
     setInterval(pollWeather, 30 * 60_000),
     setInterval(updateCostume, 10 * 60_000),
+    setInterval(pollCalendar, 10 * 60_000),
   ];
+  pollCalendarIfChanged();
+  pollSystem();
   pollWeather();
   pollServices();
   pollGit();

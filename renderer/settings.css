@@ -778,9 +778,68 @@ select {
   color: var(--muted);
 }
 
+/* Kalender & kebiasaan */
+#calendar-refresh {
+  margin-left: auto;
+}
+
+.error-text {
+  color: var(--danger);
+}
+
+.error-text:empty {
+  display: none;
+}
+
+.habit-form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 64px 1fr 150px;
+}
+
+.habit-form-grid input {
+  min-width: 0;
+}
+
+.day-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.day-picker .day {
+  min-width: 44px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.day-picker .day[aria-pressed="true"] {
+  background: rgba(91, 168, 245, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(91, 168, 245, 0.5);
+  color: var(--text);
+}
+
+.habit-icon {
+  font-size: 16px;
+  background: var(--surface-hover);
+}
+
+.btn.small.done {
+  background: rgba(74, 222, 128, 0.16);
+  color: var(--success);
+}
+
 @media (max-width: 760px) {
   .grid-3,
   .grid-4 {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .habit-form-grid {
+    grid-template-columns: 64px 1fr;
   }
 }
