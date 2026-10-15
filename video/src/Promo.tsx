@@ -424,9 +424,9 @@ const PLAY_STEPS = [
   { at: 0, mood: 'happy', say: 'Klik aku dong!' },
   { at: 18, mood: 'laugh', say: 'Hihi, geli!', tap: [0.52, 0.85] },
   { at: 40, mood: 'boop', say: 'Boop!', tap: [0.5, 0.6] },
-  { at: 58, mood: 'purr', say: 'Elus terus~', tap: [0.5, 0.3] },
+  { at: 58, mood: 'mischief', say: 'Hehehe… aku jahil 😏', tap: [0.5, 0.3] },
   { at: 80, mood: 'dizzy', say: 'Pusing… 💫', spin: true },
-  { at: 104, mood: 'love', say: 'Hehe, sayang kamu!' },
+  { at: 104, mood: 'starstruck', say: 'Ta-da! Lagi? 🤸' },
 ];
 
 const Play: React.FC = () => {
@@ -439,7 +439,7 @@ const Play: React.FC = () => {
   const size = 560;
   return (
     <AbsoluteFill style={{ alignItems: 'center', opacity }}>
-      <Headline title="Bisa diajak main juga" sub="Elus, colek, gelitik… Zeno punya puluhan ekspresi" duration={PLAY} />
+      <Headline title="Bisa diajak main juga" sub="Colek, gelitik, bikin pusing… Zeno punya puluhan ekspresi" duration={PLAY} />
       <div style={{ position: 'absolute', top: 860, width: size, height: size }}>
         <div style={{ transform: `translateY(${bob(frame, 0.15, 8)}px) rotate(${spin}deg) scale(${1 / squash}, ${squash})`, transformOrigin: '50% 60%' }}>
           <Zeno mood={step.mood} size={size} lookY={0.1} />
@@ -512,7 +512,7 @@ const Outro: React.FC = () => {
 // Musik & efek dibuat oleh audio/synth.js (bebas hak cipta). Efek ditempatkan di frame
 // yang sama dengan gerakan di layar.
 
-const PLAY_SOUNDS: Record<string, string> = { laugh: 'giggle', boop: 'boop', purr: 'purr', dizzy: 'dizzy', love: 'sparkle' };
+const PLAY_SOUNDS: Record<string, string> = { laugh: 'giggle', boop: 'boop', mischief: 'giggle', dizzy: 'dizzy', starstruck: 'sparkle' };
 
 function timeline(features: Feature[]) {
   const featuresAt = INTRO + DESKTOP;

@@ -100,7 +100,8 @@ const SFX = {
     tone(b, 0.02, 600, 0.12, { gain: 0.2, slide: 900 });
     tone(b, 0.15, 900, 0.18, { gain: 0.2, slide: 1250 });
   },
-  swipe: (b) => tone(b, 0.02, 520, 0.12, { type: 'triangle', gain: 0.1, slide: 780, filter: 2500 }),
+  // Ganti adegan: "blup" lembut (tanpa noise supaya tidak terdengar seperti cambukan).
+  swipe: (b) => tone(b, 0.02, 560, 0.16, { gain: 0.09, slide: 880, attack: 0.03 }),
   notif: (b) => {
     bell(b, 0.02, 987.8, 0.5, 0.16);
     bell(b, 0.11, 1318.5, 0.7, 0.16);
@@ -116,7 +117,7 @@ const SFX = {
       bell(b, 0.16 + i * 0.42, 1318.5, 0.45, 0.2);
     }
   },
-  click: (b) => tone(b, 0.01, 1800, 0.04, { type: 'triangle', gain: 0.18, filter: 4000 }),
+  click: (b) => tone(b, 0.01, 760, 0.07, { gain: 0.14, slide: 1020, attack: 0.006 }),
   tick: (b) => {
     tone(b, 0.02, 1568, 0.05, { gain: 0.14 });
     tone(b, 0.08, 2093, 0.08, { gain: 0.12 });
@@ -125,7 +126,7 @@ const SFX = {
     [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(b, 0.02 + i * 0.08, f, i === 3 ? 0.45 : 0.14, { type: 'triangle', gain: 0.22 }));
     bell(b, 0.26, 2093, 0.5, 0.06);
   },
-  drag: (b) => noise(b, 0.02, 0.5, 0.05, { filter: 1800 }),
+  drag: (b) => [0, 1, 2].forEach((i) => tone(b, 0.02 + i * 0.12, 520 + i * 160, 0.1, { gain: 0.08, attack: 0.02 })),
   question: (b) => {
     tone(b, 0.02, 523.3, 0.16, { gain: 0.2, slide: 784 });
     tone(b, 0.19, 659.3, 0.24, { gain: 0.2, slide: 987.8 });
@@ -143,7 +144,7 @@ const SFX = {
     [523.3, 659.3, 784, 1046.5, 1318.5].forEach((f, i) => tone(b, 0.02 + i * 0.07, f, i === 4 ? 0.5 : 0.12, { type: 'triangle', gain: 0.18 }));
     bell(b, 0.37, 2093, 0.6, 0.08);
   },
-  whoosh: (b) => noise(b, 0.02, 0.45, 0.12, { filter: 3000 }),
+  whoosh: (b) => tone(b, 0.02, 420, 0.4, { gain: 0.08, slide: 840, attack: 0.08 }),
   munch: (b) => {
     for (let i = 0; i < 4; i++) tone(b, 0.02 + i * 0.12, 220 + (i % 2) * 60, 0.07, { type: 'square', gain: 0.07, filter: 900, slide: 160 });
     tone(b, 0.52, 880, 0.15, { gain: 0.12, slide: 1175 });
@@ -188,10 +189,13 @@ for (let bar = 0; bar < bars; bar++) {
   for (let beat = 0; beat < 4; beat++) {
     const bt = t + beat * BEAT;
     // Kick lembut di 1 & 3, "snare" noise di 2 & 4, hi-hat tiap setengah ketuk.
-    if (beat % 2 === 0) tone(music, bt, 110, 0.18, { gain: 0.3, slide: 45, attack: 0.002 });
-    else noise(music, bt, 0.16, 0.07, { filter: 2400 });
-    noise(music, bt + BEAT / 2, 0.05, 0.03, { filter: 9000 });
-    noise(music, bt, 0.04, 0.02, { filter: 9000 });
+    if (beat % 2 === 0) tone(music, bt, 110, 0.18, { gain: 0.3, slide: 45, attack: 0.004 });
+    else {
+      // Ketukan 2 & 4: bunyi kayu "tok" yang lembut (bukan snare noise).
+      tone(music, bt, 780, 0.08, { type: 'triangle', gain: 0.045, attack: 0.004 });
+      tone(music, bt, 1170, 0.05, { gain: 0.02, attack: 0.004 });
+    }
+    noise(music, bt + BEAT / 2, 0.04, 0.012, { filter: 6000 });
   }
   // Melodi lonceng mulai bar ke-3 (setelah intro), 4 nada per bar.
   if (bar >= 2 && bar < bars - 1) {
