@@ -5,3 +5,5 @@ dist/
 # Data pribadi (nama, pengingat, tugas, kota, daftar aplikasi). Dibuat otomatis saat pertama dijalankan.
 config.json
 dist-release/
+video/node_modules/
+video/out/

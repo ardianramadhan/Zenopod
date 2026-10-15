@@ -1,0 +1,16 @@
+/* Di video semua gerak dihitung per frame: matikan animasi & transisi bawaan maskot. */
+.zeno-host .buddy,
+.zeno-host .buddy * {
+  animation: none !important;
+  transition: none !important;
+}
+
+.zeno-host .buddy {
+  width: 100%;
+  height: 100%;
+}
+
+/* Tampilkan bagian yang biasanya muncul lewat animasi (titik pikir, tanda seru, dst.). */
+.zeno-host .buddy [data-part].on {
+  opacity: 1;
+}
