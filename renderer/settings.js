@@ -229,7 +229,21 @@ function renderGuide() {
   }
 }
 
+// Penyesuaian per sistem: label & bagian yang tidak ada di macOS.
+let platformApplied = false;
+function applyPlatform() {
+  if (platformApplied || !state) return;
+  platformApplied = true;
+  const mac = state.platform === 'darwin';
+  document.body.dataset.platform = state.platform;
+  if (!mac) return;
+  for (const el of document.querySelectorAll('[data-win-only]')) el.hidden = true;
+  for (const el of document.querySelectorAll('[data-mac-text]')) el.textContent = el.dataset.macText;
+  for (const el of document.querySelectorAll('[data-mac-only]')) el.hidden = false;
+}
+
 function render() {
+  applyPlatform();
   renderIdentity();
   if (section === 'guide') renderGuide();
   if (section === 'profile') renderProfile();
@@ -708,7 +722,7 @@ function renderChat() {
   $('chat-key-status').textContent = state.chatKeyMask
     ? `Tersimpan: ${state.chatKeyMask}`
     : state.chatEnvKey
-      ? 'Memakai ANTHROPIC_API_KEY dari Windows.'
+      ? 'Memakai variabel lingkungan ANTHROPIC_API_KEY.'
       : 'Belum ada API key.';
   $('chat-key-remove').disabled = !state.chatKeyMask;
 }
@@ -899,7 +913,7 @@ function renderSystemSettings() {
         now.online == null ? '' : now.online ? `Internet tersambung${now.ms ? ` (${now.ms} ms)` : ''}` : 'Internet putus',
         now.cpu != null ? `CPU ${now.cpu}%` : '',
         now.memory ? `RAM ${now.memory.percent}%` : '',
-        now.disk ? `Disk ${now.disk.drive} terpakai ${now.disk.percent}%` : '',
+        now.disk ? `${['Disk', now.disk.drive].filter(Boolean).join(' ')} terpakai ${now.disk.percent}%` : '',
       ]
         .filter(Boolean)
         .join(' · ')
@@ -956,8 +970,18 @@ function renderVoiceStatus(status) {
   const s = status ?? state.voiceStatus ?? {};
   $('voice-dot').classList.toggle('on', Boolean(s.ready));
   const d = s.downloading;
-  $('voice-status').textContent = s.error ? `Gagal: ${s.error}` : s.ready ? 'Mesin suara siap (whisper.cpp, model base)' : d ? d.stage : 'Mesin suara belum diunduh';
-  $('voice-download').hidden = Boolean(s.ready || d);
+  $('voice-status').textContent = s.error
+    ? `Gagal: ${s.error}`
+    : s.ready
+      ? 'Mesin suara siap (whisper.cpp, model base)'
+      : d
+        ? d.stage
+        : s.needsBrew
+          ? s.model
+            ? 'Tinggal pasang whisper.cpp: buka Terminal, jalankan  brew install whisper-cpp  lalu buka ulang Zenopod.'
+            : 'Unduh model suara di bawah, lalu pasang whisper.cpp lewat Terminal:  brew install whisper-cpp'
+          : 'Mesin suara belum diunduh';
+  $('voice-download').hidden = Boolean(s.ready || d || (s.needsBrew && s.model));
   $('voice-progress').hidden = !d;
   if (d) {
     const pct = d.total ? Math.round((d.received / d.total) * 100) : 0;
@@ -987,7 +1011,9 @@ function renderVoice() {
   const hasIndonesian = (state.ttsVoices ?? []).some((voice) => String(voice.lang).toLowerCase().startsWith('id'));
   $('voice-hint').textContent = hasIndonesian
     ? 'Suara Bahasa Indonesia terpasang.'
-    : 'Belum ada suara Bahasa Indonesia, jadi Zeno menjawab lewat kartu saja. Pasang gratis: Pengaturan Windows › Waktu & bahasa › Ucapan › Tambahkan suara › Bahasa Indonesia (Microsoft Andika), lalu buka ulang Zenopod.';
+    : state.platform === 'darwin'
+      ? 'Belum ada suara Bahasa Indonesia, jadi Zeno menjawab lewat kartu saja. Pasang gratis: System Settings › Accessibility › Spoken Content › System Voice › Manage Voices › Indonesian (Damayanti), lalu buka ulang Zenopod.'
+      : 'Belum ada suara Bahasa Indonesia, jadi Zeno menjawab lewat kartu saja. Pasang gratis: Pengaturan Windows › Waktu & bahasa › Ucapan › Tambahkan suara › Bahasa Indonesia (Microsoft Andika), lalu buka ulang Zenopod.';
   $('voice-test').disabled = !state.ttsAuto && !v.voiceId;
 }
 
@@ -1173,12 +1199,14 @@ const UPDATE_TEXT = {
   downloading: 'Mengunduh versi {v}…',
   ready: 'Versi {v} siap dipasang. Mulai ulang Zenopod untuk memakainya.',
   error: 'Gagal mengecek pembaruan.',
+  manual: 'Di Mac, versi baru diunduh manual dari halaman Releases.',
 };
 
 function renderAbout(status = state.updateStatus ?? {}) {
   const text = (UPDATE_TEXT[status.state] ?? '').replace('{v}', status.version ?? '');
   $('about-text').textContent = `Versi ${state.appVersion ?? '?'} · ${text}`;
   $('check-update').hidden = status.state === 'dev';
+  $('check-update').textContent = status.state === 'manual' ? 'Buka Releases' : 'Cek pembaruan';
 }
 
 $('check-update').addEventListener('click', async () => {

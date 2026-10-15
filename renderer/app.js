@@ -576,6 +576,10 @@ window.kapsul.onState((state) => {
     renderFocus();
   }
   $('buddy-big').title = state.buddyName ? `Halo, aku ${state.buddyName}!` : 'Halo!';
+  document.body.dataset.platform = state.platform ?? '';
+  const noNotifs = state.platform === 'darwin';
+  $('tab-notifs').hidden = noNotifs;
+  if (noNotifs && currentTab === 'notifs') selectTab('apps');
   // Tab Dev hanya untuk yang memantau server/project (diatur di Pengaturan › Dev).
   $('tab-dev').hidden = !state.devEnabled;
   if (!state.devEnabled && currentTab === 'dev') selectTab('apps');
@@ -1933,7 +1937,7 @@ function renderSystem() {
   bar('system-cpu', s.cpu, s.cpu != null ? `${s.cpu}%` : '–', s.cpu >= 90);
   bar('system-ram', s.memory?.percent, s.memory ? `${s.memory.percent}%` : '–', s.memory?.percent >= 90);
   const diskFree = s.disk ? 100 - s.disk.percent : null;
-  $('system-disk-label').textContent = s.disk ? `Disk ${s.disk.drive}` : 'Disk';
+  $('system-disk-label').textContent = s.disk?.drive ? `Disk ${s.disk.drive}` : 'Disk';
   bar('system-disk', s.disk?.percent, s.disk ? `sisa ${bytesText(s.disk.free)}` : '–', diskFree != null && diskFree < 10);
 }
 
@@ -2044,6 +2048,7 @@ function renderQuick() {
   for (const what of ['wifi', 'bluetooth']) {
     const button = $(`quick-${what}`);
     button.disabled = quick[what] == null || quick[what] === 'Disabled';
+    button.hidden = quick[what] == null;
     button.setAttribute('aria-pressed', String(quick[what] === 'On'));
   }
 }

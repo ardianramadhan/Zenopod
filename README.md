@@ -24,7 +24,7 @@ Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama
 - 🔥 **Kebiasaan harian:** centang kebiasaan, jaga streak, dan Zeno dapat XP.
 - 🎭 **Maskot hidup:** puluhan ekspresi, mata mengikuti kursor, suara-suara kecil, dan kostum musiman (peci saat Jumat dan Ramadan, ketupat saat Lebaran, merah putih saat 17 Agustus, topi pesta saat ulang tahunmu).
 
-> Zenopod saat ini **hanya untuk Windows 10/11**.
+> Zenopod untuk **Windows 10/11** dan **macOS 11+** (versi Mac masih **beta**, lihat [bagian 2](#versi-macos-beta)).
 
 ---
 
@@ -47,7 +47,7 @@ Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama
 
 | Kebutuhan | Keterangan |
 |---|---|
-| Windows 10 atau 11 | 64-bit |
+| Windows 10 atau 11 (64-bit), atau macOS 11 Big Sur ke atas | Mac: Apple Silicon (M1–M4) maupun Intel |
 | Koneksi internet | Saat mengunduh, untuk cuaca, pembaruan otomatis, ngobrol dengan Zeno, dan sekali untuk mengunduh mesin suara |
 | Ruang disk | Sekitar 400 MB (ditambah ~170 MB kalau memakai perintah suara) |
 | [Node.js](https://nodejs.org/) 20+ | **Hanya** kalau menjalankan dari kode sumber (Cara B di bawah) |
@@ -64,6 +64,35 @@ Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama
 4. Pilih folder (atau biarkan bawaan), lalu **Install**. Pintasan dibuat di Desktop dan Start Menu.
 
 Kapsul hitam kecil muncul di kanan atas layar, dan ikon Zeno muncul di system tray (pojok kanan bawah, dekat jam). Versi installer **memperbarui dirinya sendiri** (lihat [bagian 9](#9-memperbarui-dan-menghapus)).
+
+### Versi macOS (beta)
+
+1. Buka halaman **[Releases](https://github.com/ardianramadhan/Zenopod/releases/latest)** dan unduh:
+   - `Zenopod-x.y.z-arm64.dmg` untuk Mac Apple Silicon (M1, M2, M3, M4)
+   - `Zenopod-x.y.z-x64.dmg` untuk Mac Intel
+
+   Kalau belum ada di Releases, unduh dari tab **Actions** › **Build macOS** › run terakhir › **Artifacts** (perlu login GitHub).
+2. Buka file `.dmg`, lalu seret **Zenopod** ke folder **Applications**.
+3. Karena belum ditandatangani Apple, buka pertama kali dengan **klik kanan › Open › Open**. Kalau muncul "Zenopod is damaged", buka Terminal lalu jalankan:
+   ```bash
+   xattr -cr /Applications/Zenopod.app
+   ```
+4. Kapsul muncul di bawah menu bar dan ikon Zeno ada di menu bar (bukan di Dock). Izinkan saat diminta:
+   - **Microphone** untuk perintah suara
+   - **Screen Recording** untuk ambil teks dari layar (System Settings › Privacy & Security)
+   - **Automation** untuk mengontrol Spotify/Music, volume, dan menu daya
+
+**Yang berbeda di Mac:**
+
+| Fitur | macOS |
+|---|---|
+| Notifikasi aplikasi lain | Tidak tersedia (macOS tidak mengizinkan aplikasi membacanya); tab Notif disembunyikan |
+| Musik | Spotify dan Apple Music (YouTube di browser belum) |
+| Kontrol cepat | Volume dan Wi-Fi. Kecerahan dan Bluetooth belum |
+| Perintah suara | Pasang mesin suara lewat Terminal: `brew install whisper-cpp`, lalu unduh model di Pengaturan › Perintah suara |
+| Suara Zeno | Suara Indonesia "Damayanti": System Settings › Accessibility › Spoken Content › System Voice › Manage Voices |
+| Pembaruan | Belum otomatis: unduh `.dmg` terbaru dari Releases (Pengaturan › Tampilan › **Buka Releases**) |
+| Tombol pintas | Sama, dengan `⌃` (Control) dan `⌥` (Option): mis. `⌃⌥K` buka panel |
 
 ### Cara B: dari kode sumber
 
@@ -421,6 +450,9 @@ start.js             Menjalankan Electron tanpa ELECTRON_RUN_AS_NODE (diset oleh
 
 - Mencoba versi kode di samping versi terpasang: isi variabel `ZENOPOD_DATA_DIR` dengan folder lain. Config, statistik, dan kunci tunggal (single instance) ikut pindah ke sana, jadi keduanya bisa jalan bersamaan.
 
+- Uji pengurai perintah macOS (bisa dijalankan di Windows): `npm test`.
+- Bagian khusus macOS: `lib/macbridge.js` (pengganti `bridge.ps1`, pesan yang sama) dan `native/mac/zenopod-helper.swift` (OCR Vision).
+
 ### Membuat installer dan rilis
 
 ```powershell
@@ -433,6 +465,8 @@ Untuk merilis versi baru (dan memicu pembaruan otomatis di laptop pengguna):
 2. Buat token GitHub (scope `repo`), lalu `$env:GH_TOKEN = "<token>"`.
 3. `npm run release`. Installer dan `latest.yml` diunggah sebagai draft release di GitHub.
 4. Buka halaman Releases, periksa draft-nya, lalu **Publish release**.
+
+**macOS:** `.dmg` dibuat otomatis oleh GitHub Actions (`.github/workflows/build-mac.yml`) di setiap push ke `main`. Untuk menempelkannya ke Release: buka tab **Actions** › **Build macOS** › **Run workflow**, centang **release**. Bisa juga dengan push tag `vX.Y.Z`.
 
 ### Kredit
 

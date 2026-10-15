@@ -33,6 +33,7 @@ const season = require('./lib/season');
 const weather = require('./lib/weather');
 const voice = require('./lib/voice');
 const commands = require('./lib/commands');
+const { createMacBridge } = require('./lib/macbridge');
 const calendar = require('./lib/calendar');
 const sysmon = require('./lib/sysmon');
 const habits = require('./lib/habits');
@@ -69,6 +70,14 @@ if (!primaryInstance) {
 const debugLog = (msg) => process.env.KAPSUL_DEBUG && fs.appendFileSync(process.env.KAPSUL_DEBUG, `${new Date().toISOString()} ${msg}\n`);
 
 const send = (channel, payload) => win?.webContents.send(channel, payload);
+
+const IS_MAC = process.platform === 'darwin';
+const RELEASES_URL = 'https://github.com/ardianramadhan/Zenopod/releases/latest';
+
+// Nama tombol pintas untuk ditampilkan: Ctrl+Alt+K (Windows) / ⌃⌥K (Mac).
+const MAC_KEYS = { Control: '⌃', Alt: '⌥', Shift: '⇧', Super: '⌘', Command: '⌘', CommandOrControl: '⌘' };
+const shortcutKeys = (combo) =>
+  combo ? combo.split('+').map((k) => (IS_MAC ? (MAC_KEYS[k] ?? k) : k === 'Control' ? 'Ctrl' : k)) : [];
 
 // ---------- Jendela kapsul ----------
 
@@ -201,7 +210,7 @@ function createWindow() {
     },
   });
   win.setAlwaysOnTop(true, 'floating');
-  win.setVisibleOnAllWorkspaces(true);
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => win.showInactive());
 
@@ -413,7 +422,8 @@ function publicState() {
     sound: config.sound,
     ticker: config.ticker,
     userName: config.user.name,
-    shortcut: shortcut ? shortcut.split('+').map((k) => (k === 'Control' ? 'Ctrl' : k)) : [],
+    shortcut: shortcutKeys(shortcut),
+    platform: process.platform,
   };
 }
 
@@ -442,6 +452,11 @@ function setPosition(position, { force = false } = {}) {
 
 function startBridge() {
   debugLog('start bridge');
+  // macOS: pengganti bridge.ps1 dengan pesan yang sama (lib/macbridge.js).
+  if (IS_MAC) {
+    bridge = createMacBridge(handleBridge, { helper: paths.macHelper, log: debugLog });
+    return;
+  }
   bridge = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', paths.bridgeScript], {
     windowsHide: true,
   });
@@ -862,7 +877,10 @@ function devOpen(kind, index) {
   } else if (kind === 'project') {
     const dir = config.dev.projects[index];
     if (!dir) return;
-    if (fs.existsSync(VSCODE)) spawn(VSCODE, [dir], { detached: true, stdio: 'ignore' }).unref();
+    if (IS_MAC) {
+      // Buka dengan VS Code kalau ada; kalau tidak, buka foldernya di Finder.
+      spawn('open', ['-a', 'Visual Studio Code', dir]).on('exit', (code) => code && shell.openPath(dir));
+    } else if (fs.existsSync(VSCODE)) spawn(VSCODE, [dir], { detached: true, stdio: 'ignore' }).unref();
     else shell.openPath(dir);
   }
   setExpanded(false);
@@ -1164,6 +1182,14 @@ const POWER_CONFIRM = new Set(['restart', 'shutdown', 'signout']);
 function power(action) {
   const run = (cmd, args) => spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref();
   debugLog('power ' + action);
+  if (IS_MAC) {
+    // Kunci = layar tidur (terkunci bila "minta kata sandi" aktif); sisanya lewat System Events.
+    const verb = { restart: 'restart', shutdown: 'shut down', signout: 'log out' }[action];
+    if (action === 'lock') run('pmset', ['displaysleepnow']);
+    else if (action === 'sleep') run('pmset', ['sleepnow']);
+    else if (verb) run('osascript', ['-e', `tell application "System Events" to ${verb}`]);
+    return;
+  }
   if (action === 'lock') run('rundll32.exe', ['user32.dll,LockWorkStation']);
   else if (action === 'sleep') {
     // SetSuspendState('Suspend') = tidur (bukan hibernasi).
@@ -1199,10 +1225,11 @@ function askPower(action, heard) {
 // ---------- Update otomatis (versi terpasang, dari GitHub Releases) ----------
 
 let updater = null;
-let updateStatus = { state: paths.packaged ? 'idle' : 'dev', version: null };
+// macOS tanpa tanda tangan Apple tidak bisa memperbarui diri: arahkan ke halaman Releases.
+let updateStatus = { state: !paths.packaged ? 'dev' : IS_MAC ? 'manual' : 'idle', version: null };
 
 function setupUpdates() {
-  if (!paths.packaged) return;
+  if (!paths.packaged || IS_MAC) return;
   const { autoUpdater } = require('electron-updater');
   updater = autoUpdater;
   autoUpdater.autoDownload = true;
@@ -1708,6 +1735,7 @@ function onOcr(message) {
     showPeek({ kind: 'ocr', mood, app: 'Ambil teks dari layar', title, body, seconds: 8, actions: [{ id: 'again', label: 'Ambil lagi' }, { id: 'ok', label: 'Oke', primary: true }], ...extra });
   if (message.error) {
     debugLog('ocr gagal: ' + message.error);
+    if (message.error === 'no-helper') return ocrPeek('confused', 'Ambil teks belum tersedia', 'Pasang Zenopod dari file .dmg untuk memakai fitur ini.');
     return message.error === 'no-language'
       ? ocrPeek('confused', 'Paket OCR Windows belum ada', 'Tambahkan bahasa Inggris di Pengaturan Windows › Waktu & bahasa › Bahasa, lalu coba lagi.')
       : ocrPeek('confused', 'Teksnya tidak terbaca', 'Coba pilih area yang lebih pas ya.');
@@ -1769,7 +1797,7 @@ async function pollSystem() {
     if (memory.percent < 80) systemWarned.memory = false;
     if (disk && 100 - disk.percent < 10 && systemWarned.disk !== dayKey()) {
       systemWarned.disk = dayKey();
-      systemPeek('surprised', `Disk ${disk.drive} hampir penuh`, `Sisa ${sysmon.bytes(disk.free)}. Kosongkan Downloads atau Recycle Bin ya.`);
+      systemPeek('surprised', `${['Disk', disk.drive].filter(Boolean).join(' ')} hampir penuh`, `Sisa ${sysmon.bytes(disk.free)}. Kosongkan Downloads atau ${IS_MAC ? 'Trash' : 'Recycle Bin'} ya.`);
     }
   }
 
@@ -1783,7 +1811,7 @@ function systemText(what) {
     if (s.online == null) return 'Sebentar, aku cek dulu koneksinya.';
     return s.online ? `Internet tersambung${s.ms ? `, waktu respons ${s.ms} milidetik` : ''}.` : 'Internet sedang putus.';
   }
-  const parts = [s.cpu != null ? `CPU ${s.cpu}%` : '', s.memory ? `RAM ${s.memory.percent}%` : '', s.disk ? `disk ${s.disk.drive} sisa ${sysmon.bytes(s.disk.free)}` : ''];
+  const parts = [s.cpu != null ? `CPU ${s.cpu}%` : '', s.memory ? `RAM ${s.memory.percent}%` : '', s.disk ? `${['disk', s.disk.drive].filter(Boolean).join(' ')} sisa ${sysmon.bytes(s.disk.free)}` : ''];
   return `${parts.filter(Boolean).join(', ')}.`;
 }
 
@@ -1974,6 +2002,7 @@ function settingsState() {
     chatModels: chat.MODELS,
     chatKeyMask: chat.maskKey(config.chat.apiKeyEnc),
     chatEnvKey: Boolean(process.env.ANTHROPIC_API_KEY),
+    platform: process.platform,
     calendarStatus: {
       checkedAt: calendarState.checkedAt,
       errors: calendarState.errors,
@@ -2093,6 +2122,7 @@ ipcMain.handle('settings:habit-done', (_event, id, done) => {
 });
 
 ipcMain.handle('settings:check-update', async () => {
+  if (updateStatus.state === 'manual') shell.openExternal(RELEASES_URL);
   if (!updater) return updateStatus;
   try {
     await updater.checkForUpdates();
@@ -2136,11 +2166,11 @@ function dotIcon(size) {
 function buildTrayMenu() {
   return Menu.buildFromTemplate([
     {
-      label: shortcut ? `Buka Zenopod (${shortcut.replace('Control', 'Ctrl')})` : 'Buka Zenopod',
+      label: shortcut ? `Buka Zenopod (${shortcutKeys(shortcut).join(IS_MAC ? '' : '+')})` : 'Buka Zenopod',
       click: () => setExpanded(true, { focus: true }),
     },
     { label: 'Pengaturan…', click: () => openSettings() },
-    { label: ocrShortcut ? `Ambil teks dari layar (${ocrShortcut.replace('Control', 'Ctrl')})` : 'Ambil teks dari layar', click: () => startSnip() },
+    { label: ocrShortcut ? `Ambil teks dari layar (${shortcutKeys(ocrShortcut).join(IS_MAC ? '' : '+')})` : 'Ambil teks dari layar', click: () => startSnip() },
     {
       label: 'Posisi',
       submenu: [
@@ -2165,7 +2195,7 @@ function buildTrayMenu() {
     },
     { type: 'separator' },
     {
-      label: 'Jalankan saat Windows mulai',
+      label: IS_MAC ? 'Jalankan saat login' : 'Jalankan saat Windows mulai',
       type: 'checkbox',
       checked: autostartEnabled(),
       click: (menuItem) => setAutostart(menuItem.checked),
@@ -2186,7 +2216,7 @@ function appIcon(size) {
 }
 
 function createTray() {
-  tray = new Tray(appIcon(16));
+  tray = new Tray(appIcon(IS_MAC ? 18 : 16));
   tray.setToolTip('Zenopod');
   tray.setContextMenu(buildTrayMenu());
   tray.on('click', () => setExpanded(!expanded, { focus: true }));
@@ -2301,7 +2331,8 @@ app.on('second-instance', () => setExpanded(true, { focus: true }));
 
 app.whenReady().then(async () => {
   if (!primaryInstance) return;
-  app.setAppUserModelId('local.kapsul');
+  if (IS_MAC) app.dock?.hide(); // aplikasi menu bar, tanpa ikon di Dock
+  else app.setAppUserModelId('local.kapsul');
   // Mikrofon hanya untuk jendela Zenopod sendiri (perintah suara).
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(permission === 'media'));
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'media');

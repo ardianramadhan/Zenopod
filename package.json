@@ -2,11 +2,13 @@
   "name": "kapsul",
   "version": "0.2.1",
   "private": true,
-  "description": "Zenopod: widget desktop pribadi dengan maskot Zeno (Windows).",
+  "description": "Zenopod: widget desktop pribadi dengan maskot Zeno (Windows & macOS).",
   "main": "main.js",
   "scripts": {
     "start": "node start.js",
+    "test": "node --test",
     "dist": "electron-builder --win nsis --publish never",
+    "dist:mac": "electron-builder --mac dmg --publish never",
     "release": "electron-builder --win nsis --publish always"
   },
   "devDependencies": {
@@ -62,6 +64,37 @@
       "createStartMenuShortcut": true,
       "shortcutName": "Zenopod",
       "artifactName": "Zenopod-Setup-${version}.exe"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extraResources": [
+        {
+          "from": "build/mac/zenopod-helper",
+          "to": "zenopod-helper"
+        }
+      ],
+      "extendInfo": {
+        "LSUIElement": true,
+        "NSMicrophoneUsageDescription": "Zenopod mendengarkan perintah suara hanya saat kamu menekan tombol pintasnya.",
+        "NSAppleEventsUsageDescription": "Zenopod mengontrol Spotify/Music, volume, dan menu daya atas perintahmu.",
+        "NSScreenCaptureUsageDescription": "Zenopod membaca layar hanya saat kamu memakai Ambil teks dari layar."
+      }
+    },
+    "dmg": {
+      "artifactName": "Zenopod-${version}-${arch}.dmg",
+      "title": "Zenopod ${version}"
     },
     "publish": [
       {

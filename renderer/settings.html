@@ -184,14 +184,15 @@
             <h1>Notifikasi</h1>
             <p>Pilih aplikasi yang notifikasinya boleh masuk ke Zenopod.</p>
           </header>
-          <div class="card row">
+          <p class="muted small" data-mac-only hidden>macOS tidak mengizinkan aplikasi membaca notifikasi aplikasi lain, jadi di Mac bagian ini hanya berisi riwayat clipboard.</p>
+          <div class="card row" data-win-only>
             <div>
               <div class="row-title">Kartu notifikasi baru</div>
               <div class="row-sub">Zenopod melebar sebentar saat notifikasi masuk.</div>
             </div>
             <label class="switch"><input type="checkbox" id="notif-peek" /><span></span></label>
           </div>
-          <div class="card row">
+          <div class="card row" data-win-only>
             <div>
               <div class="row-title">Lama tampil</div>
               <div class="row-sub">Berapa detik kartu notifikasi terlihat.</div>
@@ -203,8 +204,8 @@
               <option value="10">10 detik</option>
             </select>
           </div>
-          <h2>Aplikasi</h2>
-          <div class="card list" id="notif-apps"></div>
+          <h2 data-win-only>Aplikasi</h2>
+          <div class="card list" id="notif-apps" data-win-only></div>
 
           <h2>Clipboard</h2>
           <div class="card row">
@@ -283,7 +284,7 @@
             <div class="actions-row"><button type="submit" class="btn primary" id="calendar-add">Sambungkan</button></div>
             <p class="muted small"><b>Google Calendar:</b> di calendar.google.com buka ⚙ Setelan › pilih kalendermu di kiri › <i>Integrasikan kalender</i> › salin <i>Alamat rahasia dalam format iCal</i>.</p>
             <p class="muted small"><b>Outlook / Microsoft 365:</b> di outlook.office.com buka ⚙ Pengaturan › Kalender › <i>Kalender bersama</i> › <i>Publikasikan kalender</i> › pilih kalender dan <i>Dapat melihat semua detail</i> › Publikasikan › salin tautan <b>ICS</b>.</p>
-            <p class="muted small">Alamat ini seperti kunci baca kalendermu: disimpan terenkripsi oleh Windows di laptop ini dan tidak pernah ditampilkan utuh. Kalender diperbarui tiap 10 menit.</p>
+            <p class="muted small">Alamat ini seperti kunci baca kalendermu: disimpan terenkripsi di laptop ini dan tidak pernah ditampilkan utuh. Kalender diperbarui tiap 10 menit.</p>
           </form>
         </section>
 
@@ -535,7 +536,7 @@
               <button type="submit" class="btn primary">Simpan key</button>
               <button type="button" class="btn danger" id="chat-key-remove">Hapus key</button>
             </div>
-            <p class="muted small">Buat key di <code>platform.claude.com</code> › API Keys. Key disimpan terenkripsi oleh Windows di laptop ini dan tidak pernah ditampilkan utuh.</p>
+            <p class="muted small">Buat key di <code>platform.claude.com</code> › API Keys. Key disimpan terenkripsi di laptop ini dan tidak pernah ditampilkan utuh.</p>
           </form>
           <div class="card">
             <label class="field">
@@ -556,7 +557,7 @@
           <div class="card row">
             <div>
               <div class="row-title">Ambil teks dari layar</div>
-              <div class="row-sub">Tekan tombol pintas, seret kotak di sekitar tulisan (gambar, PDF hasil scan, video), dan teksnya langsung tersalin. Memakai OCR bawaan Windows, offline.</div>
+              <div class="row-sub" data-mac-text="Tekan tombol pintas, seret kotak di sekitar tulisan, dan teksnya langsung tersalin. Memakai OCR bawaan macOS (Vision), offline. Pertama kali dipakai, izinkan Zenopod di System Settings › Privacy &amp; Security › Screen Recording.">Tekan tombol pintas, seret kotak di sekitar tulisan (gambar, PDF hasil scan, video), dan teksnya langsung tersalin. Memakai OCR bawaan Windows, offline.</div>
             </div>
             <input class="shortcut" id="ocr-shortcut" readonly />
           </div>
@@ -690,7 +691,7 @@
           </div>
           <div class="card row">
             <div>
-              <div class="row-title">Jalankan saat Windows mulai</div>
+              <div class="row-title" data-mac-text="Jalankan saat login">Jalankan saat Windows mulai</div>
               <div class="row-sub">Zenopod langsung muncul setelah login.</div>
             </div>
             <label class="switch"><input type="checkbox" id="autostart" /><span></span></label>
