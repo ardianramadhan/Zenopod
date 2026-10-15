@@ -4,7 +4,8 @@
   "description": "Video promosi Zenopod (Remotion)",
   "scripts": {
     "studio": "remotion studio src/index.ts",
-    "render": "remotion render src/index.ts Zenopod out/zenopod-promo.mp4"
+    "render": "node audio/synth.js && remotion render src/index.ts Zenopod out/zenopod-promo.mp4 --crf=18",
+    "audio": "node audio/synth.js"
   },
   "author": "",
   "license": "ISC",

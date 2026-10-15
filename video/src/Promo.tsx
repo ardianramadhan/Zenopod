@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, Easing, interpolate, Sequence, spring, useCurrentFrame, useVideoConfig } from 'remotion';
+import { AbsoluteFill, Audio, Easing, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Zeno } from './Zeno';
 
 // Video promosi Zenopod: vertikal 1080×1920, 30 fps, ±30 detik.
@@ -493,6 +493,60 @@ const Outro: React.FC = () => {
   );
 };
 
+// ---------- Suara ----------
+// Musik & efek dibuat oleh audio/synth.js (bebas hak cipta). Efek ditempatkan di frame
+// yang sama dengan gerakan di layar.
+
+const AT = {
+  desktop: INTRO,
+  features: INTRO + DESKTOP,
+  play: INTRO + DESKTOP + FEATURE * FEATURES,
+  outro: INTRO + DESKTOP + FEATURE * FEATURES + PLAY,
+};
+const feature = (i: number) => AT.features + i * FEATURE;
+
+const SFX: [number, string, number?][] = [
+  [4, 'pop'],
+  [42, 'hello'],
+  [AT.desktop, 'whoosh', 0.6],
+  [AT.desktop + 22, 'pop'],
+  ...Array.from({ length: FEATURES }, (_, i) => [feature(i), 'swipe', 0.8] as [number, string, number]),
+  [feature(0) + 10, 'note'],
+  [feature(1) + 8, 'notif'],
+  [feature(2) + 6, 'alarm', 0.8],
+  [feature(2) + 44, 'click'],
+  [feature(3) + 14, 'tick'],
+  [feature(3) + 26, 'tick'],
+  [feature(3) + 38, 'tick'],
+  [feature(3) + 46, 'levelup', 0.7],
+  [feature(4) + 8, 'drag'],
+  [feature(4) + 40, 'success'],
+  [feature(5) + 4, 'pop'],
+  [feature(5) + 34, 'hello'],
+  ...PLAY_STEPS.slice(1).map((s) => [AT.play + s.at, { laugh: 'giggle', boop: 'boop', purr: 'purr', dizzy: 'dizzy', love: 'sparkle' }[s.mood] ?? 'pop'] as [number, string]),
+  [AT.outro, 'pop'],
+  [AT.outro + 14, 'levelup', 0.8],
+  [AT.outro + 30, 'sparkle'],
+];
+
+const Sounds: React.FC = () => {
+  const { durationInFrames } = useVideoConfig();
+  return (
+    <>
+      <Audio
+        src={staticFile('music.wav')}
+        // Musik pelan di awal, lalu sedikit turun di bagian akhir.
+        volume={(f) => interpolate(f, [0, 20, durationInFrames - 45, durationInFrames], [0, 0.66, 0.66, 0], clamp)}
+      />
+      {SFX.map(([at, name, volume = 0.85]) => (
+        <Sequence key={`${at}-${name}`} from={at} durationInFrames={45}>
+          <Audio src={staticFile(`sfx/${name}.wav`)} volume={volume} />
+        </Sequence>
+      ))}
+    </>
+  );
+};
+
 // ---------- Susunan ----------
 
 export const Promo: React.FC = () => {
@@ -505,6 +559,7 @@ export const Promo: React.FC = () => {
   return (
     <AbsoluteFill style={{ fontFamily: FONT, color: C.text }}>
       <Background />
+      <Sounds />
       <Sequence {...next(INTRO)}>
         <Intro />
       </Sequence>
