@@ -5,7 +5,8 @@
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "render": "node audio/synth.js && remotion render src/index.ts Zenopod out/zenopod-promo.mp4 --crf=18",
-    "audio": "node audio/synth.js"
+    "audio": "node audio/synth.js",
+    "render:full": "node audio/synth.js && remotion render src/index.ts ZenopodFull out/zenopod-promo-60s.mp4 --crf=18"
   },
   "author": "",
   "license": "ISC",

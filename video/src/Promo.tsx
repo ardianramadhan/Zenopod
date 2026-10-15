@@ -2,19 +2,17 @@ import React from 'react';
 import { AbsoluteFill, Audio, Easing, interpolate, Sequence, spring, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Zeno } from './Zeno';
 
-// Video promosi Zenopod: vertikal 1080×1920, 30 fps, ±30 detik.
-// Urutan: kenalan → kapsul di layar → 6 fitur → main dengan Zeno → ajakan unduh.
+// Video promosi Zenopod: vertikal 1080×1920, 30 fps.
+// Urutan: kenalan → kapsul di layar → fitur-fitur → main dengan Zeno → ajakan unduh.
+// buildPromo(daftar fitur) dipakai versi 30 detik (6 fitur, file ini) dan 60 detik (PromoFull.tsx).
 
-const FPS = 30;
 const INTRO = 100;
 const DESKTOP = 95;
 const FEATURE = 72;
-const FEATURES = 6;
 const PLAY = 135;
 const OUTRO = 150;
-export const PROMO_FRAMES = INTRO + DESKTOP + FEATURE * FEATURES + PLAY + OUTRO;
 
-const C = {
+export const C = {
   bg: '#08080b',
   card: '#121217',
   surface: '#1c1c23',
@@ -29,7 +27,7 @@ const FONT = '"Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif';
 
 // ---------- Bantuan animasi ----------
 
-const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
+export const clamp = { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' } as const;
 
 function usePop(delay = 0, damping = 12) {
   const frame = useCurrentFrame();
@@ -46,8 +44,8 @@ function useEnterExit(duration: number, delay = 0) {
 }
 
 // Gerak tubuh Zeno per frame.
-const bob = (frame: number, speed = 0.12, amount = 10) => Math.sin(frame * speed) * amount;
-const hop = (frame: number, period = 24, height = 60) => {
+export const bob = (frame: number, speed = 0.12, amount = 10) => Math.sin(frame * speed) * amount;
+export const hop = (frame: number, period = 24, height = 60) => {
   const t = (frame % period) / period;
   return -Math.sin(t * Math.PI) * height;
 };
@@ -91,7 +89,7 @@ const Headline: React.FC<{ title: string; sub?: string; duration: number; top?: 
   );
 };
 
-const Card: React.FC<{ children: React.ReactNode; width?: number; style?: React.CSSProperties }> = ({ children, width = 880, style }) => (
+export const Card: React.FC<{ children: React.ReactNode; width?: number; style?: React.CSSProperties }> = ({ children, width = 880, style }) => (
   <div
     style={{
       width,
@@ -108,7 +106,7 @@ const Card: React.FC<{ children: React.ReactNode; width?: number; style?: React.
   </div>
 );
 
-const Button: React.FC<{ label: string; primary?: boolean; pressed?: boolean }> = ({ label, primary, pressed }) => (
+export const Button: React.FC<{ label: string; primary?: boolean; pressed?: boolean }> = ({ label, primary, pressed }) => (
   <div
     style={{
       padding: '20px 44px',
@@ -125,7 +123,7 @@ const Button: React.FC<{ label: string; primary?: boolean; pressed?: boolean }> 
 );
 
 // Kapsul hitam seperti di aplikasi, diperbesar supaya terbaca di ponsel.
-const Pill: React.FC<{ mood: string; children: React.ReactNode; frame: number; width?: number }> = ({ mood, children, frame, width = 760 }) => (
+export const Pill: React.FC<{ mood: string; children: React.ReactNode; frame: number; width?: number }> = ({ mood, children, frame, width = 760 }) => (
   <div
     style={{
       display: 'flex',
@@ -210,9 +208,11 @@ const Desktop: React.FC = () => {
 
 // ---------- Adegan 3: fitur ----------
 
-type Feature = { title: string; sub: string; mood: string; Body: React.FC<{ frame: number }> };
+// sfx: [frame di dalam adegan, nama efek, volume?]
+export type Sfx = [number, string, number?];
+export type Feature = { title: string; sub: string; mood: string; Body: React.FC<{ frame: number }>; sfx?: Sfx[] };
 
-const Equalizer: React.FC<{ frame: number }> = ({ frame }) => (
+export const Equalizer: React.FC<{ frame: number }> = ({ frame }) => (
   <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 40, marginLeft: 'auto' }}>
     {[0, 1, 2, 3].map((i) => (
       <div key={i} style={{ width: 8, borderRadius: 4, background: C.accent, height: 12 + Math.abs(Math.sin(frame * 0.3 + i * 1.3)) * 28 }} />
@@ -220,7 +220,7 @@ const Equalizer: React.FC<{ frame: number }> = ({ frame }) => (
   </div>
 );
 
-const MusicBody: React.FC<{ frame: number }> = ({ frame }) => (
+export const MusicBody: React.FC<{ frame: number }> = ({ frame }) => (
   <Pill mood="music" frame={frame} width={880}>
     <span style={{ fontSize: 44 }}>♪</span>
     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -230,7 +230,7 @@ const MusicBody: React.FC<{ frame: number }> = ({ frame }) => (
   </Pill>
 );
 
-const NotifBody: React.FC<{ frame: number }> = ({ frame }) => (
+export const NotifBody: React.FC<{ frame: number }> = ({ frame }) => (
   <Card>
     <div style={{ display: 'flex', alignItems: 'center', gap: 30 }}>
       <Zeno mood="surprised" size={150} />
@@ -244,7 +244,7 @@ const NotifBody: React.FC<{ frame: number }> = ({ frame }) => (
   </Card>
 );
 
-const MeetingBody: React.FC<{ frame: number }> = ({ frame }) => (
+export const MeetingBody: React.FC<{ frame: number }> = ({ frame }) => (
   <Card>
     <div style={{ display: 'flex', gap: 30, alignItems: 'center' }}>
       <Zeno mood="alarm" size={150} style={{ transform: `rotate(${Math.sin(frame * 0.6) * 6}deg)` }} />
@@ -261,7 +261,7 @@ const MeetingBody: React.FC<{ frame: number }> = ({ frame }) => (
   </Card>
 );
 
-const HabitsBody: React.FC<{ frame: number }> = ({ frame }) => {
+export const HabitsBody: React.FC<{ frame: number }> = ({ frame }) => {
   const habits = [
     { label: '🏃 Olahraga', streak: 5, at: 14 },
     { label: '📖 Baca buku', streak: 12, at: 26 },
@@ -298,7 +298,7 @@ const HabitsBody: React.FC<{ frame: number }> = ({ frame }) => {
   );
 };
 
-const OcrBody: React.FC<{ frame: number }> = ({ frame }) => {
+export const OcrBody: React.FC<{ frame: number }> = ({ frame }) => {
   const draw = interpolate(frame, [8, 34], [0, 1], { ...clamp, easing: Easing.inOut(Easing.cubic) });
   const copied = frame > 40;
   return (
@@ -340,7 +340,7 @@ const OcrBody: React.FC<{ frame: number }> = ({ frame }) => {
   );
 };
 
-const VoiceBody: React.FC<{ frame: number }> = ({ frame }) => {
+export const VoiceBody: React.FC<{ frame: number }> = ({ frame }) => {
   const answered = frame > 34;
   const bubble = (text: string, mine: boolean, show: boolean) => (
     <div
@@ -371,16 +371,30 @@ const VoiceBody: React.FC<{ frame: number }> = ({ frame }) => {
   );
 };
 
-const FEATURE_LIST: Feature[] = [
-  { title: 'Musikmu, di kapsul', sub: 'Judul lagu & kontrol Spotify, YouTube, dan lainnya', mood: 'music', Body: MusicBody },
-  { title: 'Notifikasi nggak kelewat', sub: 'WhatsApp, email, Teams… semua mampir ke Zeno', mood: 'surprised', Body: NotifBody },
-  { title: 'Rapat? Tinggal Gabung', sub: 'Dari Google Calendar & Outlook, diingatkan sebelum mulai', mood: 'alarm', Body: MeetingBody },
-  { title: 'Jaga streak kebiasaan', sub: 'Centang tiap hari, Zeno ikut naik level', mood: 'laugh', Body: HabitsBody },
-  { title: 'Ambil teks dari layar', sub: 'Seret kotak, teksnya langsung tersalin', mood: 'happy', Body: OcrBody },
-  { title: 'Cukup bilang “Zeno…”', sub: 'Perintah suara bahasa Indonesia, diproses offline', mood: 'hear', Body: VoiceBody },
-];
+export const F = {
+  music: { title: 'Musikmu, di kapsul', sub: 'Judul lagu & kontrol Spotify, YouTube, dan lainnya', mood: 'music', Body: MusicBody, sfx: [[10, 'note']] },
+  notif: { title: 'Notifikasi nggak kelewat', sub: 'WhatsApp, email, Teams… semua mampir ke Zeno', mood: 'surprised', Body: NotifBody, sfx: [[8, 'notif']] },
+  meeting: {
+    title: 'Rapat? Tinggal Gabung',
+    sub: 'Dari Google Calendar & Outlook, diingatkan sebelum mulai',
+    mood: 'alarm',
+    Body: MeetingBody,
+    sfx: [[6, 'alarm', 0.8], [44, 'click']],
+  },
+  habits: {
+    title: 'Jaga streak kebiasaan',
+    sub: 'Centang tiap hari, Zeno ikut naik level',
+    mood: 'laugh',
+    Body: HabitsBody,
+    sfx: [[14, 'tick'], [26, 'tick'], [38, 'tick'], [46, 'levelup', 0.7]],
+  },
+  ocr: { title: 'Ambil teks dari layar', sub: 'Seret kotak, teksnya langsung tersalin', mood: 'happy', Body: OcrBody, sfx: [[8, 'drag'], [40, 'success']] },
+  voice: { title: 'Cukup bilang “Zeno…”', sub: 'Perintah suara bahasa Indonesia, diproses offline', mood: 'hear', Body: VoiceBody, sfx: [[4, 'pop'], [34, 'hello']] },
+} satisfies Record<string, Feature>;
 
-const FeatureScene: React.FC<{ feature: Feature; index: number }> = ({ feature, index }) => {
+const SHORT_FEATURES: Feature[] = [F.music, F.notif, F.meeting, F.habits, F.ocr, F.voice];
+
+const FeatureScene: React.FC<{ feature: Feature; index: number; list: Feature[] }> = ({ feature, index, list }) => {
   const frame = useCurrentFrame();
   const { opacity, y } = useEnterExit(FEATURE, 4);
   const Body = feature.Body;
@@ -393,11 +407,12 @@ const FeatureScene: React.FC<{ feature: Feature; index: number }> = ({ feature, 
           <Body frame={frame} />
         </div>
       </div>
-      {/* Penanda urutan fitur */}
-      <div style={{ position: 'absolute', bottom: 170, display: 'flex', gap: 14 }}>
-        {FEATURE_LIST.map((_, i) => (
-          <div key={i} style={{ width: i === index ? 54 : 16, height: 16, borderRadius: 999, background: i === index ? C.accent : 'rgba(255,255,255,0.2)' }} />
-        ))}
+      {/* Penanda urutan fitur (titik; kalau banyak, titik lebih kecil) */}
+      <div style={{ position: 'absolute', bottom: 170, display: 'flex', gap: list.length > 8 ? 8 : 14 }}>
+        {list.map((_, i) => {
+          const dot = list.length > 8 ? 10 : 16;
+          return <div key={i} style={{ width: i === index ? dot * 3.4 : dot, height: dot, borderRadius: 999, background: i === index ? C.accent : 'rgba(255,255,255,0.2)' }} />;
+        })}
       </div>
     </AbsoluteFill>
   );
@@ -497,48 +512,40 @@ const Outro: React.FC = () => {
 // Musik & efek dibuat oleh audio/synth.js (bebas hak cipta). Efek ditempatkan di frame
 // yang sama dengan gerakan di layar.
 
-const AT = {
-  desktop: INTRO,
-  features: INTRO + DESKTOP,
-  play: INTRO + DESKTOP + FEATURE * FEATURES,
-  outro: INTRO + DESKTOP + FEATURE * FEATURES + PLAY,
-};
-const feature = (i: number) => AT.features + i * FEATURE;
+const PLAY_SOUNDS: Record<string, string> = { laugh: 'giggle', boop: 'boop', purr: 'purr', dizzy: 'dizzy', love: 'sparkle' };
 
-const SFX: [number, string, number?][] = [
-  [4, 'pop'],
-  [42, 'hello'],
-  [AT.desktop, 'whoosh', 0.6],
-  [AT.desktop + 22, 'pop'],
-  ...Array.from({ length: FEATURES }, (_, i) => [feature(i), 'swipe', 0.8] as [number, string, number]),
-  [feature(0) + 10, 'note'],
-  [feature(1) + 8, 'notif'],
-  [feature(2) + 6, 'alarm', 0.8],
-  [feature(2) + 44, 'click'],
-  [feature(3) + 14, 'tick'],
-  [feature(3) + 26, 'tick'],
-  [feature(3) + 38, 'tick'],
-  [feature(3) + 46, 'levelup', 0.7],
-  [feature(4) + 8, 'drag'],
-  [feature(4) + 40, 'success'],
-  [feature(5) + 4, 'pop'],
-  [feature(5) + 34, 'hello'],
-  ...PLAY_STEPS.slice(1).map((s) => [AT.play + s.at, { laugh: 'giggle', boop: 'boop', purr: 'purr', dizzy: 'dizzy', love: 'sparkle' }[s.mood] ?? 'pop'] as [number, string]),
-  [AT.outro, 'pop'],
-  [AT.outro + 14, 'levelup', 0.8],
-  [AT.outro + 30, 'sparkle'],
-];
+function timeline(features: Feature[]) {
+  const featuresAt = INTRO + DESKTOP;
+  const playAt = featuresAt + FEATURE * features.length;
+  const outroAt = playAt + PLAY;
+  const sfx: Sfx[] = [
+    [4, 'pop'],
+    [42, 'hello'],
+    [INTRO, 'whoosh', 0.6],
+    [INTRO + 22, 'pop'],
+    ...features.flatMap((f, i) => {
+      const at = featuresAt + i * FEATURE;
+      return [[at, 'swipe', 0.8] as Sfx, ...(f.sfx ?? []).map(([offset, name, volume]) => [at + offset, name, volume] as Sfx)];
+    }),
+    ...PLAY_STEPS.slice(1).map((step) => [playAt + step.at, PLAY_SOUNDS[step.mood] ?? 'pop'] as Sfx),
+    [outroAt, 'pop'],
+    [outroAt + 14, 'levelup', 0.8],
+    [outroAt + 30, 'sparkle'],
+  ];
+  return { sfx, frames: outroAt + OUTRO };
+}
 
-const Sounds: React.FC = () => {
+const Sounds: React.FC<{ sfx: Sfx[] }> = ({ sfx }) => {
   const { durationInFrames } = useVideoConfig();
   return (
     <>
       <Audio
         src={staticFile('music.wav')}
-        // Musik pelan di awal, lalu sedikit turun di bagian akhir.
+
+        // Musik masuk pelan di awal dan memudar di akhir.
         volume={(f) => interpolate(f, [0, 20, durationInFrames - 45, durationInFrames], [0, 0.66, 0.66, 0], clamp)}
       />
-      {SFX.map(([at, name, volume = 0.85]) => (
+      {sfx.map(([at, name, volume = 0.85]) => (
         <Sequence key={`${at}-${name}`} from={at} durationInFrames={45}>
           <Audio src={staticFile(`sfx/${name}.wav`)} volume={volume} />
         </Sequence>
@@ -549,36 +556,40 @@ const Sounds: React.FC = () => {
 
 // ---------- Susunan ----------
 
-export const Promo: React.FC = () => {
-  let at = 0;
-  const next = (length: number) => {
-    const from = at;
-    at += length;
-    return { from, durationInFrames: length };
-  };
-  return (
-    <AbsoluteFill style={{ fontFamily: FONT, color: C.text }}>
-      <Background />
-      <Sounds />
-      <Sequence {...next(INTRO)}>
-        <Intro />
-      </Sequence>
-      <Sequence {...next(DESKTOP)}>
-        <Desktop />
-      </Sequence>
-      {FEATURE_LIST.map((feature, i) => (
-        <Sequence key={feature.title} {...next(FEATURE)}>
-          <FeatureScene feature={feature} index={i} />
+export function buildPromo(features: Feature[]) {
+  const { sfx, frames } = timeline(features);
+  const Component: React.FC = () => {
+    let at = 0;
+    const next = (length: number) => {
+      const from = at;
+      at += length;
+      return { from, durationInFrames: length };
+    };
+    return (
+      <AbsoluteFill style={{ fontFamily: FONT, color: C.text }}>
+        <Background />
+        <Sounds sfx={sfx} />
+        <Sequence {...next(INTRO)}>
+          <Intro />
         </Sequence>
-      ))}
-      <Sequence {...next(PLAY)}>
-        <Play />
-      </Sequence>
-      <Sequence {...next(OUTRO)}>
-        <Outro />
-      </Sequence>
-    </AbsoluteFill>
-  );
-};
+        <Sequence {...next(DESKTOP)}>
+          <Desktop />
+        </Sequence>
+        {features.map((feature, i) => (
+          <Sequence key={feature.title} {...next(FEATURE)}>
+            <FeatureScene feature={feature} index={i} list={features} />
+          </Sequence>
+        ))}
+        <Sequence {...next(PLAY)}>
+          <Play />
+        </Sequence>
+        <Sequence {...next(OUTRO)}>
+          <Outro />
+        </Sequence>
+      </AbsoluteFill>
+    );
+  };
+  return { Component, frames };
+}
 
-export const PROMO_FPS = FPS;
+export const SHORT = buildPromo(SHORT_FEATURES);

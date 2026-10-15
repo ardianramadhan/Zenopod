@@ -1,7 +1,7 @@
 'use strict';
 
 // Generator audio video promosi (tanpa file/sampel dari luar, bebas hak cipta):
-// - public/music.wav : musik latar lo-fi ceria 31 detik (akor, bass, ketukan lembut)
+// - public/music.wav : musik latar lo-fi ceria 62 detik, cukup untuk versi 30 & 60 detik (akor, bass, ketukan lembut)
 // - public/sfx/*.wav : efek suara Zeno (resepnya sama dengan renderer/sounds.js)
 // Jalankan: node audio/synth.js
 
@@ -144,6 +144,10 @@ const SFX = {
     bell(b, 0.37, 2093, 0.6, 0.08);
   },
   whoosh: (b) => noise(b, 0.02, 0.45, 0.12, { filter: 3000 }),
+  munch: (b) => {
+    for (let i = 0; i < 4; i++) tone(b, 0.02 + i * 0.12, 220 + (i % 2) * 60, 0.07, { type: 'square', gain: 0.07, filter: 900, slide: 160 });
+    tone(b, 0.52, 880, 0.15, { gain: 0.12, slide: 1175 });
+  },
 };
 
 for (const [name, make] of Object.entries(SFX)) {
@@ -157,7 +161,7 @@ for (const [name, make] of Object.entries(SFX)) {
 
 const BPM = 100;
 const BEAT = 60 / BPM;
-const SECONDS = 31;
+const SECONDS = 62;
 const music = buffer(SECONDS + 1);
 
 const CHORDS = [
