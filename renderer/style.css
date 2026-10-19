@@ -5141,3 +5141,9 @@ body[data-island="notch"] .notch-cap::after {
 .claude-log code {
   min-width: 0;
 }
+
+/* Detail Waktu: semua chip kebiasaan tampil (batas tinggi lama untuk kartu atas yang pendek). */
+[data-pane="time"] .habit-chips {
+  max-height: none;
+  overflow: visible;
+}
