@@ -1963,7 +1963,7 @@ function renderClaudeLog(activity) {
   $('claude-block').hidden = !activity?.length;
   const list = $('claude-log');
   list.replaceChildren();
-  for (const item of (activity ?? []).slice(-8).reverse()) {
+  for (const item of (activity ?? []).slice(-5).reverse()) {
     const li = document.createElement('li');
     const label = document.createElement('b');
     label.textContent = item.label;

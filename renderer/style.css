@@ -5124,3 +5124,20 @@ body[data-island="notch"] .notch-cap::after {
     animation: none;
   }
 }
+
+/* Detail Kerja: seluruh pane yang di-scroll; daftar server tampil penuh (bukan strip tipis). */
+[data-pane="work"] .dev-tab {
+  flex: none;
+  min-height: auto;
+  overflow: visible;
+}
+
+/* Label aktivitas satu baris; perintahnya yang dipotong "…". */
+.claude-log b {
+  flex: none;
+  white-space: nowrap;
+}
+
+.claude-log code {
+  min-width: 0;
+}
