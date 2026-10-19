@@ -3,7 +3,7 @@
 // Uji pengurai keluaran perintah macOS (bisa dijalankan di Windows): node --test test/
 const test = require('node:test');
 const assert = require('node:assert');
-const { parseVoices, parseWifiDevice, parseWifiPower, parseTrack, parseVolume } = require('../lib/macbridge');
+const { parseVoices, parseWifiDevice, parseWifiPower, parseTrack, parseVolume, parseBluetooth, parseUsb } = require('../lib/macbridge');
 
 test('daftar suara dari `say -v ?`', () => {
   const out = [
@@ -36,6 +36,17 @@ test('lagu dari skrip musik', () => {
     title: 'Lofi Coding',
     artist: 'Chill Beats',
     art: 'https://i.scdn.co/image/x',
+    position: 0,
+    duration: null,
+  });
+  assert.deepEqual(parseTrack('Music\tpaused\tSial\tMahalini\t\t61250\t245000'), {
+    app: 'Music',
+    state: 'paused',
+    title: 'Sial',
+    artist: 'Mahalini',
+    art: '',
+    position: 61250,
+    duration: 245000,
   });
   assert.equal(parseTrack(''), null);
   assert.equal(parseTrack('\n'), null);
@@ -47,4 +58,46 @@ test('volume dari AppleScript', () => {
   // Output audio tanpa kontrol volume (mis. HDMI) memberi "missing value".
   assert.deepEqual(parseVolume('missing value,missing value'), { volume: null, muted: false });
   assert.deepEqual(parseVolume(null), { volume: null, muted: false });
+});
+
+test('perangkat Bluetooth tersambung dari system_profiler', () => {
+  const out = JSON.stringify({
+    SPBluetoothDataType: [
+      {
+        controller_properties: { controller_state: 'attrib_on' },
+        device_connected: [
+          { 'AirPods Pro': { device_address: 'AA:BB', device_minorType: 'Headphones' } },
+          { 'Magic Mouse': { device_address: 'CC:DD', device_minorType: 'Mouse' } },
+        ],
+        device_not_connected: [{ 'Speaker Lama': { device_address: 'EE:FF', device_minorType: 'Speaker' } }],
+      },
+    ],
+  });
+  assert.deepEqual(parseBluetooth(out), [
+    { id: 'AA:BB', name: 'AirPods Pro', kind: 'audio' },
+    { id: 'CC:DD', name: 'Magic Mouse', kind: 'input' },
+  ]);
+  assert.deepEqual(parseBluetooth('bukan json'), []);
+  assert.deepEqual(parseBluetooth(JSON.stringify({ SPBluetoothDataType: [{}] })), []);
+});
+
+test('perangkat USB dari system_profiler (tanpa hub & bawaan)', () => {
+  const out = JSON.stringify({
+    SPUSBDataType: [
+      {
+        _name: 'USB31Bus',
+        _items: [
+          { _name: 'USB3.1 Hub', vendor_id: '0x05e3', _items: [{ _name: 'USB Receiver', vendor_id: '0x046d', product_id: '0xc52b', serial_num: 'X1' }] },
+          { _name: 'SanDisk Ultra', vendor_id: '0x0781', product_id: '0x5581', Media: [{}] },
+          { _name: 'iPhone', vendor_id: '0x05ac', product_id: '0x12a8', serial_num: 'P1' },
+          { _name: 'FaceTime HD Camera', vendor_id: '0x05ac', built_in: 'Yes' },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(
+    parseUsb(out).map((d) => [d.name, d.kind]),
+    [['USB Receiver', 'mouse'], ['SanDisk Ultra', 'storage'], ['iPhone', 'phone']],
+  );
+  assert.deepEqual(parseUsb(''), []);
 });

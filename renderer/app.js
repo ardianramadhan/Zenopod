@@ -83,15 +83,42 @@ function makeDraggable(handle, { clickToOpen = false } = {}) {
   handle.addEventListener('pointercancel', release);
 }
 
+// Panel dibuka = hanya kartu atas; isi bawah (detail) dibuka lewat kartu, gagang ⌄, atau panah bawah.
+let detail = false;
+
+function setDetail(value, { sync = true } = {}) {
+  if (value === detail) return;
+  detail = value;
+  shell.classList.toggle('detail', value);
+  $('detail-btn').setAttribute('aria-expanded', String(value));
+  $('detail-btn').title = value ? 'Sembunyikan detail' : 'Tampilkan detail';
+  $('detail-btn').setAttribute('aria-label', $('detail-btn').title);
+  if (sync) window.kapsul.detail(value);
+  if (value) {
+    sfx('swipe');
+    // Ukuran isi bawah baru benar setelah panel melebar (mis. posisi lirik).
+    setTimeout(renderPage, 240);
+  }
+}
+
+$('detail-btn').addEventListener('click', () => setDetail(!detail));
+// Klik kartu atas (bukan tombolnya) = buka detail.
+$('hero-view').addEventListener('click', (event) => {
+  if (!event.target.closest('button, a, input')) setDetail(true);
+});
+
 window.kapsul.onExpanded((value) => {
   open = value;
   shell.classList.toggle('open', value);
-  // Panel dibuka tak lama setelah notifikasi tampil = langsung ke tab Notifikasi.
-  if (value && lastPeek.kind === 'notification' && Date.now() - lastPeek.at < 4000) selectTab('notifs');
+  if (!value) setDetail(false, { sync: false });
+  // Panel dibuka tak lama setelah notifikasi tampil = langsung ke Kotak masuk.
+  if (value && lastPeek.kind === 'notification' && Date.now() - lastPeek.at < 4000) {
+    setInboxMode('notifs');
+    goToSection('inbox', { sound: false });
+  }
   if (!value) {
     hoveringBig = false;
     if (!$('power-sheet').hidden) closePower();
-    $('quick-sheet').hidden = true;
     $('app-search').value = '';
     renderSearch();
   }
@@ -103,10 +130,7 @@ window.kapsul.onExpanded((value) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (!$('power-sheet').hidden) return closePower();
-    if (!$('quick-sheet').hidden) {
-      $('quick-sheet').hidden = true;
-      return;
-    }
+    if (detail && !(event.target === $('app-search') && $('app-search').value)) return setDetail(false);
     if (event.target === $('app-search') && $('app-search').value) {
       $('app-search').value = '';
       renderSearch();
@@ -116,10 +140,16 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (!open || event.target instanceof HTMLInputElement) return;
-  // Panel terbuka + ketik huruf = langsung cari aplikasi.
+  // Panel terbuka + ketik huruf = langsung cari aplikasi (di Beranda).
   if (/^[a-z]$/i.test(event.key) && !event.ctrlKey && !event.altKey && !event.metaKey && $('power-sheet').hidden) {
-    selectTab('apps');
+    goToSection('home', { sound: false });
+    setDetail(true);
     $('app-search').focus();
+    return;
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    setDetail(event.key === 'ArrowDown');
     return;
   }
   if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
@@ -261,7 +291,7 @@ function zoneOf(el, event) {
 let saying = null;
 let sayTimer = null;
 
-function say(lines) {
+function say(lines, ms = 1900) {
   const text = pickFresh(lines, lastLine);
   lastLine = text;
   saying = text;
@@ -277,7 +307,7 @@ function say(lines) {
     saying = null;
     bubble.hidden = true;
     renderPillText();
-  }, 1900);
+  }, ms);
 }
 
 function perform(target, reaction, ms = 1800) {
@@ -496,8 +526,35 @@ function initials(name) {
     .toUpperCase();
 }
 
+// Island Beranda memuat 5 aplikasi pertama; detail hanya menampilkan sisanya (tidak berulang).
+const QUICK_APPS = 5;
+
+function addAppTile() {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'app add';
+  button.title = 'Tambah aplikasi';
+  const icon = document.createElement('span');
+  icon.className = 'app-icon';
+  icon.textContent = '+';
+  const name = document.createElement('span');
+  name.className = 'app-name';
+  name.textContent = 'Tambah';
+  button.append(icon, name);
+  button.addEventListener('click', () => window.kapsul.openSettings('apps'));
+  return button;
+}
+
 function renderApps(apps) {
   appsEl.replaceChildren();
+  $('apps-head').hidden = apps.length <= QUICK_APPS;
+  if (apps.length > 0 && apps.length <= QUICK_APPS) {
+    const hint = document.createElement('div');
+    hint.className = 'empty';
+    hint.textContent = 'Semua aplikasimu ada di atas. Ketik untuk mencari aplikasi lain, menghitung, atau memasang timer.';
+    appsEl.append(hint);
+    return;
+  }
   if (apps.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty';
@@ -511,7 +568,7 @@ function renderApps(apps) {
     return;
   }
 
-  for (const item of apps) {
+  for (const item of apps.slice(QUICK_APPS)) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'app';
@@ -545,6 +602,7 @@ function renderApps(apps) {
 
     appsEl.append(button);
   }
+  appsEl.append(addAppTile());
 }
 
 function renderShortcut(keys) {
@@ -562,6 +620,9 @@ function renderShortcut(keys) {
 window.kapsul.onState((state) => {
   document.body.dataset.align = state.align;
   document.body.dataset.valign = state.valign ?? 'top';
+  document.body.dataset.island = state.island ?? 'pill';
+  delete document.body.dataset.preview;
+  document.body.style.setProperty('--inset', `${state.notchInset ?? 0}px`);
   if (state.sound) soundSettings = state.sound;
   chatReady = Boolean(state.chatReady);
   if (state.ticker && (state.ticker.enabled !== tickerSettings.enabled || state.ticker.seconds !== tickerSettings.seconds)) {
@@ -575,17 +636,23 @@ window.kapsul.onState((state) => {
     focusSettings = state.focus;
     renderFocus();
   }
+  if (state.battery) {
+    batterySettings = state.battery;
+    renderBattery();
+  }
   $('buddy-big').title = state.buddyName ? `Halo, aku ${state.buddyName}!` : 'Halo!';
   document.body.dataset.platform = state.platform ?? '';
+  // macOS tidak bisa membaca notifikasi aplikasi lain: Kotak masuk hanya berisi Klip.
   const noNotifs = state.platform === 'darwin';
-  $('tab-notifs').hidden = noNotifs;
-  if (noNotifs && currentTab === 'notifs') selectTab('apps');
-  // Tab Dev hanya untuk yang memantau server/project (diatur di Pengaturan › Dev).
-  $('tab-dev').hidden = !state.devEnabled;
-  if (!state.devEnabled && currentTab === 'dev') selectTab('apps');
+  $('inbox-notifs-tab').hidden = noNotifs;
+  if (noNotifs && inboxMode === 'notifs') setInboxMode('clips');
+  // Section Kerja: saat Claude bekerja, atau kalau ada server/project yang dipantau.
+  devEnabled = Boolean(state.devEnabled);
+  goToPage(pageIndex, { sound: false });
   renderShortcut(state.shortcut);
   renderApps(state.apps);
   launcherApps = state.apps;
+  renderQuickApps();
 });
 
 // ---------- Notifikasi ----------
@@ -600,41 +667,35 @@ const ago = (time) => {
   return new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(time);
 };
 
-let currentTab = 'apps';
-const TAB_PANELS = { apps: 'apps-tab', notifs: 'notifs', focus: 'focus-tab', clips: 'clips', todos: 'todos', dev: 'dev' };
+let devEnabled = false;
+let inboxMode = 'notifs';
 
-function selectTab(tab) {
-  currentTab = tab;
-  for (const button of document.querySelectorAll('[data-tab]')) {
-    button.setAttribute('aria-selected', String(button.dataset.tab === tab));
-  }
-  for (const [name, id] of Object.entries(TAB_PANELS)) $(id).hidden = name !== tab;
+function setInboxMode(mode) {
+  inboxMode = mode;
+  for (const b of document.querySelectorAll('[data-inbox]')) b.setAttribute('aria-selected', String(b.dataset.inbox === mode));
+  $('notifs').hidden = mode !== 'notifs';
+  $('clips').hidden = mode !== 'clips';
   renderTabAction();
 }
 
-for (const button of document.querySelectorAll('[data-tab]')) {
-  button.addEventListener('click', () => selectTab(button.dataset.tab));
-}
+for (const b of document.querySelectorAll('[data-inbox]')) b.addEventListener('click', () => setInboxMode(b.dataset.inbox));
 
-// Tombol kanan di baris tab: berubah sesuai tab yang dibuka.
+// Tombol aksi di tiap section (Hapus semua, Hapus yang selesai) + ringkasan Kotak masuk.
 function renderTabAction() {
-  const button = $('tab-action');
-  const action = {
-    notifs: notifs.items.length ? 'Hapus semua' : null,
-    clips: clipItems.length ? 'Hapus semua' : null,
-    todos: todoItems.some((t) => t.done) ? 'Hapus yang selesai' : null,
-    dev: 'Periksa sekarang',
-  }[currentTab];
+  const button = $('inbox-action');
+  const action = (inboxMode === 'notifs' ? notifs.items.length : clipItems.length) ? 'Hapus semua' : null;
   button.hidden = !action;
   button.textContent = action ?? '';
+  $('todo-clear').hidden = !todoItems.some((t) => t.done);
+  renderInboxSummary();
 }
 
-$('tab-action').addEventListener('click', () => {
-  if (currentTab === 'notifs') window.kapsul.clearNotifications();
-  if (currentTab === 'clips') window.kapsul.clip('clear');
-  if (currentTab === 'todos') window.kapsul.todo('clear-done');
-  if (currentTab === 'dev') window.kapsul.devRefresh();
+$('inbox-action').addEventListener('click', () => {
+  if (inboxMode === 'notifs') window.kapsul.clearNotifications();
+  else window.kapsul.clip('clear');
 });
+$('todo-clear').addEventListener('click', () => window.kapsul.todo('clear-done'));
+$('dev-refresh').addEventListener('click', () => window.kapsul.devRefresh());
 
 function iconEl(item, className) {
   const icon = document.createElement('span');
@@ -650,6 +711,9 @@ function iconEl(item, className) {
   return icon;
 }
 
+let lastNotifCount = 0;
+$('tab-notifs').addEventListener('animationend', (e) => e.target.closest('.bell') && $('tab-notifs').classList.remove('ring'));
+
 function renderNotifications() {
   const list = $('notifs');
   list.replaceChildren();
@@ -658,7 +722,15 @@ function renderNotifications() {
   $('badge').hidden = count === 0;
   $('badge').textContent = count > 9 ? '9+' : String(count);
   $('notif-count').hidden = count === 0;
-  $('notif-count').textContent = String(count);
+  $('notif-count').textContent = count > 99 ? '99+' : String(count);
+  // Notifikasi bertambah: lonceng di tab ikut bergoyang.
+  if (count > lastNotifCount) {
+    const tab = $('tab-notifs');
+    tab.classList.remove('ring');
+    void tab.offsetWidth;
+    tab.classList.add('ring');
+  }
+  lastNotifCount = count;
   renderTabAction();
 
   if (notifs.access !== 'Allowed' && notifs.access !== 'Unknown') {
@@ -776,7 +848,7 @@ window.kapsul.onClaude((state) => {
   claudeState = state ?? { active: [] };
   renderClaudeCard();
   renderMedia();
-  if (claudeState.active.length && !wasActive) goToPage(PAGES.findIndex((p) => p.id === 'claude'), { sound: false });
+  if (claudeState.active.length && !wasActive) goToSection('work', { sound: false });
   else goToPage(pageIndex, { sound: false });
 });
 
@@ -785,10 +857,21 @@ const elapsed = (since) => {
   return minutes < 1 ? 'baru mulai' : `${minutes} mnt`;
 };
 
-// Halaman Claude di carousel (hanya ada saat Claude bekerja/menunggu).
+// Kartu Claude di section Kerja; tanpa sesi = keterangan singkat.
 function renderClaudeCard() {
   const session = claudeState.active[0];
-  if (!session) return;
+  if (!session) {
+    $('claude-live').classList.remove('waiting');
+    $('claude-live').classList.add('off');
+    $('claude-project').textContent = 'Claude Code';
+    $('claude-meta').textContent = 'Sedang tidak bekerja';
+    $('claude-activity').replaceChildren();
+    renderClaudeLog(null);
+    renderWorkActions();
+    return;
+  }
+  renderWorkActions();
+  $('claude-live').classList.remove('off');
   const waiting = session.state === 'waiting';
   $('claude-live').classList.toggle('waiting', waiting);
   $('claude-project').textContent = session.project;
@@ -805,7 +888,8 @@ function renderClaudeCard() {
   const list = $('claude-activity');
   list.replaceChildren();
   const activity = session.activity?.length ? session.activity : [{ label: session.label || 'Berpikir', detail: session.prompt || '' }];
-  for (const item of activity.slice(-2)) {
+  renderClaudeLog(activity);
+  for (const item of activity.slice(-1)) {
     const li = document.createElement('li');
     const label = document.createElement('b');
     label.textContent = item.label;
@@ -839,46 +923,48 @@ function phaseLength(phase) {
   return ({ focus: s.focusMinutes, break: s.breakMinutes, long: s.longBreakMinutes }[phase] ?? s.focusMinutes) * 60_000;
 }
 
-function focusButton(label, action, primary = false) {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = primary ? 'peek-btn primary' : 'peek-btn';
-  button.textContent = label;
-  button.addEventListener('click', () => window.kapsul.focus(action));
-  return button;
+const FOCUS_PRESETS = [15, 25, 45, 60];
+const TIMER_PRESETS = [1, 3, 5, 10, 15, 30, 60];
+const endTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+const CONTROL_ICONS = {
+  play: '<svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.8 8z" /></svg>',
+  pause: '<svg viewBox="0 0 16 16"><path d="M5 3.5v9M11 3.5v9" /></svg>',
+  stop: '<svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.6" /></svg>',
+  skip: '<svg viewBox="0 0 16 16"><path d="M3.5 3.5v9L10 8zM12.5 3.5v9" /></svg>',
+  timer: '<svg viewBox="0 0 16 16"><circle cx="8" cy="9" r="5" /><path d="M6.5 2h3M8 9V6.5" /></svg>',
+};
+
+let focusPick = null; // lama fokus yang dipilih sebelum mulai (menit)
+try {
+  focusPick = Number(localStorage.getItem('kapsul.focusPick')) || null;
+} catch {
+  // tanpa penyimpanan
 }
 
+const pickedMinutes = () => focusPick || focusSettings.focusMinutes;
+const focusTotal = () => focusState.total || phaseLength(focusState.phase ?? 'focus');
+
+// Struktur tab (dipanggil saat status berubah); angka & lingkaran diperbarui tickFocus().
 function renderFocus() {
-  const { phase, running, cycle, done } = focusState;
+  const { phase, running, cycle } = focusState;
   const tab = $('focus-tab');
-  const total = phaseLength(phase ?? 'focus');
-  const remaining = phase ? focusRemaining() : total;
+  const total = focusTotal();
+  const remaining = phase ? focusRemaining() : pickedMinutes() * 60_000;
   // Belum dimulai sama sekali = menunggu tombol Mulai (beda dengan dijeda di tengah).
   const waiting = Boolean(phase) && !running && remaining >= total - 1000;
+  const rest = phase === 'break' || phase === 'long';
 
-  tab.classList.toggle('rest', phase === 'break' || phase === 'long');
-  tab.classList.toggle('paused', Boolean(phase) && !running);
-  $('focus-time').textContent = clock(remaining);
-  $('ring-bar').style.strokeDashoffset = String(276.46 * (1 - Math.min(1, remaining / total)));
+  tab.classList.toggle('idle', !phase);
+  tab.classList.toggle('rest', rest);
+  tab.classList.toggle('running', running);
+  tab.classList.toggle('paused', Boolean(phase) && !running && !waiting);
 
-  $('focus-phase').textContent = !phase
-    ? 'Siap fokus?'
-    : running
-      ? PHASE[phase]
-      : waiting
-        ? phase === 'focus'
-          ? 'Siap fokus lagi?'
-          : `${PHASE[phase]} menunggu`
-        : `${PHASE[phase]} dijeda`;
-
-  const sub = !phase
-    ? `${focusSettings.focusMinutes} menit fokus, notifikasi ditahan dulu.`
-    : phase === 'focus'
-      ? `Sesi ${cycle} dari ${focusSettings.cycles}`
-      : 'Regangkan badan dan minum air.';
-  $('focus-sub').textContent = done ? `${sub} · ${done} fokus selesai` : sub;
+  // Detail = ringkasan; ajakan "Siap fokus?" cukup di island.
+  $('focus-phase').textContent = !phase ? 'Ringkasan hari ini' : running ? PHASE[phase] : waiting ? `${PHASE[phase]} berikutnya` : `${PHASE[phase]} dijeda`;
 
   const dots = $('focus-dots');
+  dots.hidden = !phase;
   dots.replaceChildren();
   for (let i = 1; i <= focusSettings.cycles; i++) {
     const dot = document.createElement('i');
@@ -887,19 +973,53 @@ function renderFocus() {
     dots.append(dot);
   }
 
-  const actions = $('focus-actions');
-  actions.replaceChildren();
-  if (!phase) {
-    actions.append(focusButton(`Mulai fokus ${focusSettings.focusMinutes} mnt`, 'focus', true));
-  } else if (running) {
-    actions.append(focusButton('Jeda', 'pause'), focusButton('Lewati', 'skip'), focusButton('Berhenti', 'stop'));
-  } else {
-    actions.append(focusButton(waiting ? 'Mulai' : 'Lanjut', 'start', true), focusButton('Berhenti', 'stop'));
-  }
+  $('focus-count').hidden = !phase;
+  $('tab-focus').classList.toggle('running', Boolean(phase && running));
+  renderFocusSummary();
+  tickFocus();
+  if (phase && running) startFocusLoop();
+}
 
-  const count = $('focus-count');
-  count.hidden = !phase;
-  count.textContent = phase ? clock(remaining) : '';
+// Angka, lingkaran dan subjudul; berjalan tiap frame selama tab Fokus terbuka.
+function tickFocus() {
+  const { phase, running, cycle, done } = focusState;
+  const total = phase ? focusTotal() : pickedMinutes() * 60_000;
+  const remaining = phase ? Math.max(0, focusRemaining()) : total;
+  const progress = Math.min(1, remaining / total);
+
+  const text = clock(remaining);
+  if ($('focus-time').textContent !== text) $('focus-time').textContent = text;
+  $('focus-count').textContent = phase ? text : '';
+  $('ring-bar').style.strokeDashoffset = String(1000 * (1 - progress));
+  const angle = progress * 2 * Math.PI;
+  $('ring-knob').setAttribute('cx', (60 + 52 * Math.sin(angle)).toFixed(2));
+  $('ring-knob').setAttribute('cy', (60 - 52 * Math.cos(angle)).toFixed(2));
+  $('focus-tab').classList.toggle('final', phase === 'focus' && running && remaining < 60_000);
+
+  const label = !phase ? 'menit fokus' : running ? `selesai ${endTime.format(Date.now() + remaining)}` : 'dijeda';
+  if ($('focus-label').textContent !== label) $('focus-label').textContent = label;
+  const sub = !phase
+    ? 'Mulai fokus dari tombol di atas.'
+    : phase === 'focus'
+      ? `Sesi ${cycle} dari ${focusSettings.cycles}${done ? ` · ${done} selesai` : ''}`
+      : 'Regangkan badan dan minum air.';
+  if ($('focus-sub').textContent !== sub) $('focus-sub').textContent = sub;
+}
+
+let focusFrame = null;
+
+function startFocusLoop() {
+  if (focusFrame) return;
+  const step = () => {
+    focusFrame = null;
+    if (!focusState.phase || !focusState.running) return;
+    if (open && PAGES[pageIndex].id === 'focus') {
+      tickFocusIsland();
+      if (detail) tickFocus();
+    }
+    focusFrame = requestAnimationFrame(step);
+  };
+  focusFrame = requestAnimationFrame(step);
 }
 
 window.kapsul.onFocus((state) => {
@@ -908,9 +1028,10 @@ window.kapsul.onFocus((state) => {
   renderMedia();
 });
 
+// Tab tertutup: cukup perbarui angka di tab & kapsul tiap detik.
 setInterval(() => {
   if (!focusState.phase || !focusState.running) return;
-  renderFocus();
+  tickFocus();
   renderPillText();
 }, 1000);
 
@@ -1052,7 +1173,6 @@ $('todo-form').addEventListener('submit', (event) => {
 window.kapsul.onTodos((items) => {
   todoItems = items ?? [];
   renderTodos();
-  if (PAGES[pageIndex].id === 'today') renderPage();
 });
 
 // ---------- Dev: server lokal & Git ----------
@@ -1083,6 +1203,7 @@ function devCell(className, text) {
 
 function renderDev(state) {
   lastDev = state;
+  renderWorkActions();
   const services = state?.services ?? [];
   const projects = state?.projects ?? [];
   const down = services.filter((s) => s.status === 'down').length;
@@ -1143,51 +1264,54 @@ function renderDev(state) {
 
 window.kapsul.onDev(renderDev);
 
-// ---------- Kartu atas: halaman yang bisa di-swipe ----------
+// ---------- Section: kartu atas + isi bawah, di-swipe bersama ----------
 
 const PAGES = [
-  { id: 'claude', label: 'Claude Code', sound: 'tick' },
+  { id: 'home', label: 'Beranda', sound: 'hello' },
   { id: 'music', label: 'Musik', sound: 'note' },
-  { id: 'greeting', label: 'Sapaan', sound: 'hello' },
-  { id: 'clock', label: 'Tanggal & jam', sound: 'ticktock' },
-  { id: 'agenda', label: 'Agenda', sound: 'today' },
+  { id: 'time', label: 'Waktu & jadwal', sound: 'ticktock' },
   { id: 'weather', label: 'Cuaca', sound: 'today' },
-  { id: 'today', label: 'Hari ini', sound: 'today' },
-  { id: 'habits', label: 'Kebiasaan', sound: 'tick' },
-  { id: 'pet', label: 'Zeno', sound: 'pop' },
-  { id: 'system', label: 'Sistem', sound: 'tick' },
+  { id: 'focus', label: 'Fokus & timer', sound: 'tick' },
+  { id: 'device', label: 'Perangkat', sound: 'tick' },
+  { id: 'inbox', label: 'Kotak masuk', sound: 'pop' },
+  { id: 'work', label: 'Kerja', sound: 'tick' },
 ];
 
-// Halaman Cuaca hanya ada kalau cuaca aktif; halaman Claude hanya saat Claude bekerja;
-// Agenda kalau kalender tersambung; Kebiasaan kalau sudah ada kebiasaan.
+// Cuaca hanya kalau kota sudah dipilih; Kerja saat Claude bekerja atau ada server/project dipantau.
 function pageAvailable(page) {
   if (page.id === 'weather') return Boolean(weatherNow);
-  if (page.id === 'claude') return claudeState.active.length > 0;
-  if (page.id === 'agenda') return calendarEvents !== null;
-  if (page.id === 'habits') return habitItems.length > 0;
+  if (page.id === 'work') return claudeState.active.length > 0 || devEnabled;
   return true;
 }
 
 let pageIndex = 0;
 try {
-  pageIndex = Math.max(0, PAGES.findIndex((p) => p.id === localStorage.getItem('kapsul.page')));
+  pageIndex = Math.max(0, PAGES.findIndex((p) => p.id === localStorage.getItem('kapsul.section')));
 } catch {
   // tanpa penyimpanan
 }
 
-// Wujud Zeno per halaman.
+// Wujud Zeno per section.
 function pageMood() {
   const page = PAGES[pageIndex].id;
-  if (page === 'claude') return claudeWaiting() ? 'surprised' : 'think';
+  if (page === 'home') return (petState?.hunger ?? 100) < 25 ? 'hungry' : 'greet';
   if (page === 'music') return media.playing ? 'music' : 'listen';
-  if (page === 'greeting') return 'greet';
-  if (page === 'clock') return 'clock';
+  if (page === 'time') return 'clock';
   if (page === 'weather') return weatherNow?.look?.mood ?? 'idle';
-  if (page === 'pet') return (petState?.hunger ?? 100) < 25 ? 'hungry' : 'happy';
-  if (page === 'agenda') return 'clock';
-  if (page === 'habits') return habitItems.length && habitItems.every((h) => h.done || !h.scheduled) ? 'laugh' : 'happy';
-  if (page === 'system') return systemNow?.online === false ? 'cry' : 'focus';
-  return 'focus';
+  if (page === 'focus') return focusState.running && focusState.phase !== 'focus' ? 'stretch' : 'focus';
+  if (page === 'device') return systemNow?.online === false ? 'cry' : battery?.charging ? 'charging' : lowBattery() ? 'lowbat' : 'smug';
+  if (page === 'inbox') return notifs.items.length ? 'surprised' : 'happy';
+  if (page === 'work') return claudeWaiting() ? 'surprised' : claudeBusy() ? 'think' : 'focus';
+  return 'idle';
+}
+
+const sectionIndex = (id) => PAGES.findIndex((p) => p.id === id);
+const goToSection = (id, options) => goToPage(sectionIndex(id), options);
+
+function placeTracks(offsetPx = 0) {
+  const x = `translateX(calc(${-pageIndex * 100}% + ${offsetPx}px))`;
+  $('hero-track').style.transform = x;
+  $('deck-track').style.transform = x;
 }
 
 function goToPage(index, { sound = true } = {}) {
@@ -1197,15 +1321,23 @@ function goToPage(index, { sound = true } = {}) {
   const changed = next !== pageIndex;
   pageIndex = next;
   try {
-    localStorage.setItem('kapsul.page', PAGES[next].id);
+    localStorage.setItem('kapsul.section', PAGES[next].id);
   } catch {
     // tanpa penyimpanan
   }
-  $('hero-track').style.transform = `translateX(${-next * 100}%)`;
+  placeTracks();
+  for (const button of $('nav').querySelectorAll('[data-section]')) {
+    const page = PAGES[sectionIndex(button.dataset.section)];
+    button.setAttribute('aria-selected', String(page.id === PAGES[next].id));
+    button.hidden = !pageAvailable(page);
+  }
   for (const [i, dot] of [...$('hero-dots').children].entries()) {
     dot.setAttribute('aria-selected', String(i === next));
     dot.hidden = !pageAvailable(PAGES[i]);
   }
+  // Isi section lain tidak bisa difokus dengan Tab (tetap ada di DOM untuk animasi geser).
+  for (const [i, pane] of [...$('deck-track').children].entries()) pane.inert = i !== next;
+  for (const [i, page] of [...$('hero-track').children].entries()) page.inert = i !== next;
   applyCostume();
   renderPage();
   if (changed) {
@@ -1219,6 +1351,11 @@ function goToPage(index, { sound = true } = {}) {
   renderBuddy();
 }
 
+for (const button of $('nav').querySelectorAll('[data-section]')) {
+  button.addEventListener('click', () => goToSection(button.dataset.section));
+}
+
+// Titik penanda section di kartu atas (tampilan ringkas).
 for (const [i, page] of PAGES.entries()) {
   const dot = document.createElement('button');
   dot.type = 'button';
@@ -1229,40 +1366,58 @@ for (const [i, page] of PAGES.entries()) {
   $('hero-dots').append(dot);
 }
 
-// Seret dengan mouse: ikuti jari/kursor, lepas > 40px = pindah halaman.
+// Geser dengan mouse di mana saja di kartu atas atau isi bawah: ikuti kursor, lepas > 50px =
+// pindah section. Geseran baru dihitung kalau arahnya jelas mendatar, jadi klik tombol dan
+// scroll daftar tetap normal; kalau sudah jadi geseran, klik di akhir geseran dibatalkan.
 (() => {
-  const view = $('hero-view');
-  const track = $('hero-track');
-  let startX = null;
-  let dx = 0;
-  view.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0 || event.target.closest('button')) return;
-    startX = event.clientX;
-    dx = 0;
-    view.setPointerCapture(event.pointerId);
-    view.classList.add('dragging');
-  });
-  view.addEventListener('pointermove', (event) => {
-    if (startX === null) return;
-    dx = event.clientX - startX;
-    const width = view.clientWidth || 1;
-    track.style.transform = `translateX(calc(${-pageIndex * 100}% + ${dx}px))`;
-    if (Math.abs(dx) > width) dx = Math.sign(dx) * width;
-  });
-  const release = () => {
-    if (startX === null) return;
-    startX = null;
-    view.classList.remove('dragging');
-    if (dx < -40) goToPage(pageIndex + 1);
-    else if (dx > 40) goToPage(pageIndex - 1);
-    else goToPage(pageIndex, { sound: false });
+  const SKIP = 'input, textarea, select, [contenteditable], .grip';
+  let drag = null;
+  const swallowClick = () => {
+    const stop = (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+    };
+    window.addEventListener('click', stop, { capture: true, once: true });
+    setTimeout(() => window.removeEventListener('click', stop, { capture: true }), 300);
   };
-  view.addEventListener('pointerup', release);
-  view.addEventListener('pointercancel', release);
+  for (const view of [$('hero-view'), $('deck-view')]) {
+    view.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || event.target.closest(SKIP)) return;
+      drag = { view, id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, active: false };
+    });
+    view.addEventListener('pointermove', (event) => {
+      if (!drag || drag.view !== view) return;
+      const dx = event.clientX - drag.x;
+      const dy = event.clientY - drag.y;
+      if (!drag.active) {
+        if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) return (drag = null);
+        if (Math.abs(dx) < 10) return;
+        drag.active = true;
+        view.setPointerCapture(drag.id);
+      }
+      const width = view.clientWidth || 1;
+      drag.dx = Math.max(-width, Math.min(width, dx));
+      $('panel').classList.add('swiping');
+      placeTracks(drag.dx);
+    });
+    const release = () => {
+      if (!drag || drag.view !== view) return;
+      const { dx, active } = drag;
+      drag = null;
+      $('panel').classList.remove('swiping');
+      if (!active) return;
+      swallowClick();
+      if (dx < -50) goToPage(pageIndex + 1);
+      else if (dx > 50) goToPage(pageIndex - 1);
+      else goToPage(pageIndex, { sound: false });
+    };
+    view.addEventListener('pointerup', release);
+    view.addEventListener('pointercancel', release);
+  }
 
-  // Scroll horizontal (touchpad) atau Shift+scroll.
+  // Scroll horizontal (touchpad) atau Shift+scroll di mana saja di panel.
   let wheelLock = 0;
-  view.addEventListener(
+  $('panel').addEventListener(
     'wheel',
     (event) => {
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.shiftKey ? event.deltaY : 0;
@@ -1301,90 +1456,550 @@ function periodNow(date = new Date()) {
   return 'malam';
 }
 
-const ICON = {
-  bell: '<svg viewBox="0 0 16 16"><circle cx="8" cy="9" r="5.2" /><path d="M8 6.4V9l1.8 1.2" /></svg>',
-  check: '<svg viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="11" rx="3" /><path d="M5.3 8.2l1.9 1.9 3.6-4" /></svg>',
-  target: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2.2" /></svg>',
-  cloud: '<svg viewBox="0 0 16 16"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .2-5.6 4 4 0 0 0-7.7 1A2.3 2.3 0 0 0 4.5 12.5z" /></svg>',
-  calendar: '<svg viewBox="0 0 16 16"><rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></svg>',
+const ADVICE_ICONS = {
+  rain: 'rain',
+  storm: 'rain',
+  hot: 'sun',
+  uv: 'sun',
+  wind: 'cloud',
+  ok: 'check',
 };
 
-function todayRow(icon, text) {
-  const li = document.createElement('li');
-  li.innerHTML = ICON[icon];
-  const span = document.createElement('span');
-  span.textContent = text;
-  li.append(span);
-  return li;
+// ---------- Island: aksi langsung per section ----------
+
+function actionChip(label, onClick, { icon = null, primary = false, title = null, round = false } = {}) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = `action-chip${primary ? ' primary' : ''}${round ? ' round' : ''}`;
+  if (icon) {
+    const i = document.createElement('span');
+    i.className = 'action-icon';
+    i.innerHTML = CONTROL_ICONS[icon] ?? PILL_ICONS[icon] ?? '';
+    button.append(i);
+  }
+  if (label) button.append(label);
+  if (title) {
+    button.title = title;
+    button.setAttribute('aria-label', title);
+  }
+  button.addEventListener('click', onClick);
+  return button;
+}
+
+function renderHome(now) {
+  const period = periodNow(now);
+  const firstName = (profile.userName || '').split(/\s+/)[0];
+  $('greet-title').textContent = `Selamat ${period}${firstName ? `, ${firstName}` : ''}!`;
+  renderQuickApps();
+  renderPet();
+}
+
+// 5 aplikasi pertama sekali klik + tombol cari (membuka detail Beranda).
+function renderQuickApps() {
+  const box = $('quick-apps');
+  box.replaceChildren();
+  for (const item of launcherApps.slice(0, QUICK_APPS)) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'quick-app';
+    button.title = item.name;
+    button.setAttribute('aria-label', `Buka ${item.name}`);
+    if (item.icon) {
+      const img = document.createElement('img');
+      img.src = item.icon;
+      img.alt = '';
+      button.append(img);
+    } else {
+      button.textContent = initials(item.name);
+      button.style.background = item.color ?? 'var(--surface-hover)';
+    }
+    button.addEventListener('click', () => launch(item.index));
+    box.append(button);
+  }
+  if (!launcherApps.length) box.append(actionChip('+ Tambah aplikasi', () => window.kapsul.openSettings('apps')));
+  const search = document.createElement('button');
+  search.type = 'button';
+  search.className = 'quick-app search';
+  search.title = 'Cari aplikasi, hitung, timer…';
+  search.setAttribute('aria-label', search.title);
+  search.innerHTML = '<svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" /></svg>';
+  search.addEventListener('click', () => {
+    setDetail(true);
+    $('app-search').focus();
+  });
+  box.append(search);
+}
+
+function renderClock(now) {
+  const time = $('clock-time');
+  time.replaceChildren(`${pad2(now.getHours())}:${pad2(now.getMinutes())}`);
+  const sec = document.createElement('span');
+  sec.className = 'sec';
+  sec.textContent = `:${pad2(now.getSeconds())}`;
+  time.append(sec);
+  $('clock-date').textContent = LONG_DATE.format(now);
+  $('clock-hijri').textContent = HIJRI ? HIJRI.format(now) : '';
+}
+
+// Jadwal terdekat: rapat ≤ 2 jam lagi (Gabung kalau ada link) > pengingat > kosong.
+function renderTimeCard() {
+  const now = Date.now();
+  const button = $('time-next');
+  const meeting = nextMeeting(now);
+  const soon = meeting && meeting.start - now < 2 * 3_600_000;
+  let icon = 'bell';
+  let text = 'Tidak ada jadwal dekat';
+  let action = () => setDetail(true);
+  if (soon) {
+    icon = 'calendar';
+    text = `${meeting.link ? 'Gabung · ' : ''}${meeting.title} · ${eventTime(meeting, now)}`;
+    if (meeting.link) action = () => window.kapsul.meeting(meeting.link);
+  } else if (nextReminder) {
+    text = `${nextReminder.title} · ${nextReminder.when}`;
+  }
+  const i = document.createElement('span');
+  i.className = 'action-icon';
+  i.innerHTML = PILL_ICONS[icon];
+  const label = document.createElement('span');
+  label.className = 'action-text';
+  label.textContent = text;
+  button.replaceChildren(i, label);
+  button.title = text;
+  button.classList.toggle('primary', Boolean(soon && meeting.link));
+  button.onclick = action;
+}
+
+$('time-add-todo').addEventListener('click', () => {
+  setDetail(true);
+  setTimeout(() => $('todo-input').focus(), 260);
+});
+
+function renderWeather() {
+  const w = weatherNow;
+  if (!w) return;
+  const scene = $('weather-scene');
+  const sceneKey = `${w.kind}|${w.code}|${w.isDay}`;
+  // Gambar ulang hanya saat cuaca berganti, supaya animasinya tidak mulai dari awal.
+  if (scene.dataset.key !== sceneKey) {
+    scene.dataset.key = sceneKey;
+    scene.innerHTML = weatherSvg(w.kind, { code: w.code, day: w.isDay !== false });
+  }
+  $('weather-temp').textContent = `${w.temperature}°`;
+  $('weather-cond').textContent = w.text;
+  $('weather-feels').textContent = [w.city, w.max != null ? `${w.min}°–${w.max}°` : ''].filter(Boolean).join(' · ');
+  // Saran terpenting langsung di island; lengkapnya di detail.
+  const top = w.advice?.[0];
+  const tip = $('weather-tip');
+  tip.replaceChildren();
+  if (top) {
+    const icon = document.createElement('span');
+    icon.className = 'tick-icon';
+    icon.innerHTML = PILL_ICONS[ADVICE_ICONS[top.icon] ?? 'check'];
+    const text = document.createElement('span');
+    text.textContent = top.text;
+    tip.className = `weather-tip tip-${top.icon}`;
+    tip.append(icon, text);
+  }
+
+  renderWeatherChart();
+
+  // Fakta ringkas dalam satu kartu
+  const facts = [
+    ['Terasa', w.feels != null ? `${w.feels}°` : null],
+    ['Lembap', w.humidity != null ? `${w.humidity}%` : null],
+    ['Angin', w.wind != null ? `${w.wind} km/j` : null],
+    ['UV maks', w.uv != null ? String(w.uv) : null],
+    ['Terbit', w.sunrise],
+    ['Terbenam', w.sunset],
+  ].filter(([, v]) => v);
+  $('weather-details').replaceChildren(
+    ...facts.map(([label, value]) => {
+      const cell = document.createElement('div');
+      const l = document.createElement('span');
+      l.textContent = label;
+      const v = document.createElement('b');
+      v.textContent = value;
+      cell.append(l, v);
+      return cell;
+    }),
+  );
+
+  // Saran lain (yang pertama sudah tampil di island)
+  const more = (w.advice ?? []).slice(1);
+  $('weather-advice').hidden = !more.length;
+  $('weather-advice').replaceChildren(
+    ...more.map((tip) => {
+      const li = document.createElement('li');
+      li.className = `tip-${tip.icon}`;
+      const icon = document.createElement('span');
+      icon.className = 'tick-icon';
+      icon.innerHTML = PILL_ICONS[ADVICE_ICONS[tip.icon] ?? 'check'];
+      const text = document.createElement('span');
+      text.textContent = tip.text;
+      li.append(icon, text);
+      return li;
+    }),
+  );
+}
+
+// ---------- Grafik cuaca: suhu (garis) + peluang hujan (batang), satu sumbu x ----------
+// Dua strip terpisah karena skalanya berbeda (° dan %); lebar mengikuti wadah.
+const WX = { temp: '#d97706', rain: '#3b82f6' };
+let wxHover = null; // indeks jam yang sedang ditunjuk
+
+function renderWeatherChart() {
+  const box = $('wx-chart');
+  const w = weatherNow;
+  if (!w || !box.clientWidth) return;
+  const points = [{ hour: 'Kini', temperature: w.temperature, rain: null, kind: w.kind, isDay: w.isDay, text: w.text, now: true }, ...(w.hours ?? [])];
+  const W = box.clientWidth;
+  const pad = 12;
+  const iconY = 2;
+  const top = 34; // ruang ikon + label puncak
+  const tempH = 54;
+  const rainTop = top + tempH + 16;
+  const rainH = 26;
+  const labelY = rainTop + rainH + 14;
+  const H = labelY + 4;
+  const step = (W - pad * 2) / (points.length - 1);
+  const x = (i) => pad + i * step;
+  const temps = points.map((p) => p.temperature);
+  const lo = Math.min(...temps) - 1;
+  const hi = Math.max(...temps) + 1;
+  const y = (t) => top + tempH - ((t - lo) / (hi - lo || 1)) * tempH;
+  const maxI = temps.indexOf(Math.max(...temps));
+  const minI = temps.lastIndexOf(Math.min(...temps));
+
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.temperature).toFixed(1)}`).join('');
+  const area = `${line}L${x(points.length - 1).toFixed(1)} ${top + tempH}L${x(0).toFixed(1)} ${top + tempH}Z`;
+  const parts = [];
+  parts.push(`<path class="wx-area" d="${area}" fill="${WX.temp}" />`);
+  parts.push(`<line class="wx-base" x1="${pad}" x2="${W - pad}" y1="${rainTop + rainH}" y2="${rainTop + rainH}" />`);
+  parts.push(`<path class="wx-line" d="${line}" stroke="${WX.temp}" />`);
+
+  // Batang peluang hujan (skala tetap 0–100%), sudut atas membulat 4px, dasar rata.
+  const bw = Math.min(14, step * 0.55);
+  let wettest = -1;
+  points.forEach((p, i) => {
+    if (p.rain == null) return;
+    if (wettest < 0 || p.rain > points[wettest].rain) wettest = i;
+    const h = Math.max(1.5, (p.rain / 100) * rainH);
+    const r = Math.min(4, h, bw / 2);
+    const bx = x(i) - bw / 2;
+    const by = rainTop + rainH - h;
+    parts.push(
+      `<path class="wx-bar${p.rain < 30 ? ' dry' : ''}" fill="${WX.rain}" d="M${bx.toFixed(1)} ${(by + h).toFixed(1)}V${(by + r).toFixed(1)}Q${bx.toFixed(1)} ${by.toFixed(1)} ${(bx + r).toFixed(1)} ${by.toFixed(1)}H${(bx + bw - r).toFixed(1)}Q${(bx + bw).toFixed(1)} ${by.toFixed(1)} ${(bx + bw).toFixed(1)} ${(by + r).toFixed(1)}V${(by + h).toFixed(1)}Z" />`,
+    );
+  });
+  if (wettest > 0 && points[wettest].rain >= 30) {
+    parts.push(`<text class="wx-label" x="${x(wettest).toFixed(1)}" y="${(rainTop + rainH - (points[wettest].rain / 100) * rainH - 4).toFixed(1)}">${points[wettest].rain}%</text>`);
+  }
+  parts.push(`<text class="wx-axis start" x="${pad}" y="${rainTop - 4}">Peluang hujan</text>`);
+
+  // Penanda selektif: sekarang, puncak, terendah (label suhu memakai warna teks, bukan warna data).
+  const marks = [[0, 'above'], [maxI, 'above'], [minI, 'below']].filter(([i], k, all) => all.findIndex(([j]) => j === i) === k);
+  for (const [i, where] of marks) {
+    if (where === 'below' && Math.abs(i - maxI) < 2) continue;
+    const cy = y(points[i].temperature);
+    parts.push(`<circle class="wx-dot" cx="${x(i).toFixed(1)}" cy="${cy.toFixed(1)}" r="4" fill="${WX.temp}" />`);
+    const ty = where === 'above' ? cy - 9 : cy + 16;
+    const anchor = i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle';
+    parts.push(`<text class="wx-label strong ${anchor}" x="${(x(i) + (anchor === 'start' ? -2 : 0)).toFixed(1)}" y="${ty.toFixed(1)}">${points[i].temperature}°</text>`);
+  }
+
+  // Ikon & jam tiap 3 jam
+  points.forEach((p, i) => {
+    if (i % 3) return;
+    const day = p.isDay ?? (Number(p.hour) >= 6 && Number(p.hour) < 18);
+    const icon = weatherSvg(p.kind, { day, code: p.now ? w.code : null, mini: true }).replace('<svg ', `<svg x="${(x(i) - 8).toFixed(1)}" y="${iconY}" width="16" height="16" `);
+    parts.push(icon);
+    const anchor = i === 0 ? 'start' : i === points.length - 1 ? 'end' : 'middle';
+    parts.push(`<text class="wx-axis ${anchor}" x="${(x(i) + (anchor === 'start' ? -2 : 0)).toFixed(1)}" y="${labelY}">${p.now ? 'Kini' : `${p.hour}.00`}</text>`);
+  });
+
+  // Lapisan hover: garis vertikal di jam terdekat
+  if (wxHover != null && points[wxHover]) {
+    parts.push(`<line class="wx-cross" x1="${x(wxHover).toFixed(1)}" x2="${x(wxHover).toFixed(1)}" y1="${top - 6}" y2="${rainTop + rainH}" />`);
+    parts.push(`<circle class="wx-dot" cx="${x(wxHover).toFixed(1)}" cy="${y(points[wxHover].temperature).toFixed(1)}" r="4" fill="${WX.temp}" />`);
+  }
+
+  box.innerHTML = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true">${parts.join('')}</svg><div class="wx-tip" id="wx-tip" hidden></div>`;
+  box.dataset.step = String(step);
+  box.dataset.pad = String(pad);
+  box.dataset.count = String(points.length);
+
+  if (wxHover != null && points[wxHover]) {
+    const p = points[wxHover];
+    const tip = $('wx-tip');
+    tip.hidden = false;
+    const value = document.createElement('b');
+    value.textContent = `${p.temperature}°`;
+    const meta = document.createElement('span');
+    meta.textContent = [p.now ? 'Sekarang' : `${p.hour}.00`, p.text, p.rain != null ? `hujan ${p.rain}%` : null].filter(Boolean).join(' · ');
+    tip.replaceChildren(value, meta);
+    // Lebar mengikuti isi; posisi dijaga tetap di dalam grafik.
+    const tipW = tip.offsetWidth;
+    tip.style.left = `${Math.min(W - tipW, Math.max(0, x(wxHover) - tipW / 2))}px`;
+  }
+
+  // Ringkasan & tabel untuk pembaca layar
+  $('wx-peak').textContent = `Puncak ${points[maxI].temperature}° · ${points[maxI].now ? 'sekarang' : `${points[maxI].hour}.00`}`;
+  const table = $('wx-table');
+  table.replaceChildren();
+  const head = document.createElement('tr');
+  for (const t of ['Jam', 'Suhu', 'Peluang hujan', 'Cuaca']) {
+    const th = document.createElement('th');
+    th.textContent = t;
+    head.append(th);
+  }
+  table.append(head);
+  for (const p of points) {
+    const tr = document.createElement('tr');
+    for (const v of [p.now ? 'Sekarang' : `${p.hour}.00`, `${p.temperature}°`, p.rain != null ? `${p.rain}%` : '–', p.text ?? '']) {
+      const td = document.createElement('td');
+      td.textContent = v;
+      tr.append(td);
+    }
+    table.append(tr);
+  }
+}
+
+(() => {
+  const box = $('wx-chart');
+  const indexAt = (clientX) => {
+    const rect = box.getBoundingClientRect();
+    const step = Number(box.dataset.step) || 1;
+    const pad = Number(box.dataset.pad) || 0;
+    const count = Number(box.dataset.count) || 1;
+    return Math.max(0, Math.min(count - 1, Math.round((clientX - rect.left - pad) / step)));
+  };
+  box.addEventListener('pointermove', (event) => {
+    if (event.buttons) return;
+    const i = indexAt(event.clientX);
+    if (i !== wxHover) {
+      wxHover = i;
+      renderWeatherChart();
+    }
+  });
+  box.addEventListener('pointerleave', () => {
+    wxHover = null;
+    renderWeatherChart();
+  });
+  // Keyboard: panah kiri/kanan menggeser jam (tidak memindah section).
+  box.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    event.stopPropagation();
+    const count = Number(box.dataset.count) || 1;
+    wxHover = Math.max(0, Math.min(count - 1, (wxHover ?? -1) + (event.key === 'ArrowRight' ? 1 : -1)));
+    renderWeatherChart();
+  });
+  box.addEventListener('blur', () => {
+    wxHover = null;
+    renderWeatherChart();
+  });
+  // Gambar ulang hanya kalau lebarnya berubah (tingginya diatur grafik sendiri).
+  let lastWidth = 0;
+  new ResizeObserver(() => {
+    if (box.clientWidth === lastWidth) return;
+    lastWidth = box.clientWidth;
+    requestAnimationFrame(renderWeatherChart);
+  }).observe(box);
+})();
+
+// Island Fokus: belum mulai = tombol mulai cepat; berjalan = hitung mundur + kontrol.
+let focusCardKey = null;
+
+function renderFocusSummary() {
+  const { phase, running, cycle } = focusState;
+  const total = focusTotal();
+  const remaining = Math.max(0, focusRemaining());
+  const waiting = Boolean(phase) && !running && remaining >= total - 1000;
+  const card = $('focus-island');
+  card.classList.toggle('idle', !phase);
+  card.classList.toggle('running', running);
+  card.classList.toggle('rest', phase === 'break' || phase === 'long');
+  card.classList.toggle('paused', Boolean(phase) && !running);
+
+  $('focus-sum-title').textContent = !phase
+    ? 'Siap fokus?'
+    : running
+      ? `${PHASE[phase]}${phase === 'focus' ? ` · Sesi ${cycle}/${focusSettings.cycles}` : ''}`
+      : waiting
+        ? phase === 'focus'
+          ? 'Siap fokus lagi?'
+          : `${PHASE[phase]} menunggu`
+        : `${PHASE[phase]} dijeda`;
+  tickFocusIsland();
+
+  // Tombol dibangun ulang hanya saat statusnya berubah (bukan tiap detik).
+  const key = `${phase}|${running}|${waiting}|${pickedMinutes()}`;
+  if (key === focusCardKey) return;
+  focusCardKey = key;
+  const box = $('focus-card-actions');
+  box.replaceChildren();
+  const act = (action, minutes) => () => window.kapsul.focus(action, minutes);
+  const round = (icon, title, onClick, primary = false) => actionChip('', onClick, { icon, title, primary, round: true });
+  if (!phase) {
+    const picked = pickedMinutes();
+    box.append(round('play', `Mulai fokus ${picked} menit`, act('focus', picked), true));
+    for (const m of FOCUS_PRESETS.filter((m) => m !== picked).slice(0, 2)) box.append(actionChip(`${m}m`, act('focus', m), { title: `Mulai fokus ${m} menit` }));
+    box.append(actionChip('5m', () => window.kapsul.timer('start', { ms: 5 * 60_000 }), { icon: 'timer', title: 'Mulai timer 5 menit' }));
+  } else if (running) {
+    box.append(
+      round('pause', 'Jeda', act('pause'), true),
+      actionChip('+5', act('extend', 5), { title: 'Tambah 5 menit', round: true }),
+      round('skip', 'Lewati', act('skip')),
+      round('stop', 'Berhenti', act('stop')),
+    );
+  } else {
+    box.append(round('play', waiting ? 'Mulai' : 'Lanjut', act('start'), true));
+    if (!waiting) box.append(actionChip('+5', act('extend', 5), { title: 'Tambah 5 menit', round: true }));
+    box.append(round('stop', 'Berhenti', act('stop')));
+  }
+}
+
+// Lingkaran mini di island: sisa waktu, progres halus, titik di ujung, subjudul jam selesai.
+function tickFocusIsland() {
+  const t = statsToday ?? {};
+  const { phase, running } = focusState;
+  const total = phase ? focusTotal() : pickedMinutes() * 60_000;
+  const remaining = phase ? Math.max(0, focusRemaining()) : total;
+  const progress = Math.min(1, remaining / total);
+  $('mini-ring-bar').style.strokeDashoffset = String(1000 * (1 - progress));
+  const angle = progress * 2 * Math.PI;
+  $('mini-ring-knob').setAttribute('cx', (32 + 27 * Math.sin(angle)).toFixed(2));
+  $('mini-ring-knob').setAttribute('cy', (32 - 27 * Math.cos(angle)).toFixed(2));
+  $('focus-island').classList.toggle('final', phase === 'focus' && running && remaining < 60_000);
+
+  const time = phase ? clock(remaining) : String(pickedMinutes());
+  if ($('focus-sum-time').textContent !== time) $('focus-sum-time').textContent = time;
+  $('focus-sum-unit').textContent = phase ? '' : 'menit';
+
+  let sub = !phase ? `${t.focus ?? 0} sesi selesai hari ini` : running ? `selesai ${endTime.format(Date.now() + remaining)}` : 'Tekan ▶ untuk lanjut';
+  const timer = quickTimers[0];
+  if (timer) sub += ` · ⏱ ${timer.label} ${clock(timer.endsAt - Date.now())}`;
+  if ($('focus-sum-sub').textContent !== sub) $('focus-sum-sub').textContent = sub;
+}
+
+function renderDeviceTop() {
+  const box = $('device-battery');
+  box.hidden = !battery || !hasBattery;
+  if (battery && hasBattery) {
+    const percent = Math.round(battery.level * 100);
+    $('device-bat-fill').style.width = `${Math.max(4, percent)}%`;
+    $('device-bat-percent').textContent = `${percent}%`;
+    $('device-bat-state').textContent = battery.charging
+      ? ` · mengisi${Number.isFinite(battery.chargingTime) && battery.chargingTime > 0 ? `, penuh ±${durationText(battery.chargingTime)}` : ''}`
+      : Number.isFinite(battery.dischargingTime) && battery.dischargingTime > 0
+        ? ` · cukup ±${durationText(battery.dischargingTime)}`
+        : ' · pakai baterai';
+    box.classList.toggle('charging', battery.charging);
+    box.classList.toggle('low', lowBattery());
+  }
+  renderSystem();
+}
+
+// Island Kotak masuk: notifikasi terbaru + Buka / Tutup / Hapus semua; tanpa notifikasi = klip terakhir.
+function renderInboxSummary() {
+  const count = notifs.items.length;
+  const latest = notifs.items[0];
+  const clip = clipItems[0];
+  $('inbox-title').textContent = count ? `${count} notifikasi` : clip ? 'Klip terakhir' : 'Kotak masuk';
+  const box = $('inbox-latest');
+  const actions = $('inbox-card-actions');
+  box.replaceChildren();
+  actions.replaceChildren();
+  if (latest) {
+    const text = document.createElement('span');
+    text.className = 'inbox-text';
+    const title = document.createElement('b');
+    title.textContent = `${latest.appName || 'Aplikasi'}: ${latest.title || ''}`;
+    const body = document.createElement('span');
+    body.textContent = latest.body || '';
+    text.append(title, body);
+    box.append(iconEl(latest, 'notif-icon'), text);
+    actions.append(
+      actionChip('Buka', () => window.kapsul.openNotification(latest.id), { primary: true }),
+      actionChip('Tutup', () => window.kapsul.dismissNotification(latest.id)),
+    );
+    if (count > 1) actions.append(actionChip('Hapus semua', () => window.kapsul.clearNotifications()));
+  } else if (clip) {
+    const text = document.createElement('span');
+    text.className = 'inbox-text';
+    const body = document.createElement('span');
+    body.textContent = clip.type === 'image' ? 'Gambar' : (clip.text || '').replace(/\s+/g, ' ');
+    text.append(body);
+    box.append(text);
+    actions.append(
+      actionChip('Salin', () => {
+        window.kapsul.clip('copy', clip.id);
+        sfx('tick');
+      }, { primary: true }),
+      actionChip('Semua klip', () => {
+        setInboxMode('clips');
+        setDetail(true);
+      }),
+    );
+  } else {
+    const text = document.createElement('span');
+    text.className = 'inbox-text dim';
+    text.textContent = 'Tidak ada notifikasi baru.';
+    box.append(text);
+  }
+}
+
+// Island Kerja: tombol periksa server (+ jumlah yang mati) dan buka detail.
+function renderWorkActions() {
+  const box = $('work-card-actions');
+  box.replaceChildren();
+  const down = (lastDev?.services ?? []).filter((x) => x.status === 'down').length;
+  if (devEnabled) box.append(actionChip(down ? `Periksa · ${down} mati` : 'Periksa server', () => window.kapsul.devRefresh(), { primary: down > 0 }));
+  if (claudeState.active.length) box.append(actionChip('Aktivitas', () => setDetail(true)));
+}
+
+// Detail Kerja: aktivitas Claude terakhir.
+function renderClaudeLog(activity) {
+  $('claude-block').hidden = !activity?.length;
+  const list = $('claude-log');
+  list.replaceChildren();
+  for (const item of (activity ?? []).slice(-8).reverse()) {
+    const li = document.createElement('li');
+    const label = document.createElement('b');
+    label.textContent = item.label;
+    li.append(label);
+    if (item.detail) {
+      const detail = document.createElement('code');
+      detail.textContent = item.detail;
+      li.append(detail);
+    }
+    list.append(li);
+  }
 }
 
 function renderPage() {
   const page = PAGES[pageIndex].id;
   const now = new Date();
-
-  if (page === 'greeting') {
-    const period = periodNow(now);
-    const firstName = (profile.userName || '').split(/\s+/)[0];
-    $('greet-kicker').textContent = profile.buddyName ? `${profile.buddyName} menyapa` : 'Halo';
-    $('greet-title').textContent = `Selamat ${period}${firstName ? `, ${firstName}` : ''}!`;
-    const lines = GREET_LINES[period];
-    $('greet-sub').textContent = lines[now.getDate() % lines.length];
-  } else if (page === 'clock') {
-    const time = $('clock-time');
-    time.replaceChildren(`${pad2(now.getHours())}:${pad2(now.getMinutes())}`);
-    const sec = document.createElement('span');
-    sec.className = 'sec';
-    sec.textContent = `:${pad2(now.getSeconds())}`;
-    time.append(sec);
-    $('clock-date').textContent = LONG_DATE.format(now);
-    $('clock-hijri').textContent = HIJRI ? HIJRI.format(now) : '';
-  } else if (page === 'weather' && weatherNow) {
-    const w = weatherNow;
-    $('weather-city').textContent = `Cuaca · ${w.city}`;
-    $('weather-temp').textContent = `${w.temperature}°`;
-    $('weather-cond').textContent = w.text;
-    $('weather-feels').textContent = [w.feels != null ? `Terasa ${w.feels}°` : '', w.humidity != null ? `Lembap ${w.humidity}%` : '']
-      .filter(Boolean)
-      .join(' · ');
-    const next = $('weather-next');
-    next.replaceChildren();
-    for (const hour of w.next ?? []) {
-      const span = document.createElement('span');
-      const time = document.createElement('b');
-      time.textContent = `${hour.hour}.00`;
-      span.append(time, ` ${hour.temperature}°`);
-      if (hour.rain != null && hour.rain >= 30) {
-        const rain = document.createElement('span');
-        rain.className = 'wet';
-        rain.textContent = ` ☂ ${hour.rain}%`;
-        span.append(rain);
-      }
-      next.append(span);
-    }
-  } else if (page === 'today') {
-    const list = $('today-list');
-    list.replaceChildren();
-    const open = todoItems.filter((t) => !t.done);
-    if (weatherNow) list.append(todayRow('cloud', weatherText()));
-    list.append(todayRow('bell', nextReminder ? `${nextReminder.title} · ${nextReminder.when}` : 'Tidak ada pengingat'));
-    const meeting = nextMeeting();
-    if (meeting) list.append(todayRow('calendar', `${meeting.title} · ${eventTime(meeting)}`));
-    list.append(todayRow('check', open.length ? `${open.length} tugas: ${open[0].text}` : 'Semua tugas beres'));
-    const t = statsToday ?? {};
-    const minutes = Math.round((t.claudeMs ?? 0) / 60_000);
-    const claudeText = minutes >= 60 ? `${Math.floor(minutes / 60)} j ${minutes % 60} m` : `${minutes} m`;
-    list.append(todayRow('target', `${t.focus ?? 0} fokus · ${t.todos ?? 0} tugas selesai${minutes ? ` · Claude ${claudeText}` : ''}`));
-  } else if (page === 'agenda') {
+  if (page === 'home') renderHome(now);
+  else if (page === 'music') renderLyrics();
+  else if (page === 'time') {
+    renderClock(now);
+    renderTimeCard();
     renderAgenda();
-  } else if (page === 'habits') {
     renderHabits();
-  } else if (page === 'system') {
-    renderSystem();
-  }
+  } else if (page === 'weather') renderWeather();
+  else if (page === 'focus') renderFocusSummary();
+  else if (page === 'device') renderDeviceTop();
+  else if (page === 'inbox') renderInboxSummary();
+  else if (page === 'work') renderClaudeCard();
 }
 
 setInterval(() => {
-  if (open && !$('media').hidden && PAGES[pageIndex].id === 'clock') renderPage();
+  if (open && PAGES[pageIndex].id === 'time') {
+    renderClock(new Date());
+    if (new Date().getSeconds() === 0) renderTimeCard();
+  }
+  if (open && PAGES[pageIndex].id === 'focus' && !focusState.running) renderFocusSummary();
 }, 1000);
 
 // ---------- Kostum, cuaca & baterai ----------
@@ -1412,32 +2027,206 @@ window.kapsul.onWeather((state) => {
   goToPage(pageIndex, { sound: false });
 });
 
-function weatherText() {
-  return weatherNow ? `${weatherNow.temperature}° ${weatherNow.text} · ${weatherNow.city}` : '';
+// Ilustrasi cuaca bergerak (gaya di style.css, bagian "Halaman Cuaca").
+// kind: clear | cloud | fog | rain | storm (lib/weather.js); code 1–2 = cerah berawan.
+function weatherSvg(kind, { code = null, day = true, mini = false } = {}) {
+  const sun = (x, y, r) =>
+    `<g class="ws-sun"><g class="ws-rays">${[0, 1, 2, 3, 4, 5, 6, 7]
+      .map((i) => {
+        const [dx, dy] = [Math.sin((i * Math.PI) / 4), -Math.cos((i * Math.PI) / 4)];
+        const at = (d) => [(x + dx * d).toFixed(1), (y + dy * d).toFixed(1)];
+        const [[x1, y1], [x2, y2]] = [at(r + 3), at(r + 6)];
+        return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" />`;
+      })
+      .join('')}</g><circle class="ws-core" cx="${x}" cy="${y}" r="${r}" /></g>`;
+  const moon = (x, y) =>
+    `<g transform="translate(${x} ${y})"><path class="ws-moon" d="M2-9a9 9 0 1 0 7 14A7.5 7.5 0 0 1 2-9z" /></g>` +
+    '<circle class="ws-star" cx="9" cy="9" r="1" /><circle class="ws-star s2" cx="33" cy="7" r="0.8" /><circle class="ws-star s3" cx="34" cy="17" r="0.9" />';
+  const cloud = (cls, dx = 0, dy = 0, s = 1) =>
+    `<g transform="translate(${dx} ${dy}) scale(${s})"><path class="ws-cloud ${cls}" d="M11 31h18a6.5 6.5 0 0 0 .5-13A9 9 0 0 0 12.3 20.6 5.3 5.3 0 0 0 11 31z" /></g>`;
+  const drops = (xs = [14, 20, 26]) =>
+    xs.map((x, i) => `<line class="ws-drop d${i}" x1="${x}" y1="33" x2="${x - 1.2}" y2="37" />`)
+      .join('');
+  const light = day ? sun(14, 14, 6) : moon(15, 15);
+
+  let body;
+  if (kind === 'clear') body = day ? sun(20, 20, 8) : moon(20, 20);
+  else if (kind === 'cloud' && code !== null && code <= 2) body = light + cloud('front', 3, 4, 0.9);
+  else if (kind === 'cloud') body = cloud('back', -5, -6, 0.8) + cloud('front', 2, 2, 0.95);
+  else if (kind === 'fog') body = cloud('back', 0, -6, 0.85) + '<g class="ws-fog"><line x1="8" y1="27" x2="30" y2="27" /><line class="f2" x1="12" y1="32" x2="34" y2="32" /></g>';
+  else if (kind === 'rain') body = cloud('front', 0, -4) + drops();
+  else if (kind === 'storm') body = cloud('dark', 0, -5) + '<path class="ws-bolt" d="M21 26l-4 6h3.5l-2 6 6.5-8h-3.5l2-4z" />' + drops([12, 29]);
+  else body = cloud('front', 0, 0);
+  return `<svg class="ws${mini ? ' mini' : ''}" viewBox="0 0 40 40">${body}</svg>`;
 }
 
 let battery = null;
+let batterySettings = { showPercent: true };
+// PC tanpa baterai melapor 100% + mengisi terus; ikon baru tampil setelah pernah terlihat
+// memakai baterai atau kurang dari 100% (diingat supaya tidak perlu menunggu lagi).
+let hasBattery = false;
+try {
+  hasBattery = localStorage.getItem('kapsul.hasBattery') === '1';
+} catch {
+  // tanpa penyimpanan
+}
 
 const lowBattery = () => Boolean(battery && !battery.charging && battery.level <= 0.2);
 
 function renderBattery() {
   const badge = $('pill-battery');
-  badge.hidden = !lowBattery();
-  if (battery) badge.textContent = `${Math.round(battery.level * 100)}%`;
+  badge.hidden = !battery || !hasBattery || !(batterySettings.showPercent || lowBattery());
+  if (battery) {
+    const percent = Math.round(battery.level * 100);
+    $('bat-fill').style.width = `${Math.max(6, percent)}%`;
+    $('bat-text').textContent = String(percent);
+    badge.classList.toggle('charging', battery.charging);
+    badge.classList.toggle('low', lowBattery());
+    // Isi tinggal sedikit: angka terang supaya tetap terbaca di atas ikon kosong.
+    badge.classList.toggle('thin', percent < 45);
+    badge.title = `Baterai ${percent}%${battery.charging ? ' · mengisi daya' : ''}`;
+  }
+  if (PAGES[pageIndex].id === 'device') renderDeviceTop();
   renderBuddy();
 }
+
+const durationText = (seconds) => {
+  const minutes = Math.round(seconds / 60);
+  return minutes >= 60 ? `${Math.floor(minutes / 60)} j ${minutes % 60} m` : `${minutes} m`;
+};
+
+// Charger dicolok / dicabut saat panel terbuka: Zeno bereaksi di panel.
+// (Saat tertutup, main.js menampilkan kartu seperti "Claude selesai".)
+function onChargingChange(b) {
+  if (!open) return;
+  const percent = Math.round(b.level * 100);
+  const name = profile.buddyName || 'Zeno';
+  if (b.charging) {
+    // Perkiraan waktu hanya muat di gelembung panel, tidak di kapsul kecil.
+    const full = open && Number.isFinite(b.chargingTime) && b.chargingTime > 0 ? ` · penuh ±${durationText(b.chargingTime)}` : '';
+    react('charging', 4000);
+    say(percent >= 95 ? [`Hampir penuh, ${percent}%`] : [`Nyam, setrum! ${percent}%${full}`, `${name} diisi! ${percent}%${full}`], 4000);
+    sfx('charge');
+  } else {
+    const left = open && Number.isFinite(b.dischargingTime) ? ` · cukup ±${durationText(b.dischargingTime)}` : '';
+    react('unplug', 3200);
+    say([`Eh, dicabut! ${percent}%${left}`, `Pakai baterai, ${percent}%${left}`], 3600);
+    sfx('unplug');
+  }
+}
+
+// Sedang digeser: kapsul berubah bentuk saat mendekati / menjauhi tepi atas layar.
+window.kapsul.onIslandPreview((island) => {
+  document.body.dataset.island = island;
+  document.body.dataset.preview = '';
+  document.body.style.setProperty('--inset', '0px');
+});
+
+// ---------- Perangkat tersambung (section Perangkat) ----------
+
+const DEVICE_ICONS = {
+  audio: '<svg viewBox="0 0 16 16"><path d="M3.5 10V8a4.5 4.5 0 0 1 9 0v2" /><rect x="2.5" y="9.5" width="3" height="4" rx="1.2" /><rect x="10.5" y="9.5" width="3" height="4" rx="1.2" /></svg>',
+  mouse: '<svg viewBox="0 0 16 16"><rect x="4.5" y="2.5" width="7" height="11" rx="3.5" /><path d="M8 4.5v2" /></svg>',
+  keyboard: '<svg viewBox="0 0 16 16"><rect x="1.5" y="4.5" width="13" height="7" rx="1.5" /><path d="M4 7h.01M6.5 7h.01M9 7h.01M11.5 7h.01M5 9.3h6" /></svg>',
+  phone: '<svg viewBox="0 0 16 16"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6" /><path d="M7 12.3h2" /></svg>',
+  storage: '<svg viewBox="0 0 16 16"><rect x="5" y="1.5" width="6" height="13" rx="1.4" /><path d="M7 4h2M7 6h2" /></svg>',
+  camera: '<svg viewBox="0 0 16 16"><rect x="1.5" y="5" width="13" height="8" rx="1.6" /><circle cx="8" cy="9" r="2.2" /><path d="M5.5 5l1-1.6h3l1 1.6" /></svg>',
+  other: '<svg viewBox="0 0 16 16"><path d="M8 2v9.5M8 2 6.5 4h3zM8 13.5a1 1 0 1 0 0 .01M8 10.5 5 8.5V6.5M8 9l3-1.5V6" /></svg>',
+};
+
+let connectedDevices = { bluetooth: [], usb: [], drives: [] };
+
+function renderDeviceList() {
+  const list = $('device-list');
+  const rows = [
+    ...connectedDevices.drives.map((d) => ({ ...d, kind: 'storage', tag: `${bytesText(d.free)} kosong`, drive: d.letter })),
+    ...connectedDevices.usb.filter((d) => d.kind !== 'storage').map((d) => ({ ...d, tag: 'USB' })),
+    ...connectedDevices.bluetooth.map((d) => ({ ...d, kind: d.kind === 'input' ? 'mouse' : d.kind, tag: 'Bluetooth' })),
+  ];
+  list.replaceChildren();
+  if (!rows.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'Belum ada perangkat Bluetooth atau USB yang tersambung.';
+    list.append(empty);
+    return;
+  }
+  for (const row of rows) {
+    const el = document.createElement('div');
+    el.className = 'device-row';
+    const icon = document.createElement('span');
+    icon.className = 'device-icon';
+    icon.innerHTML = DEVICE_ICONS[row.kind] ?? DEVICE_ICONS.other;
+    const name = document.createElement('span');
+    name.className = 'device-name';
+    name.textContent = row.name;
+    const tag = document.createElement('small');
+    tag.textContent = row.tag;
+    el.append(icon, name, tag);
+    if (row.drive) {
+      for (const [label, fn] of [
+        ['Buka', () => window.kapsul.openDrive(row.drive)],
+        ['Keluarkan', () => window.kapsul.ejectDrive(row.drive)],
+      ]) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'link';
+        button.textContent = label;
+        button.addEventListener('click', fn);
+        el.append(button);
+      }
+    }
+    list.append(el);
+  }
+}
+
+window.kapsul.onDevices((state) => {
+  connectedDevices = { bluetooth: state?.bluetooth ?? [], usb: state?.usb ?? [], drives: state?.drives ?? [] };
+  renderDeviceList();
+});
+renderDeviceList();
+
+// Perangkat Bluetooth / USB / flashdisk tersambung atau terputus saat panel terbuka (dari main.js):
+// Zeno menyapa perangkatnya. Saat tertutup, main.js menampilkan kartu.
+window.kapsul.onDevice(({ event, device }) => {
+  const name = device?.name || 'Perangkat';
+  if (event === 'connected') {
+    const lines = {
+      audio: [`${name} tersambung, ayo dengar musik!`, `Asik, ${name} siap!`],
+      input: [`${name} tersambung!`, `Halo, ${name}!`],
+      phone: [`${name} tersambung!`],
+      storage: [`${name} siap dibuka!`],
+    }[device.kind] ?? [`${name} tersambung!`];
+    react(device.kind === 'audio' ? 'music' : device.kind === 'storage' ? 'starstruck' : 'paired', 3500);
+    say(lines, 3500);
+    sfx('connect');
+  } else {
+    react('surprised', 2600);
+    say([`${name} terputus`, `Dadah, ${name}!`], 3000);
+    sfx('disconnect');
+  }
+});
 
 // Battery Status API: laptop saja; di PC tanpa baterai level selalu 100% & charging.
 (async () => {
   try {
     const b = await navigator.getBattery();
     const update = () => {
-      const wasCharging = battery?.charging;
-      battery = { level: b.level, charging: b.charging };
-      // Charger dicolok saat baterai < 90%: Zeno senang.
-      if (wasCharging === false && b.charging && b.level < 0.9) {
-        react('happy', 1500);
-        sfx('charge');
+      const was = battery;
+      battery = { level: b.level, charging: b.charging, chargingTime: b.chargingTime, dischargingTime: b.dischargingTime };
+      if (!hasBattery && (b.level < 1 || !b.charging)) {
+        hasBattery = true;
+        try {
+          localStorage.setItem('kapsul.hasBattery', '1');
+        } catch {
+          // tanpa penyimpanan
+        }
+      }
+      if (was && was.charging !== b.charging) {
+        onChargingChange(b);
+        $('pill-battery').classList.remove('zap');
+        void $('pill-battery').offsetWidth;
+        $('pill-battery').classList.add('zap');
       }
       window.kapsul.battery(battery);
       renderBattery();
@@ -1622,6 +2411,7 @@ function renderSearch() {
   const query = $('app-search').value.trim().toLowerCase();
   const results = $('search-results');
   $('apps').hidden = Boolean(query);
+  $('apps-head').hidden = Boolean(query) || launcherApps.length <= QUICK_APPS;
   results.hidden = !query;
   if (!query) return;
 
@@ -1649,7 +2439,7 @@ function renderSearch() {
     searchMatches.unshift({ name: `Mulai ${quick.label}`, timer: true, tag: 'Timer', open: () => {
       window.kapsul.timer('start', { ms: quick.ms, label: quick.label });
       sfx('blip');
-      selectTab('focus');
+      goToSection('focus', { sound: false });
     } });
   }
   // Pertanyaan ("…?", "tanya …") atau tidak ada aplikasi yang cocok: tawarkan tanya Zeno.
@@ -1815,7 +2605,6 @@ for (const button of document.querySelectorAll('[data-power]')) {
 }
 
 $('power-btn').addEventListener('click', () => {
-  $('quick-sheet').hidden = true;
   if ($('power-sheet').hidden) openPower();
   else closePower();
 });
@@ -1826,11 +2615,99 @@ $('power-cancel').addEventListener('click', closePower);
 let statsToday = null;
 let petState = null;
 
+let statsWeek = [];
+
+const WEEKDAY = new Intl.DateTimeFormat('id-ID', { weekday: 'short' });
+
+// Grafik batang 7 hari (lama → baru); value(d) = angka batang, text(d) = angka kecil di atasnya.
+function renderWeekChart(chart, days, value, text, title) {
+  const max = Math.max(1, ...days.map(value));
+  chart.replaceChildren();
+  for (const [i, d] of days.entries()) {
+    const col = document.createElement('div');
+    col.className = 'week-col';
+    const today = i === days.length - 1;
+    if (today) col.classList.add('today');
+    const top = document.createElement('small');
+    top.textContent = value(d) ? text(d) : '';
+    const bar = document.createElement('i');
+    bar.style.height = `${Math.max(4, (100 * value(d)) / max)}%`;
+    if (!value(d)) bar.classList.add('zero');
+    const label = document.createElement('span');
+    label.textContent = today || !d.key ? 'Ini' : WEEKDAY.format(new Date(`${d.key}T12:00`));
+    col.title = title(d);
+    col.append(top, bar, label);
+    chart.append(col);
+  }
+}
+
+// Detail Fokus: sesi & menit hari ini, grafik 7 hari terakhir.
+function renderFocusReport() {
+  const t = statsToday ?? {};
+  $('focus-stat-sessions').textContent = String(t.focus ?? 0);
+  $('focus-stat-minutes').textContent = String(Math.round((t.focusMs ?? 0) / 60_000));
+  const days = statsWeek.length ? statsWeek : [{ key: '', focus: t.focus ?? 0 }];
+  $('focus-week-total').textContent = `${days.reduce((sum, d) => sum + (d.focus ?? 0), 0)} sesi`;
+  renderWeekChart($('focus-week'), days, (d) => d.focus ?? 0, (d) => String(d.focus), (d) => `${d.focus ?? 0} sesi${d.focusMs ? ` · ${Math.round(d.focusMs / 60_000)} menit` : ''}`);
+}
+
+// Detail Musik tanpa lirik: waktu dengar & lagu terlama hari ini, grafik 7 hari.
+let statsMusic = null;
+const minutesText = (ms) => {
+  const m = Math.round(ms / 60_000);
+  return m >= 60 ? `${Math.floor(m / 60)} j ${m % 60} m` : `${m} m`;
+};
+
+function renderMusicReport() {
+  const m = statsMusic ?? { listenMs: 0, count: 0, songs: [] };
+  $('music-listen').textContent = String(Math.round(m.listenMs / 60_000));
+  $('music-count').textContent = String(m.count);
+
+  const list = $('music-top');
+  list.replaceChildren();
+  const longest = m.songs[0]?.ms || 1;
+  for (const song of m.songs) {
+    const [title, ...artist] = song.name.split(' · ');
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.className = 'music-name';
+    const b = document.createElement('b');
+    b.textContent = title;
+    name.append(b);
+    if (artist.length) {
+      const a = document.createElement('span');
+      a.textContent = ` · ${artist.join(' · ')}`;
+      name.append(a);
+    }
+    const time = document.createElement('small');
+    time.textContent = minutesText(song.ms);
+    const bar = document.createElement('i');
+    bar.style.width = `${(100 * song.ms) / longest}%`;
+    li.append(name, time, bar);
+    list.append(li);
+  }
+  if (!m.songs.length) {
+    const li = document.createElement('li');
+    li.className = 'music-empty';
+    li.append('Belum ada lagu hari ini. Putar lagu di Spotify atau Chrome, Zeno mencatat lagu favoritmu.');
+    const spotify = launcherApps.find((a) => /spotify/i.test(a.name));
+    if (spotify) li.append(actionChip('Buka Spotify', () => launch(spotify.index), { primary: true }));
+    list.append(li);
+  }
+
+  const days = statsWeek.length ? statsWeek : [{ key: '', listenMs: m.listenMs }];
+  $('music-week-total').textContent = minutesText(days.reduce((sum, d) => sum + (d.listenMs ?? 0), 0));
+  renderWeekChart($('music-week'), days, (d) => d.listenMs ?? 0, (d) => String(Math.round(d.listenMs / 60_000)), (d) => `${minutesText(d.listenMs ?? 0)} mendengarkan`);
+}
+
 window.kapsul.onStats((data) => {
   statsToday = data?.today ?? null;
   petState = data?.pet ?? null;
-  if (PAGES[pageIndex].id === 'today') renderPage();
-  if (typeof renderPet === 'function') renderPet();
+  statsWeek = data?.week ?? [];
+  statsMusic = data?.music ?? null;
+  renderFocusReport();
+  renderMusicReport();
+  if (['home', 'focus'].includes(PAGES[pageIndex].id)) renderPage();
 });
 
 // ---------- Agenda (kalender) ----------
@@ -1851,7 +2728,8 @@ function renderAgenda() {
   const now = Date.now();
   const list = $('agenda-list');
   list.replaceChildren();
-  const events = (calendarEvents ?? []).filter((e) => e.end > now).slice(0, 3);
+  const events = (calendarEvents ?? []).filter((e) => e.end > now).slice(0, 5);
+  $('agenda-block').hidden = calendarEvents === null;
   $('agenda-kicker').textContent = events.length ? 'Agenda' : 'Agenda · kosong';
   if (!events.length) {
     const li = document.createElement('li');
@@ -1879,18 +2757,19 @@ function renderAgenda() {
 
 window.kapsul.onCalendar((data) => {
   calendarEvents = data?.connected ? data.events : null;
-  goToPage(pageIndex, { sound: false });
+  renderAgenda();
   renderPillText();
 });
 
 setInterval(() => {
-  if (open && PAGES[pageIndex].id === 'agenda') renderAgenda();
+  if (open && PAGES[pageIndex].id === 'time') renderAgenda();
 }, 30_000);
 
 // ---------- Kebiasaan ----------
 
 function renderHabits() {
   const chips = $('habit-chips');
+  $('habits-block').hidden = habitItems.length === 0;
   chips.replaceChildren();
   const todayList = habitItems.filter((h) => h.scheduled);
   const done = todayList.filter((h) => h.done).length;
@@ -1916,7 +2795,7 @@ function renderHabits() {
 
 window.kapsul.onHabits((list) => {
   habitItems = list ?? [];
-  goToPage(pageIndex, { sound: false });
+  renderHabits();
   renderPillText();
 });
 
@@ -1933,7 +2812,7 @@ function renderSystem() {
   if (!s) return;
   const net = $('system-net');
   net.className = `system-net ${s.online === false ? 'off' : s.online ? 'on' : ''}`;
-  net.textContent = s.online == null ? 'Mengecek internet…' : s.online ? `Internet tersambung${s.ms ? ` · ${s.ms} ms` : ''}` : 'Internet putus';
+  net.textContent = s.online == null ? 'Mengecek…' : s.online ? `Online${s.ms ? ` · ${s.ms} ms` : ''}` : 'Internet putus';
   bar('system-cpu', s.cpu, s.cpu != null ? `${s.cpu}%` : '–', s.cpu >= 90);
   bar('system-ram', s.memory?.percent, s.memory ? `${s.memory.percent}%` : '–', s.memory?.percent >= 90);
   const diskFree = s.disk ? 100 - s.disk.percent : null;
@@ -1949,7 +2828,7 @@ function bytesText(n) {
 window.kapsul.onSystem((state) => {
   const was = systemNow?.online;
   systemNow = state;
-  if (PAGES[pageIndex].id === 'system') renderPage();
+  if (PAGES[pageIndex].id === 'device') renderPage();
   if (was !== state?.online) renderPillText();
 });
 
@@ -1959,31 +2838,58 @@ $('snip-btn').addEventListener('click', () => window.kapsul.snip());
 
 let quickTimers = [];
 
+// Daftar dibangun ulang hanya saat isinya berubah; angka & bar diperbarui tiap detik.
 function renderTimers() {
   const list = $('timer-list');
-  list.replaceChildren();
-  for (const t of quickTimers) {
-    const row = document.createElement('div');
-    row.className = 'timer-row';
-    const time = document.createElement('b');
-    time.textContent = clock(t.endsAt - Date.now());
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.className = 'notif-x';
-    close.title = 'Batalkan timer';
-    close.setAttribute('aria-label', `Batalkan ${t.label}`);
-    close.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>';
-    close.addEventListener('click', () => window.kapsul.timer('cancel', { id: t.id }));
-    row.append('⏱ ', time, ` · ${t.label}`, close);
-    list.append(row);
+  const count = $('timer-count');
+  count.hidden = quickTimers.length === 0;
+  count.textContent = String(quickTimers.length);
+  $('timer-block').hidden = quickTimers.length === 0;
+  const ids = quickTimers.map((t) => t.id).join(',');
+  if (list.dataset.ids !== ids) {
+    list.dataset.ids = ids;
+    list.replaceChildren();
+    for (const t of quickTimers) {
+      const row = document.createElement('div');
+      row.className = 'timer-row';
+      row.dataset.id = t.id;
+      const name = document.createElement('span');
+      name.className = 'timer-name';
+      name.textContent = t.label;
+      const time = document.createElement('b');
+      const bar = document.createElement('i');
+      bar.className = 'timer-bar';
+      bar.append(document.createElement('span'));
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'notif-x';
+      close.title = 'Batalkan timer';
+      close.setAttribute('aria-label', `Batalkan ${t.label}`);
+      close.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>';
+      close.addEventListener('click', () => window.kapsul.timer('cancel', { id: t.id }));
+      row.append(name, time, close, bar);
+      list.append(row);
+    }
+  }
+  for (const row of list.querySelectorAll('.timer-row')) {
+    const t = quickTimers.find((x) => x.id === row.dataset.id);
+    if (!t) continue;
+    const left = Math.max(0, t.endsAt - Date.now());
+    row.querySelector('b').textContent = clock(left);
+    row.querySelector('.timer-bar span').style.width = `${(100 * left) / (t.total || left || 1)}%`;
+    row.classList.toggle('final', left < 10_000);
   }
 }
 
 window.kapsul.onTimers((list) => {
   quickTimers = list ?? [];
   renderTimers();
+  renderFocusSummary();
   renderPillText();
 });
+
+renderFocus();
+renderTimers();
 
 setInterval(() => {
   if (!quickTimers.length) return;
@@ -2001,7 +2907,7 @@ function renderPet() {
   $('pet-hunger').style.width = `${hunger}%`;
   $('pet-hunger').classList.toggle('low', hunger < 25);
   $('pet-xpbar').style.width = `${Math.min(100, (petState.xp / petState.needed) * 100)}%`;
-  if (PAGES[pageIndex].id === 'pet') renderBuddy();
+  if (PAGES[pageIndex].id === 'home') renderBuddy();
 }
 
 for (const button of document.querySelectorAll('[data-food]')) {
@@ -2084,20 +2990,14 @@ for (const what of ['wifi', 'bluetooth']) {
   });
 }
 
-$('quick-btn').addEventListener('click', () => {
-  if (!$('power-sheet').hidden) closePower();
-  $('quick-sheet').hidden = !$('quick-sheet').hidden;
-  renderQuick();
-});
 
-// ---------- Pengingat berikutnya (footer panel) ----------
+// ---------- Pengingat berikutnya (section Waktu) ----------
 
 window.kapsul.onReminders((next) => {
   nextReminder = next;
-  if (PAGES[pageIndex].id === 'today') renderPage();
-  $('next-reminder').hidden = !next;
-  $('shortcut').hidden = Boolean(next);
-  if (next) $('next-reminder-text').textContent = `${next.title} · ${next.when}`;
+  renderTimeCard();
+  $('next-reminder').classList.toggle('empty', !next);
+  $('next-reminder-text').textContent = next ? `${next.title} · ${next.when}` : 'Belum ada pengingat. Tambah di Pengaturan.';
 });
 
 setInterval(() => {
@@ -2243,7 +3143,12 @@ function pillSlides() {
   if (meeting && meeting.start - now.getTime() < 2 * 3_600_000) {
     slides.push({ key: 'meeting', mood: 'clock', render: slideContent('calendar', meeting.title, eventTime(meeting, now.getTime())) });
   }
-  if (media.title) slides.push({ key: 'music', mood: media.playing ? 'music' : 'listen', eq: media.playing, render: slideContent('music', media.title, media.artist) });
+  if (media.title) {
+    // Lagu diputar dan liriknya tersinkron: kapsul menampilkan baris yang sedang dinyanyikan.
+    const line = media.playing ? currentLyric() : '';
+    const render = line ? lyricSlide(line) : slideContent('music', media.title, media.artist);
+    slides.push({ key: 'music', mood: media.playing ? 'music' : 'listen', eq: media.playing, render });
+  }
   if (weatherNow) {
     const look = weatherNow.look ?? {};
     const icon = look.costume === 'umbrella' ? 'rain' : weatherNow.kind === 'clear' ? 'sun' : 'cloud';
@@ -2321,9 +3226,136 @@ function renderPillText(animate = false) {
   }
 }
 
+// ---------- Lirik lagu (dicari main.js lewat lib/lyrics.js) ----------
+
+let lyricsNow = { key: null, status: 'none', synced: false, lines: [] };
+let lyricIndex = -1;
+let pillLyric = null; // baris yang terakhir tampil di kapsul (animasi hanya saat berganti)
+
+// Perkiraan posisi untuk aplikasi yang tidak memberi posisi lagu: dihitung sejak lagu
+// terlihat berganti. Lagu yang sudah berjalan saat Zenopod dibuka tidak bisa diperkirakan.
+let trackClock = { key: null, start: 0, pausedAt: null, known: false };
+
+const mediaKey = (m) => (m?.title ? `${m.app}|${m.title}|${m.artist}` : null);
+
+function updateTrackClock(prevKey) {
+  const key = mediaKey(media);
+  const now = Date.now();
+  if (key !== trackClock.key) {
+    trackClock = { key, start: now, pausedAt: media.playing ? null : now, known: Boolean(prevKey && key) };
+  } else if (media.playing && trackClock.pausedAt !== null) {
+    trackClock.start += now - trackClock.pausedAt;
+    trackClock.pausedAt = null;
+  } else if (!media.playing && trackClock.pausedAt === null) {
+    trackClock.pausedAt = now;
+  }
+}
+
+// Posisi lagu sekarang (ms), atau null kalau tidak diketahui.
+function trackPosition() {
+  if (Number.isFinite(media.position) && Number.isFinite(media.positionAt)) {
+    return media.position + (media.playing ? Math.max(0, Date.now() - media.positionAt) : 0);
+  }
+  if (!trackClock.known || trackClock.key !== mediaKey(media)) return null;
+  return (trackClock.pausedAt ?? Date.now()) - trackClock.start;
+}
+
+function lyricLineAt(ms) {
+  const lines = lyricsNow.lines;
+  let found = -1;
+  for (let i = 0; i < lines.length && lines[i].t <= ms; i++) found = i;
+  return found;
+}
+
+const lyricsReady = () => lyricsNow.status === 'ready' && lyricsNow.key === mediaKey(media);
+
+function currentLyric() {
+  if (!lyricsReady() || !lyricsNow.synced || lyricIndex < 0) return '';
+  return lyricsNow.lines[lyricIndex]?.text ?? '';
+}
+
+function lyricSlide(line) {
+  return (el) => {
+    const text = document.createElement('span');
+    text.className = 'lyric-text';
+    text.textContent = line;
+    slideContent('music', text)(el);
+    if (line !== pillLyric) el.classList.add('lyric-in');
+    pillLyric = line;
+  };
+}
+
+function renderLyrics() {
+  const box = $('lyrics-lines');
+  const ready = lyricsReady();
+  const searching = Boolean(media.title) && lyricsNow.status === 'loading' && lyricsNow.key === mediaKey(media);
+  $('lyrics-view').hidden = !(ready || searching);
+  $('music-report').hidden = ready || searching;
+  // Lagu diputar tapi liriknya tidak ada: beri tahu di atas ringkasan.
+  const note = media.title ? { missing: 'Lirik lagu ini belum ada', instrumental: 'Lagu instrumental', error: 'Lirik gagal dimuat' }[lyricsNow.status] : null;
+  $('music-note').textContent = note ?? '';
+  $('lyrics-kicker').textContent = media.title ? `Lirik · ${media.title}` : 'Lirik';
+  box.classList.toggle('synced', ready && lyricsNow.synced);
+  const message = {
+    loading: 'Mencari lirik…',
+    missing: 'Lirik lagu ini belum ada.',
+    instrumental: 'Lagu ini instrumental, nikmati saja ♪',
+    error: 'Lirik tidak bisa dimuat. Cek internetnya ya.',
+  }[lyricsNow.status];
+  if (!ready) {
+    const li = document.createElement('li');
+    li.className = 'lyrics-note';
+    li.textContent = message ?? '';
+    box.replaceChildren(li);
+    box.dataset.key = '';
+    return;
+  }
+  if (box.dataset.key !== lyricsNow.key) {
+    box.dataset.key = lyricsNow.key;
+    box.scrollTop = 0;
+    box.replaceChildren(
+      ...lyricsNow.lines.map((line) => {
+        const li = document.createElement('li');
+        li.textContent = line.text || '♪';
+        return li;
+      }),
+    );
+  }
+  if (!lyricsNow.synced) return;
+  // Baris aktif di tengah kotak lirik.
+  for (const [i, li] of [...box.children].entries()) li.classList.toggle('now', i === lyricIndex);
+  const active = box.children[Math.max(0, lyricIndex)];
+  const top = active ? active.offsetTop - (box.clientHeight - active.offsetHeight) / 2 : 0;
+  box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+}
+
+// Baris lirik berganti: perbarui kapsul (kalau sedang menampilkan lagu) dan halaman Lirik.
+setInterval(() => {
+  if (!lyricsReady() || !lyricsNow.synced) return;
+  const ms = trackPosition();
+  const next = ms === null ? -1 : lyricLineAt(ms);
+  if (next === lyricIndex) return;
+  lyricIndex = next;
+  if (tickKey === 'music') renderPillText();
+  if (open && PAGES[pageIndex].id === 'music') renderLyrics();
+}, 200);
+
+window.kapsul.onLyrics((state) => {
+  lyricsNow = state ?? { key: null, status: 'none', synced: false, lines: [] };
+  lyricIndex = -1;
+  renderLyrics();
+  renderPillText();
+});
+
 window.kapsul.onMedia((state) => {
+  const prevKey = mediaKey(media);
+  const wasPlaying = media.playing;
   media = state ?? { playing: false, title: null };
+  updateTrackClock(prevKey);
   renderMedia();
+  renderLyrics();
+  // Lagu mulai diputar saat panel tertutup: panel berikutnya langsung di section Musik.
+  if (media.playing && !wasPlaying && !open) goToSection('music', { sound: false });
 });
 
 setInterval(renderBuddy, 15_000);
@@ -2346,6 +3378,7 @@ makeDraggable($('pill'), { clickToOpen: true });
 makeDraggable($('grip'));
 
 renderMedia();
+renderMusicReport();
 goToPage(pageIndex, { sound: false });
 setTimeout(emote, 6000);
 window.kapsul.ready();

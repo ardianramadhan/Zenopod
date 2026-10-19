@@ -37,6 +37,9 @@
     greet: ['e-happy', 'm-open', 'blush', 'x-sparkle'],
     clock: ['e-up', 'm-smile', 'blush', 'x-clock'],
     lowbat: ['e-closed', 'm-wavy', 'x-battery', 'x-sweat'],
+    charging: ['e-happy', 'm-open', 'blush', 'x-bolt'],
+    unplug: ['e-wide', 'm-o', 'b-raised', 'x-plug'],
+    paired: ['e-happy', 'm-smile', 'blush', 'x-bt'],
     hear: ['e-wide', 'm-o', 'blush', 'x-waves'],
     hungry: ['e-open', 'm-wavy', 'b-worried', 'x-food'],
     eat: ['e-happy', 'm-chew', 'blush', 'x-crumbs'],
@@ -252,9 +255,19 @@
         <path d="M5 4 l-0.8 2.4 M9 0 l-0.8 2.4 M3 11 l-0.8 2.4 M7 15 l-0.8 2.4" />
       </g>
       <g data-part="x-battery" class="battery">
-        <rect class="shell" x="30" y="2" width="7.4" height="4.2" rx="1" />
+        <rect class="case" x="30" y="2" width="7.4" height="4.2" rx="1" />
         <rect class="tip" x="37.6" y="3.3" width="0.9" height="1.6" rx="0.3" />
         <rect class="level" x="31" y="3" width="1.4" height="2.2" rx="0.3" />
+      </g>
+      <g data-part="x-bolt" class="bolt"><path d="M35.6 0.4 L31.6 6.4 H34.4 L33.2 11 L37.8 4.6 H35 Z" /></g>
+      <g data-part="x-plug" class="plug">
+        <path class="prong" d="M33.2 1 v2.6 M36.2 1 v2.6" />
+        <rect class="head" x="31.8" y="3.4" width="5.8" height="4.2" rx="1.2" />
+        <path class="cord" d="M34.7 7.6 q0 2.4 -2.2 3.4" />
+      </g>
+      <g data-part="x-bt" class="bt">
+        <circle cx="34.8" cy="6" r="4.8" />
+        <path d="M32.9 4.2 L36.6 7.6 L34.8 9.3 V2.7 L36.6 4.4 L32.9 7.8" />
       </g>
       <g data-part="x-waves" class="waves">
         <path d="M34.5 15.5 q1.6 2.2 0 4.4" />

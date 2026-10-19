@@ -2,8 +2,10 @@
 # - Musik: membaca sesi media Windows (Spotify, Chrome, dll).
 # - Notifikasi: membaca notifikasi semua aplikasi lewat UserNotificationListener
 #   (Pengaturan > Privasi > Notifikasi > izinkan aplikasi desktop).
-# Menulis satu baris JSON per perubahan: {type: media|notifications|icon, ...}.
-# Perintah dari stdin: toggle | next | prev | refresh | dismiss <id> | clear | speak | quick | ocr <id> <file>.
+# - Bluetooth: perangkat yang sedang tersambung (untuk reaksi Zeno saat tersambung/terputus).
+# - USB: perangkat USB luar (bukan bawaan laptop) dan drive (flashdisk / hard disk eksternal).
+# Menulis satu baris JSON per perubahan: {type: media|notifications|icon|bluetooth|usb, ...}.
+# Perintah dari stdin: toggle | next | prev | refresh | dismiss <id> | clear | speak | quick | ocr <id> <file> | eject <E:>.
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -30,6 +32,9 @@ function Send($object) {
 [void][Windows.UI.Notifications.Management.UserNotificationListener, Windows.UI.Notifications, ContentType = WindowsRuntime]
 [void][Windows.UI.Notifications.UserNotification, Windows.UI.Notifications, ContentType = WindowsRuntime]
 [void][Windows.Media.SpeechSynthesis.SpeechSynthesizer, Windows.Media.SpeechSynthesis, ContentType = WindowsRuntime]
+[void][Windows.Devices.Enumeration.DeviceInformation, Windows.Devices.Enumeration, ContentType = WindowsRuntime]
+[void][Windows.Devices.Bluetooth.BluetoothDevice, Windows.Devices.Bluetooth, ContentType = WindowsRuntime]
+[void][Windows.Devices.Bluetooth.BluetoothLEDevice, Windows.Devices.Bluetooth, ContentType = WindowsRuntime]
 
 function Read-Image($reference) {
     if (-not $reference) { return $null }
@@ -66,8 +71,11 @@ function Emit-Media([bool]$force) {
 
     $props = Await ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
     $status = $session.GetPlaybackInfo().PlaybackStatus.ToString()
+    # Posisi lagu (untuk lirik). Aplikasi memperbarui ini saat putar/jeda/geser, bukan tiap detik.
+    $timeline = $session.GetTimelineProperties()
+    $duration = [math]::Round($timeline.EndTime.TotalMilliseconds - $timeline.StartTime.TotalMilliseconds)
     $trackKey = "$($session.SourceAppUserModelId)|$($props.Title)|$($props.Artist)"
-    $key = "$trackKey|$status"
+    $key = "$trackKey|$status|$($timeline.LastUpdatedTime.Ticks)|$duration"
     $sameTrack = $script:lastKey -and $script:lastKey.StartsWith($trackKey + '|')
 
     # Sampul kadang baru tersedia beberapa detik setelah lagu berganti: coba lagi beberapa kali.
@@ -89,6 +97,9 @@ function Emit-Media([bool]$force) {
         playing = ($status -eq 'Playing')
         status  = $status
         art     = $script:lastArt
+        duration   = if ($duration -gt 0) { $duration } else { $null }
+        position   = if ($duration -gt 0) { [math]::Round($timeline.Position.TotalMilliseconds) } else { $null }
+        positionAt = if ($duration -gt 0) { $timeline.LastUpdatedTime.ToUnixTimeMilliseconds() } else { $null }
     }
 }
 
@@ -143,6 +154,19 @@ function Emit-Notifications([bool]$force) {
     }
 
     Send @{ type = 'notifications'; access = 'Allowed'; items = $items }
+}
+
+# ClearNotifications() kadang tidak berbuat apa-apa untuk aplikasi desktop (bukan paket Store),
+# jadi sisa notifikasinya dihapus satu per satu seperti tombol hapus per notifikasi.
+function Clear-Notifications {
+    if (-not $listener) { return }
+    try { $listener.ClearNotifications() } catch { [Console]::Error.WriteLine("clear: $($_.Exception.Message)") }
+    $list = Await ($listener.GetNotificationsAsync([Windows.UI.Notifications.NotificationKinds]::Toast)) `
+        ([System.Collections.Generic.IReadOnlyList[Windows.UI.Notifications.UserNotification]])
+    foreach ($n in $list) {
+        try { $listener.RemoveNotification($n.Id) } catch { [Console]::Error.WriteLine("remove $($n.Id): $($_.Exception.Message)") }
+    }
+    Emit-Notifications $true
 }
 
 # ---------- Kontrol cepat: volume, kecerahan, Wi-Fi, Bluetooth ----------
@@ -208,6 +232,115 @@ function Emit-Quick([bool]$force) {
     if (-not $force -and $key -eq $script:lastQuick) { return }
     $script:lastQuick = $key
     Send $state
+}
+
+# ---------- Perangkat Bluetooth tersambung ----------
+
+$lastBluetooth = $null
+$btKinds = @{}
+
+# Jenis perangkat dari Class of Device (Bluetooth klasik): audio | input | phone | other.
+function Get-BluetoothKind($id) {
+    if ($script:btKinds.ContainsKey($id)) { return $script:btKinds[$id] }
+    $kind = 'other'
+    try {
+        $device = Await ([Windows.Devices.Bluetooth.BluetoothDevice]::FromIdAsync($id)) ([Windows.Devices.Bluetooth.BluetoothDevice])
+        switch ($device.ClassOfDevice.MajorClass.ToString()) {
+            'AudioVideo' { $kind = 'audio' }
+            'Peripheral' { $kind = 'input' }
+            'Phone' { $kind = 'phone' }
+        }
+        $device.Dispose()
+    } catch { }
+    $script:btKinds[$id] = $kind
+    return $kind
+}
+
+function Emit-Bluetooth([bool]$force) {
+    $devices = @()
+    $selectors = @(
+        @([Windows.Devices.Bluetooth.BluetoothDevice]::GetDeviceSelectorFromConnectionStatus('Connected'), $true),
+        @([Windows.Devices.Bluetooth.BluetoothLEDevice]::GetDeviceSelectorFromConnectionStatus('Connected'), $false)
+    )
+    foreach ($pair in $selectors) {
+        $list = Await ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync($pair[0])) ([Windows.Devices.Enumeration.DeviceInformationCollection])
+        foreach ($d in $list) {
+            if (-not $d.Name) { continue }
+            $kind = if ($pair[1]) { Get-BluetoothKind $d.Id } else { 'other' }
+            $devices += @{ id = $d.Id; name = $d.Name; kind = $kind }
+        }
+    }
+    $key = ($devices | ForEach-Object { $_.id } | Sort-Object) -join ','
+    if (-not $force -and $key -eq $script:lastBluetooth) { return }
+    $script:lastBluetooth = $key
+    Send @{ type = 'bluetooth'; devices = @($devices) }
+}
+
+# ---------- Perangkat USB & drive ----------
+
+# Antarmuka GUID_DEVINTERFACE_USB_DEVICE; perangkat bawaan laptop ada di wadah komputer (ffff…).
+$usbSelector = 'System.Devices.InterfaceClassGuid:="{A5DCBF10-6530-11D2-901F-00C04FB951ED}" AND System.Devices.InterfaceEnabled:=System.StructuredQueryType.Boolean#True'
+$rootContainer = '00000000-0000-0000-ffff-ffffffffffff'
+$lastUsb = $null
+$usbKinds = @{}
+
+# Jenis perangkat dari kelas driver di dalam wadahnya (urutan = prioritas).
+$usbClasses = [ordered]@{
+    '4d36e967-e325-11ce-bfc1-08002be10318' = 'storage'   # DiskDrive
+    'eec5ad98-8080-425f-922a-dabf3de3f69a' = 'phone'     # WPD (HP, kamera digital)
+    'ca3e7ab9-b4c3-4ae6-8251-579ef933890f' = 'camera'    # Camera
+    '6bdd1fc6-810f-11d0-bec7-08002be2092f' = 'camera'    # Image
+    'c166523c-fe0c-4a94-a586-f1a80cfbbf3e' = 'audio'     # AudioEndpoint
+    '4d36e96c-e325-11ce-bfc1-08002be10318' = 'audio'     # Media
+    '4d36e96f-e325-11ce-bfc1-08002be10318' = 'mouse'
+    '4d36e96b-e325-11ce-bfc1-08002be10318' = 'keyboard'
+    '4d36e972-e325-11ce-bfc1-08002be10318' = 'network'
+    '4d36e978-e325-11ce-bfc1-08002be10318' = 'serial'    # Ports (mis. Arduino)
+    '4d36e979-e325-11ce-bfc1-08002be10318' = 'printer'
+}
+
+function Get-UsbKind($container) {
+    if ($script:usbKinds.ContainsKey($container)) { return $script:usbKinds[$container] }
+    $kind = 'other'
+    try {
+        $list = Await ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync("System.Devices.ContainerId:=`"{$container}`"", [string[]]@('System.Devices.ClassGuid'), [Windows.Devices.Enumeration.DeviceInformationKind]::Device)) `
+            ([Windows.Devices.Enumeration.DeviceInformationCollection])
+        $found = @{}
+        foreach ($d in $list) { foreach ($kv in $d.Properties) { if ($kv.Key -eq 'System.Devices.ClassGuid' -and $kv.Value) { $found["$($kv.Value)".ToLower()] = $true } } }
+        foreach ($guid in $script:usbClasses.Keys) { if ($found.ContainsKey($guid)) { $kind = $script:usbClasses[$guid]; break } }
+    } catch { }
+    $script:usbKinds[$container] = $kind
+    return $kind
+}
+
+function Emit-Usb([bool]$force) {
+    $devices = @{}
+    $list = Await ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync($script:usbSelector, [string[]]@('System.Devices.ContainerId'))) `
+        ([Windows.Devices.Enumeration.DeviceInformationCollection])
+    foreach ($d in $list) {
+        $container = $null
+        foreach ($kv in $d.Properties) { if ($kv.Key -eq 'System.Devices.ContainerId') { $container = "$($kv.Value)".ToLower() } }
+        if (-not $container -or $container -eq $script:rootContainer -or $devices.ContainsKey($container)) { continue }
+        $devices[$container] = @{ id = $container; name = $d.Name; kind = (Get-UsbKind $container) }
+    }
+    $drives = @()
+    foreach ($drive in [System.IO.DriveInfo]::GetDrives()) {
+        if (-not $drive.IsReady -or $drive.Name -eq "$env:SystemDrive\") { continue }
+        $type = $drive.DriveType.ToString()
+        if ($type -ne 'Removable' -and $type -ne 'Fixed') { continue }
+        $drives += @{ letter = $drive.Name.Substring(0, 2); label = $drive.VolumeLabel; size = $drive.TotalSize; free = $drive.AvailableFreeSpace; removable = ($type -eq 'Removable') }
+    }
+    $key = (@($devices.Keys | Sort-Object) + @($drives | ForEach-Object { $_.letter } | Sort-Object)) -join ','
+    if (-not $force -and $key -eq $script:lastUsb) { return }
+    $script:lastUsb = $key
+    Send @{ type = 'usb'; devices = @($devices.Values); drives = @($drives) }
+}
+
+# Keluarkan drive dengan aman (sama seperti "Eject" di File Explorer).
+function Eject-Drive($letter) {
+    if ($letter -notmatch '^[A-Za-z]:$') { return }
+    $item = (New-Object -ComObject Shell.Application).Namespace(17).ParseName($letter)
+    if ($item) { $item.InvokeVerb('Eject') }
 }
 
 function Set-Quick($what, $value) {
@@ -302,6 +435,8 @@ try { Emit-Media $true } catch { }
 try { Emit-Notifications $true } catch { }
 try { Emit-Voices } catch { }
 try { Emit-Quick $true } catch { }
+try { Emit-Bluetooth $true } catch { }
+try { Emit-Usb $true } catch { }
 $quickTick = 0
 
 while ($true) {
@@ -317,7 +452,8 @@ while ($true) {
                 'prev'    { if ($session) { Await ($session.TrySkipPreviousAsync()) ([bool]) | Out-Null } }
                 'refresh' { Emit-Media $true; Emit-Notifications $true }
                 'dismiss' { if ($listener) { $listener.RemoveNotification([uint32]$parts[1]) } }
-                'clear'   { if ($listener) { $listener.ClearNotifications() } }
+                'clear'   { Clear-Notifications }
+                'eject'   { Eject-Drive $parts[1].Trim() }
                 'voices'  { Emit-Voices }
                 'speak'   { $p = $parts[1] -split '\s+', 2; Speak $p[0] $p[1] }
                 'ocr'     { $p = $parts[1] -split '\s+', 2; Read-Text $p[0] $p[1] }
@@ -331,5 +467,11 @@ while ($true) {
     try { Emit-Notifications $false } catch { }
     # Volume/kecerahan/radio bisa berubah dari luar: cek tiap ±4 detik.
     $quickTick++
-    if ($quickTick -ge 5) { $quickTick = 0; try { Emit-Quick $false } catch { } }
+    # USB & drive tiap ±1,6 dtk (cepat: satu kueri WinRT + daftar drive).
+    if ($quickTick % 2 -eq 0) { try { Emit-Usb $false } catch { } }
+    if ($quickTick -ge 6) {
+        $quickTick = 0
+        try { Emit-Quick $false } catch { }
+        try { Emit-Bluetooth $false } catch { }
+    }
 }

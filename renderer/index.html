@@ -16,7 +16,10 @@
         <span class="typing" id="typing" hidden><i></i><i></i><i></i></span>
         <span class="eq" id="eq" hidden><i></i><i></i><i></i></span>
         <span class="dev-alert" id="pill-dev-alert" title="Ada server lokal yang mati" hidden></span>
-        <span class="pill-battery" id="pill-battery" hidden></span>
+        <span class="pill-battery" id="pill-battery" hidden>
+          <span class="bat"><i id="bat-fill"></i><b id="bat-text"></b></span>
+          <svg class="bat-bolt" viewBox="0 0 8 12" aria-hidden="true"><path d="M5 0.5 1 7h2.6L2.8 11.5 7 5H4.4z" /></svg>
+        </span>
         <span class="mic-level" id="mic-level" hidden><i></i><i></i><i></i><i></i></span>
         <span class="badge" id="badge" hidden></span>
       </div>
@@ -37,23 +40,66 @@
         </div>
       </div>
 
-      <!-- Panel terbuka -->
+      <!-- Panel terbuka: section yang di-swipe. Tiap section = kartu atas (maskot tetap di kiri)
+           + isi bawah; keduanya bergeser bersama. Baris ikon di atas = penunjuk & pintasan section. -->
       <div class="panel" id="panel">
         <button type="button" class="grip" id="grip" title="Geser Zenopod" aria-label="Geser Zenopod"><i></i><i></i><i></i><i></i><i></i><i></i></button>
-        <!-- Kartu atas: swipe antar halaman (musik, sapaan, jam, hari ini) -->
+
+        <nav class="nav">
+          <div class="tab-list" id="nav" role="tablist" aria-label="Section">
+            <button type="button" role="tab" data-section="home" aria-label="Beranda" title="Beranda">
+              <svg class="ti ti-home" viewBox="0 0 16 16" aria-hidden="true"><path class="roof" d="M2.5 7.5 8 3l5.5 4.5" /><path d="M4 6.5V13h3V10h2v3h3V6.5" /></svg>
+            </button>
+            <button type="button" role="tab" data-section="music" aria-label="Musik" title="Musik">
+              <svg class="ti ti-music" viewBox="0 0 16 16" aria-hidden="true"><g class="note"><path d="M6 12V3.5l7-1.5V10.5" /><circle cx="4.5" cy="12" r="1.6" /><circle cx="11.5" cy="10.5" r="1.6" /></g></svg>
+            </button>
+            <button type="button" role="tab" data-section="time" aria-label="Waktu & jadwal" title="Waktu & jadwal">
+              <svg class="ti ti-time" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5" /><path class="hand" d="M8 8V4.8" /><path d="M8 8l2.2 1.4" /></svg>
+              <span class="count corner" id="todo-count" hidden></span>
+            </button>
+            <button type="button" role="tab" data-section="weather" id="nav-weather" aria-label="Cuaca" title="Cuaca">
+              <svg class="ti ti-weather" viewBox="0 0 16 16" aria-hidden="true"><g class="rays"><path d="M5.5 1.6v1.2M1.6 5.5h1.2M2.7 2.7l.85.85M8.3 2.7l-.85.85" /></g><path d="M3.6 6.4a2 2 0 0 1 3.6-1.5" /><path class="cloud" d="M5 13.2h6.3a2.3 2.3 0 0 0 .2-4.6 3.3 3.3 0 0 0-6.3.9A1.9 1.9 0 0 0 5 13.2z" /></svg>
+            </button>
+            <button type="button" role="tab" data-section="focus" id="tab-focus" aria-label="Fokus & timer" title="Fokus & timer">
+              <svg class="ti ti-focus" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="9" r="5.2" /><path d="M6.5 1.8h3" /><path class="hand" d="M8 9V6" /></svg>
+              <span class="count live-count" id="focus-count" hidden></span>
+            </button>
+            <button type="button" role="tab" data-section="device" aria-label="Perangkat" title="Perangkat">
+              <svg class="ti ti-device" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="7.5" rx="1.4" /><path d="M1.5 13h13" /><path class="pulse" d="M4.5 7h1.6l1-1.6 1.4 3 1-1.4h2" /></svg>
+            </button>
+            <button type="button" role="tab" data-section="inbox" id="tab-notifs" aria-label="Kotak masuk" title="Kotak masuk (notifikasi & klip)">
+              <svg class="ti ti-bell" viewBox="0 0 16 16" aria-hidden="true"><g class="bell"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3z" /></g><path class="clapper" d="M6.5 14h3" /></svg>
+              <span class="count corner" id="notif-count" hidden></span>
+            </button>
+            <button type="button" role="tab" data-section="work" id="tab-dev" aria-label="Kerja" title="Kerja (Claude Code & Dev)" hidden>
+              <svg class="ti ti-dev" viewBox="0 0 16 16" aria-hidden="true"><path class="left" d="M5.5 4.5 2 8l3.5 3.5" /><path class="slash" d="M9 3.5 7 12.5" /><path class="right" d="M10.5 4.5 14 8l-3.5 3.5" /></svg>
+              <span class="dev-alert corner" id="dev-alert" hidden></span>
+            </button>
+          </div>
+          <div class="nav-actions">
+            <button type="button" class="icon-link" id="snip-btn" title="Ambil teks dari layar" aria-label="Ambil teks dari layar">
+              <svg viewBox="0 0 16 16"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.5 6.5h5M5.5 9.5h3.5" /></svg>
+            </button>
+            <button type="button" class="icon-link" id="power-btn" title="Daya" aria-label="Daya">
+              <svg viewBox="0 0 16 16"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0" /></svg>
+            </button>
+            <button type="button" class="icon-link" id="edit" title="Pengaturan" aria-label="Pengaturan">
+              <svg viewBox="0 0 16 16"><path d="M6.9 1.5h2.2l.4 1.7 1.3.6 1.5-.9 1.6 1.6-.9 1.5.6 1.3 1.7.4v2.2l-1.7.4-.6 1.3.9 1.5-1.6 1.6-1.5-.9-1.3.6-.4 1.7H6.9l-.4-1.7-1.3-.6-1.5.9-1.6-1.6.9-1.5-.6-1.3-1.7-.4V6.9l1.7-.4.6-1.3-.9-1.5 1.6-1.6 1.5.9 1.3-.6z" /><circle cx="8" cy="8" r="2" /></svg>
+            </button>
+          </div>
+        </nav>
+
+        <!-- Kartu atas -->
         <section class="media hero" id="media">
-          <!-- Maskot besar tetap di kiri, berganti wujud sesuai halaman -->
+          <!-- Maskot besar tetap di kiri, berganti wujud sesuai section -->
           <button type="button" class="buddy-big" id="buddy-big" title="Klik, tahan, atau elus aku!" aria-label="Maskot"></button>
           <span class="buddy-say" id="buddy-say" role="status" hidden></span>
           <div class="hero-view" id="hero-view" aria-roledescription="carousel">
             <div class="hero-track" id="hero-track">
-              <div class="page claude-page" data-page="claude" aria-label="Claude Code">
-                <div class="claude-head">
-                  <span class="live" id="claude-live"></span>
-                  <span class="claude-project" id="claude-project"></span>
-                </div>
-                <div class="claude-meta" id="claude-meta"></div>
-                <ul class="claude-activity" id="claude-activity"></ul>
+              <!-- Island = aksi langsung; detail di bawah = daftar / laporan -->
+              <div class="page home-page" data-page="home" aria-label="Beranda">
+                <div class="page-kicker" id="greet-title"></div>
+                <div class="quick-apps" id="quick-apps"></div>
               </div>
               <div class="page media-main" data-page="music" aria-label="Musik">
                 <div class="track">
@@ -76,47 +122,101 @@
                   </button>
                 </div>
               </div>
-              <div class="page" data-page="greeting" aria-label="Sapaan">
-                <div class="page-kicker" id="greet-kicker"></div>
-                <div class="page-title" id="greet-title"></div>
-                <div class="page-sub" id="greet-sub"></div>
-              </div>
-              <div class="page" data-page="clock" aria-label="Tanggal dan jam">
-                <div class="clock-time" id="clock-time"></div>
-                <div class="page-sub" id="clock-date"></div>
-                <div class="page-sub dim" id="clock-hijri"></div>
-              </div>
-              <div class="page agenda-page" data-page="agenda" aria-label="Agenda">
-                <div class="agenda-head">
-                  <span class="page-kicker" id="agenda-kicker">Agenda</span>
-                  <button type="button" class="agenda-join" id="agenda-join" hidden>Gabung</button>
+              <div class="page time-page" data-page="time" aria-label="Waktu">
+                <div class="time-row">
+                  <span class="clock-time" id="clock-time"></span>
+                  <span class="time-date"><span id="clock-date"></span><span class="dim" id="clock-hijri"></span></span>
                 </div>
-                <ul class="agenda-list" id="agenda-list"></ul>
+                <div class="action-row">
+                  <button type="button" class="action-chip grow" id="time-next"></button>
+                  <button type="button" class="action-chip" id="time-add-todo">+ Tugas</button>
+                </div>
               </div>
               <div class="page" data-page="weather" aria-label="Cuaca">
-                <div class="page-kicker" id="weather-city"></div>
                 <div class="weather-main">
+                  <span class="weather-scene" id="weather-scene" aria-hidden="true"></span>
                   <span class="weather-temp" id="weather-temp"></span>
                   <span class="weather-text">
                     <span class="weather-cond" id="weather-cond"></span>
                     <span class="page-sub dim" id="weather-feels"></span>
                   </span>
                 </div>
-                <div class="weather-next" id="weather-next"></div>
+                <div class="weather-tip" id="weather-tip"></div>
               </div>
-              <div class="page" data-page="today" aria-label="Hari ini">
-                <div class="page-kicker">Hari ini</div>
-                <ul class="today-list" id="today-list"></ul>
-              </div>
-              <div class="page habits-page" data-page="habits" aria-label="Kebiasaan">
-                <div class="page-kicker" id="habits-kicker">Kebiasaan hari ini</div>
-                <div class="habit-chips" id="habit-chips"></div>
-              </div>
-              <div class="page pet-page" data-page="pet" aria-label="Zeno">
-                <div class="pet-head">
-                  <span class="pet-level" id="pet-level"></span>
-                  <span class="pet-xp" id="pet-xp"></span>
+              <div class="page focus-page" data-page="focus" aria-label="Fokus">
+                <div class="focus-island idle" id="focus-island">
+                  <div class="mini-ring">
+                    <svg viewBox="0 0 64 64" aria-hidden="true">
+                      <circle class="mini-track" cx="32" cy="32" r="27" />
+                      <circle class="mini-bar" id="mini-ring-bar" cx="32" cy="32" r="27" pathLength="1000" transform="rotate(-90 32 32)" />
+                      <circle class="mini-knob" id="mini-ring-knob" cx="32" cy="5" r="3.2" />
+                    </svg>
+                    <div class="mini-center"><b id="focus-sum-time"></b><span id="focus-sum-unit"></span></div>
+                  </div>
+                  <div class="focus-island-info">
+                    <div class="focus-top-title"><span class="live-dot" aria-hidden="true"></span><span id="focus-sum-title"></span></div>
+                    <div class="focus-island-sub" id="focus-sum-sub"></div>
+                    <div class="action-row" id="focus-card-actions"></div>
+                  </div>
                 </div>
+              </div>
+              <div class="page device-page" data-page="device" aria-label="Perangkat">
+                <div class="device-top">
+                  <div class="device-battery" id="device-battery">
+                    <span class="bat big"><i id="device-bat-fill"></i></span>
+                    <span class="device-bat-text"><b id="device-bat-percent"></b><span class="dim" id="device-bat-state"></span></span>
+                  </div>
+                  <span class="system-net" id="system-net"></span>
+                </div>
+                <div class="quick-row">
+                  <button type="button" class="quick-icon" id="quick-mute" title="Bisukan" aria-label="Bisukan">
+                    <svg viewBox="0 0 16 16"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path class="waves" d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" /><path class="slash" d="M10.5 6l4 4M14.5 6l-4 4" /></svg>
+                  </button>
+                  <input type="range" min="0" max="100" step="1" id="quick-volume" aria-label="Volume" />
+                  <span class="quick-value" id="quick-volume-value"></span>
+                  <button type="button" class="quick-toggle mini" id="quick-wifi" aria-pressed="false" title="Wi-Fi" aria-label="Wi-Fi">
+                    <svg viewBox="0 0 16 16"><path d="M1.8 6a9 9 0 0 1 12.4 0M4 8.4a6 6 0 0 1 8 0M6.2 10.8a3 3 0 0 1 3.6 0" /><circle cx="8" cy="13" r="0.8" /></svg>
+                  </button>
+                  <button type="button" class="quick-toggle mini" id="quick-bluetooth" aria-pressed="false" title="Bluetooth" aria-label="Bluetooth">
+                    <svg viewBox="0 0 16 16"><path d="M4.5 5l7 6-3.5 3V2l3.5 3-7 6" /></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="page inbox-page" data-page="inbox" aria-label="Kotak masuk">
+                <div class="page-kicker" id="inbox-title"></div>
+                <div class="inbox-latest" id="inbox-latest"></div>
+                <div class="action-row" id="inbox-card-actions"></div>
+              </div>
+              <div class="page claude-page" data-page="work" aria-label="Kerja">
+                <div class="claude-head">
+                  <span class="live" id="claude-live"></span>
+                  <span class="claude-project" id="claude-project"></span>
+                </div>
+                <div class="claude-meta" id="claude-meta"></div>
+                <ul class="claude-activity" id="claude-activity"></ul>
+                <div class="action-row" id="work-card-actions"></div>
+              </div>
+            </div>
+          </div>
+          <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Section"></div>
+        </section>
+
+        <!-- Isi bawah, satu per section (urutan sama dengan kartu atas) -->
+        <div class="deck-view" id="deck-view">
+          <div class="deck-track" id="deck-track">
+            <section class="pane scroll" data-pane="home" aria-label="Aplikasi">
+              <div class="apps-tab" id="apps-tab">
+                <div class="search-box">
+                  <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" /></svg>
+                  <input id="app-search" placeholder="Cari aplikasi, hitung, timer…" autocomplete="off" spellcheck="false" aria-label="Cari aplikasi" />
+                  <span class="hint" id="shortcut"></span>
+                </div>
+                <div class="pane-head" id="apps-head"><span class="page-kicker">Aplikasi lain</span></div>
+                <div class="apps" id="apps"></div>
+                <div class="search-results" id="search-results" role="listbox" hidden></div>
+              </div>
+              <div class="block pet-block">
+                <div class="pane-head"><span class="page-kicker"><span id="pet-level"></span> <span class="dim" id="pet-xp"></span></span></div>
                 <div class="pet-bar"><span>Kenyang</span><i><b id="pet-hunger"></b></i></div>
                 <div class="pet-bar xp"><span>XP</span><i><b id="pet-xpbar"></b></i></div>
                 <div class="pet-actions">
@@ -126,99 +226,159 @@
                   <button type="button" class="pet-play" id="pet-play">Main</button>
                 </div>
               </div>
-              <div class="page system-page" data-page="system" aria-label="Sistem">
-                <div class="system-net" id="system-net"></div>
+            </section>
+
+            <section class="pane lyrics-pane" data-pane="music" aria-label="Lirik & ringkasan musik">
+              <div class="lyrics-view" id="lyrics-view">
+                <div class="pane-head"><span class="page-kicker" id="lyrics-kicker">Lirik</span></div>
+                <ol class="lyrics-lines" id="lyrics-lines"></ol>
+              </div>
+              <!-- Tanpa lirik: ringkasan dengar musik hari ini -->
+              <div class="music-report" id="music-report" hidden>
+                <div class="focus-stats">
+                  <div><b id="music-listen">0</b><span>menit dengar hari ini</span></div>
+                  <div><b id="music-count">0</b><span>lagu diputar</span></div>
+                </div>
+                <div class="block" id="music-top-block">
+                  <div class="pane-head"><span class="page-kicker">Paling sering hari ini</span><span class="page-kicker" id="music-note"></span></div>
+                  <ol class="music-top" id="music-top"></ol>
+                </div>
+                <div class="block">
+                  <div class="pane-head"><span class="page-kicker">7 hari terakhir</span><span class="page-kicker" id="music-week-total"></span></div>
+                  <div class="week-chart" id="music-week"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="pane scroll" data-pane="time" aria-label="Jadwal & tugas">
+              <div class="block" id="agenda-block" hidden>
+                <div class="pane-head">
+                  <span class="page-kicker" id="agenda-kicker">Agenda</span>
+                  <button type="button" class="agenda-join" id="agenda-join" hidden>Gabung</button>
+                </div>
+                <ul class="agenda-list" id="agenda-list"></ul>
+              </div>
+              <div class="block">
+                <div class="pane-head"><span class="page-kicker">Pengingat</span></div>
+                <button type="button" class="next-reminder" id="next-reminder" title="Buka pengingat">
+                  <svg viewBox="0 0 16 16"><circle cx="8" cy="9" r="5.2" /><path d="M8 6.4V9l1.8 1.2M3 3.2 4.6 2M13 3.2 11.4 2" /></svg>
+                  <span id="next-reminder-text"></span>
+                </button>
+              </div>
+              <div class="block" id="habits-block" hidden>
+                <div class="pane-head"><span class="page-kicker" id="habits-kicker">Kebiasaan hari ini</span></div>
+                <div class="habit-chips" id="habit-chips"></div>
+              </div>
+              <div class="block todos" id="todos">
+                <div class="pane-head">
+                  <span class="page-kicker">Catatan & tugas</span>
+                  <button type="button" class="link" id="todo-clear" hidden>Hapus yang selesai</button>
+                </div>
+                <form class="todo-form" id="todo-form">
+                  <input id="todo-input" maxlength="200" placeholder="Tulis catatan atau tugas, lalu Enter…" autocomplete="off" />
+                </form>
+                <div class="todo-list" id="todo-list"></div>
+              </div>
+            </section>
+
+            <section class="pane scroll" data-pane="weather" aria-label="Analisa cuaca">
+              <div class="wx-card">
+                <div class="pane-head"><span class="page-kicker">12 jam ke depan</span><span class="page-kicker" id="wx-peak"></span></div>
+                <div class="wx-chart" id="wx-chart" tabindex="0" role="img" aria-label="Grafik suhu dan peluang hujan 12 jam ke depan"></div>
+                <table class="sr-only" id="wx-table"></table>
+              </div>
+              <div class="wx-facts" id="weather-details"></div>
+              <ul class="weather-advice" id="weather-advice"></ul>
+            </section>
+
+            <!-- Detail Fokus: ringkasan saja (semua tombol ada di island) -->
+            <section class="pane scroll focus-tab" data-pane="focus" id="focus-tab" aria-label="Ringkasan fokus">
+              <div class="focus-view" id="focus-view">
+                <div class="ring" id="focus-ring">
+                  <svg viewBox="0 0 120 120" aria-hidden="true">
+                    <circle class="ring-track" cx="60" cy="60" r="52" />
+                    <circle class="ring-bar" id="ring-bar" cx="60" cy="60" r="52" pathLength="1000" transform="rotate(-90 60 60)" />
+                    <circle class="ring-knob" id="ring-knob" cx="60" cy="8" r="4.5" />
+                  </svg>
+                  <div class="ring-center">
+                    <span class="ring-time" id="focus-time">25:00</span>
+                    <span class="ring-label" id="focus-label"></span>
+                  </div>
+                </div>
+                <div class="focus-info">
+                  <div class="focus-phase"><span class="live-dot" aria-hidden="true"></span><span id="focus-phase">Siap fokus?</span></div>
+                  <div class="focus-sub" id="focus-sub"></div>
+                  <div class="focus-dots" id="focus-dots" aria-hidden="true"></div>
+                  <div class="focus-stats">
+                    <div><b id="focus-stat-sessions">0</b><span>sesi hari ini</span></div>
+                    <div><b id="focus-stat-minutes">0</b><span>menit fokus</span></div>
+                  </div>
+                </div>
+              </div>
+              <div class="block">
+                <div class="pane-head"><span class="page-kicker">7 hari terakhir</span><span class="page-kicker" id="focus-week-total"></span></div>
+                <div class="week-chart" id="focus-week"></div>
+              </div>
+              <div class="block" id="timer-block" hidden>
+                <div class="pane-head"><span class="page-kicker">Timer berjalan <span class="count" id="timer-count" hidden></span></span></div>
+                <div class="timer-list" id="timer-list"></div>
+              </div>
+            </section>
+
+            <section class="pane scroll" data-pane="device" aria-label="Detail perangkat">
+              <div class="block">
                 <div class="pet-bar"><span>CPU</span><i><b id="system-cpu"></b></i><em id="system-cpu-text"></em></div>
                 <div class="pet-bar"><span>RAM</span><i><b id="system-ram"></b></i><em id="system-ram-text"></em></div>
                 <div class="pet-bar"><span id="system-disk-label">Disk</span><i><b id="system-disk"></b></i><em id="system-disk-text"></em></div>
               </div>
-            </div>
-          </div>
-          <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Halaman kartu"></div>
-        </section>
+              <div class="block quick-sheet" id="quick-sheet">
+                <div class="quick-row" id="quick-brightness-row">
+                  <span class="quick-icon static">
+                    <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.8" /><path d="M8 1.8v1.4M8 12.8v1.4M1.8 8h1.4M12.8 8h1.4M3.6 3.6l1 1M11.4 11.4l1 1M3.6 12.4l1-1M11.4 4.6l1-1" /></svg>
+                  </span>
+                  <input type="range" min="0" max="100" step="5" id="quick-brightness" aria-label="Kecerahan" />
+                  <span class="quick-value" id="quick-brightness-value"></span>
+                </div>
+              </div>
+              <div class="block">
+                <div class="pane-head"><span class="page-kicker">Tersambung</span></div>
+                <div class="device-list" id="device-list"></div>
+              </div>
+            </section>
 
-        <div class="tabs">
-          <div class="tab-list" role="tablist">
-            <button type="button" role="tab" data-tab="apps" aria-selected="true">Aplikasi</button>
-            <button type="button" role="tab" data-tab="notifs" id="tab-notifs" aria-selected="false">
-              Notif <span class="count" id="notif-count" hidden></span>
-            </button>
-            <button type="button" role="tab" data-tab="focus" aria-selected="false">
-              Fokus <span class="count live-count" id="focus-count" hidden></span>
-            </button>
-            <button type="button" role="tab" data-tab="clips" aria-selected="false">Klip</button>
-            <button type="button" role="tab" data-tab="todos" aria-selected="false">
-              Catatan <span class="count" id="todo-count" hidden></span>
-            </button>
-            <button type="button" role="tab" data-tab="dev" id="tab-dev" aria-selected="false" hidden>
-              Dev <span class="dev-alert" id="dev-alert" hidden></span>
-            </button>
+            <section class="pane" data-pane="inbox" aria-label="Notifikasi & klip">
+              <div class="pane-head">
+                <div class="focus-modes" role="tablist" aria-label="Kotak masuk">
+                  <button type="button" role="tab" data-inbox="notifs" id="inbox-notifs-tab" aria-selected="true">Notifikasi</button>
+                  <button type="button" role="tab" data-inbox="clips" aria-selected="false">Klip</button>
+                </div>
+                <button type="button" class="link" id="inbox-action" hidden></button>
+              </div>
+              <section class="notifs" id="notifs"></section>
+              <section class="list-tab" id="clips" hidden></section>
+            </section>
+
+            <section class="pane scroll" data-pane="work" aria-label="Aktivitas & server">
+              <div class="block" id="claude-block" hidden>
+                <div class="pane-head"><span class="page-kicker">Aktivitas Claude</span></div>
+                <ul class="claude-log" id="claude-log"></ul>
+              </div>
+              <div class="pane-head">
+                <span class="page-kicker">Server & project</span>
+                <button type="button" class="link" id="dev-refresh">Periksa sekarang</button>
+              </div>
+              <div class="list-tab dev-tab" id="dev">
+                <div class="dev-group" id="dev-services"></div>
+                <div class="dev-group" id="dev-projects"></div>
+              </div>
+            </section>
           </div>
-          <button type="button" class="link" id="tab-action" hidden></button>
         </div>
 
-        <section class="apps-tab" id="apps-tab" role="tabpanel">
-          <div class="search-box">
-            <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" /></svg>
-            <input id="app-search" placeholder="Cari aplikasi…" autocomplete="off" spellcheck="false" aria-label="Cari aplikasi" />
-          </div>
-          <div class="apps" id="apps"></div>
-          <div class="search-results" id="search-results" role="listbox" hidden></div>
-        </section>
-        <section class="notifs" id="notifs" role="tabpanel" hidden></section>
-        <section class="list-tab" id="clips" role="tabpanel" hidden></section>
-        <section class="list-tab dev-tab" id="dev" role="tabpanel" hidden>
-          <div class="dev-group" id="dev-services"></div>
-          <div class="dev-group" id="dev-projects"></div>
-        </section>
-        <section class="list-tab todos" id="todos" role="tabpanel" hidden>
-          <form class="todo-form" id="todo-form">
-            <input id="todo-input" maxlength="200" placeholder="Tulis catatan atau tugas, lalu Enter…" autocomplete="off" />
-          </form>
-          <div class="todo-list" id="todo-list"></div>
-        </section>
-        <section class="focus-tab" id="focus-tab" role="tabpanel" hidden>
-          <div class="ring">
-            <svg viewBox="0 0 100 100" aria-hidden="true">
-              <circle class="ring-track" cx="50" cy="50" r="44" />
-              <circle class="ring-bar" id="ring-bar" cx="50" cy="50" r="44" />
-            </svg>
-            <span class="ring-time" id="focus-time">25:00</span>
-          </div>
-          <div class="focus-info">
-            <div class="focus-phase" id="focus-phase">Siap fokus?</div>
-            <div class="focus-sub" id="focus-sub"></div>
-            <div class="focus-dots" id="focus-dots"></div>
-            <div class="focus-actions" id="focus-actions"></div>
-            <div class="timer-list" id="timer-list"></div>
-          </div>
-        </section>
-
-        <!-- Kontrol cepat Windows -->
-        <div class="power-sheet quick-sheet" id="quick-sheet" hidden>
-          <div class="quick-row">
-            <button type="button" class="quick-icon" id="quick-mute" title="Bisukan" aria-label="Bisukan">
-              <svg viewBox="0 0 16 16"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path class="waves" d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" /><path class="slash" d="M10.5 6l4 4M14.5 6l-4 4" /></svg>
-            </button>
-            <input type="range" min="0" max="100" step="1" id="quick-volume" aria-label="Volume" />
-            <span class="quick-value" id="quick-volume-value"></span>
-          </div>
-          <div class="quick-row" id="quick-brightness-row">
-            <span class="quick-icon static">
-              <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.8" /><path d="M8 1.8v1.4M8 12.8v1.4M1.8 8h1.4M12.8 8h1.4M3.6 3.6l1 1M11.4 11.4l1 1M3.6 12.4l1-1M11.4 4.6l1-1" /></svg>
-            </span>
-            <input type="range" min="0" max="100" step="5" id="quick-brightness" aria-label="Kecerahan" />
-            <span class="quick-value" id="quick-brightness-value"></span>
-          </div>
-          <div class="quick-toggles">
-            <button type="button" class="quick-toggle" id="quick-wifi" aria-pressed="false">
-              <svg viewBox="0 0 16 16"><path d="M1.8 6a9 9 0 0 1 12.4 0M4 8.4a6 6 0 0 1 8 0M6.2 10.8a3 3 0 0 1 3.6 0" /><circle cx="8" cy="13" r="0.8" /></svg>Wi-Fi
-            </button>
-            <button type="button" class="quick-toggle" id="quick-bluetooth" aria-pressed="false">
-              <svg viewBox="0 0 16 16"><path d="M4.5 5l7 6-3.5 3V2l3.5 3-7 6" /></svg>Bluetooth
-            </button>
-          </div>
-        </div>
+        <!-- Gagang: buka / tutup isi bawah (bawaan: hanya kartu atas) -->
+        <button type="button" class="detail-handle" id="detail-btn" aria-expanded="false" title="Tampilkan detail" aria-label="Tampilkan detail">
+          <svg viewBox="0 0 16 8" aria-hidden="true"><path d="M3 2l5 4 5-4" /></svg>
+        </button>
 
         <!-- Menu daya -->
         <div class="power-sheet" id="power-sheet" hidden>
@@ -238,30 +398,10 @@
             </div>
           </div>
         </div>
-
-        <footer class="foot">
-          <span class="hint" id="shortcut"></span>
-          <button type="button" class="next-reminder" id="next-reminder" title="Buka pengingat" hidden>
-            <svg viewBox="0 0 16 16"><circle cx="8" cy="9" r="5.2" /><path d="M8 6.4V9l1.8 1.2M3 3.2 4.6 2M13 3.2 11.4 2" /></svg>
-            <span id="next-reminder-text"></span>
-          </button>
-          <div class="foot-actions">
-            <button type="button" class="icon-link" id="snip-btn" title="Ambil teks dari layar" aria-label="Ambil teks dari layar">
-              <svg viewBox="0 0 16 16"><path d="M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.5 6.5h5M5.5 9.5h3.5" /></svg>
-            </button>
-            <button type="button" class="icon-link" id="quick-btn" title="Kontrol cepat" aria-label="Kontrol cepat">
-              <svg viewBox="0 0 16 16"><path d="M2.5 4.5h7M12.5 4.5h1M2.5 11.5h1M6.5 11.5h7" /><circle cx="11" cy="4.5" r="1.6" /><circle cx="5" cy="11.5" r="1.6" /></svg>
-            </button>
-            <button type="button" class="icon-link" id="power-btn" title="Daya" aria-label="Daya">
-              <svg viewBox="0 0 16 16"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0" /></svg>
-            </button>
-            <button type="button" class="icon-link" id="edit" title="Pengaturan" aria-label="Pengaturan">
-              <svg viewBox="0 0 16 16"><path d="M6.9 1.5h2.2l.4 1.7 1.3.6 1.5-.9 1.6 1.6-.9 1.5.6 1.3 1.7.4v2.2l-1.7.4-.6 1.3.9 1.5-1.6 1.6-1.5-.9-1.3.6-.4 1.7H6.9l-.4-1.7-1.3-.6-1.5.9-1.6-1.6.9-1.5-.6-1.3-1.7-.4V6.9l1.7-.4.6-1.3-.9-1.5 1.6-1.6 1.5.9 1.3-.6z" /><circle cx="8" cy="8" r="2" /></svg>
-            </button>
-          </div>
-        </footer>
       </div>
     </div>
+    <!-- Gaya notch: sambungan ke tepi atas layar (lengkung + tutup bilah menu macOS) -->
+    <span class="notch-cap" aria-hidden="true"></span>
     <script src="buddy.js"></script>
     <script src="sounds.js"></script>
     <script src="app.js"></script>

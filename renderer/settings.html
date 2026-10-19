@@ -38,7 +38,7 @@
           <div class="nav-group">Mulai</div>
           <button type="button" data-section="guide" data-keywords="tutorial cara pakai interaksi klik elus tahan bantuan help"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" /><path d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1v.4M8 11.6v.1" /></svg>Panduan</button>
           <button type="button" data-section="profile" data-keywords="nama maskot ulang tahun sapaan"><svg viewBox="0 0 16 16"><circle cx="8" cy="5.6" r="2.6" /><path d="M3 13.5c.6-2.6 2.6-4 5-4s4.4 1.4 5 4" /></svg>Profil</button>
-          <button type="button" data-section="display" data-keywords="posisi kostum tombol pintas shortcut windows mulai autostart versi pembaruan update kapsul"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="9" rx="1.6" /><path d="M6 14h4" /></svg>Tampilan</button>
+          <button type="button" data-section="display" data-keywords="lirik lagu posisi gaya notch pill dynamic island kostum tombol pintas shortcut windows mulai autostart versi pembaruan update kapsul"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="9" rx="1.6" /><path d="M6 14h4" /></svg>Tampilan</button>
           <button type="button" data-section="sound" data-keywords="volume efek bunyi"><svg viewBox="0 0 16 16"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M11 5.5a3.5 3.5 0 0 1 0 5" /></svg>Suara</button>
 
           <div class="nav-group">Panel</div>
@@ -610,6 +610,27 @@
             </div>
             <label class="switch"><input type="checkbox" id="battery-alerts" /><span></span></label>
           </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Persentase baterai di kapsul</div>
+              <div class="row-sub">Ikon baterai kecil dengan angka di kapsul. Zeno juga bereaksi saat charger dicolok atau dicabut. Kalau dimatikan, ikon hanya muncul saat baterai lemah.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="battery-percent" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Sapa perangkat Bluetooth</div>
+              <div class="row-sub">Zeno bereaksi saat headset, speaker, mouse, atau perangkat Bluetooth lain tersambung atau terputus.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="bluetooth-alerts" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kabari perangkat USB dan flashdisk</div>
+              <div class="row-sub">Kartu muncul saat flashdisk, hard disk eksternal, HP, mouse, kamera, atau perangkat USB lain dicolok atau dicabut. Flashdisk bisa langsung dibuka atau dikeluarkan dari kartunya.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="usb-alerts" /><span></span></label>
+          </div>
         </section>
 
         <!-- Suara -->
@@ -642,6 +663,11 @@
             <h1>Tampilan</h1>
             <p>Letak kapsul, tombol pintas, dan saat menyala.</p>
           </header>
+          <h2>Gaya kapsul</h2>
+          <div class="positions styles" id="island-styles">
+            <label><input type="radio" name="island" value="auto" /><span class="pos pos-center pos-notch"></span>Otomatis: menempel di tepi atas, jadi pill kalau digeser ke bawah</label>
+            <label><input type="radio" name="island" value="pill" /><span class="pos pos-center"></span>Selalu melayang (pill)</label>
+          </div>
           <h2>Posisi</h2>
           <div class="positions" id="positions">
             <label><input type="radio" name="position" value="top-left" /><span class="pos pos-left"></span>Kiri atas</label>
@@ -667,6 +693,13 @@
               <option value="10">10 detik</option>
               <option value="15">15 detik</option>
             </select>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Lirik lagu</div>
+              <div class="row-sub">Baris lirik yang sedang dinyanyikan tampil di kapsul, lengkapnya di halaman Lirik. Liriknya dicari di lrclib.net berdasarkan judul dan artis lagu yang diputar.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="lyrics-enabled" /><span></span></label>
           </div>
           <div class="card row">
             <div>

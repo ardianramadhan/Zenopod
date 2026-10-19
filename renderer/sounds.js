@@ -109,6 +109,20 @@
       tone(o, t, 330, 0.28, { type: 'triangle', gain: 0.14, slide: 990 });
       tone(o, t + 0.28, 1318.5, 0.12, { gain: 0.14 });
     },
+    unplug: (o, t) => {
+      tone(o, t, 990, 0.22, { type: 'triangle', gain: 0.13, slide: 330 });
+      tone(o, t + 0.2, 220, 0.08, { type: 'square', gain: 0.06, filter: 900 });
+    },
+
+    // --- Bluetooth ---
+    connect: (o, t) => {
+      tone(o, t, 784, 0.1, { type: 'triangle', gain: 0.15 });
+      bell(o, t + 0.09, 1568, 0.35, 0.1);
+    },
+    disconnect: (o, t) => {
+      tone(o, t, 1046.5, 0.1, { type: 'triangle', gain: 0.13 });
+      tone(o, t + 0.1, 659.3, 0.2, { type: 'triangle', gain: 0.13, slide: 587.3 });
+    },
 
     // --- Halaman kartu (swipe) ---
     swipe: (o, t) => tone(o, t, 520, 0.12, { type: 'triangle', gain: 0.1, slide: 780, filter: 2500 }),
@@ -225,6 +239,9 @@
     rain: 'weather',
     lowbat: 'weather',
     charge: 'weather',
+    unplug: 'weather',
+    connect: 'weather',
+    disconnect: 'weather',
   };
 
   window.KapsulSound = { play, names: Object.keys(SOUNDS), category: (name) => CATEGORY[name] };

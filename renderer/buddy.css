@@ -350,8 +350,105 @@
   stroke-linecap: round;
 }
 
+/* Charger dicolok: petir berkedip */
+.buddy .bolt path {
+  fill: #facc15;
+  stroke: #a16207;
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+}
+
+.buddy .bolt.on {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: buddy-zap 0.9s ease-in-out infinite;
+}
+
+@keyframes buddy-zap {
+  0%,
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+  20% {
+    scale: 1.25;
+  }
+  35% {
+    opacity: 0.35;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+
+.buddy[data-mood="charging"] .b-body {
+  animation: buddy-jolt 0.9s ease-in-out infinite;
+}
+
+@keyframes buddy-jolt {
+  15% {
+    translate: 0 -1.2px;
+  }
+  30% {
+    translate: 0 0;
+  }
+}
+
+/* Charger dicabut: steker bergoyang */
+.buddy .plug .head {
+  fill: #e4e4e7;
+}
+
+.buddy .plug .prong,
+.buddy .plug .cord {
+  fill: none;
+  stroke: #a1a1aa;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.buddy .plug.on {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: buddy-shake 0.5s ease-in-out infinite;
+}
+
+@keyframes buddy-shake {
+  25% {
+    rotate: -14deg;
+  }
+  75% {
+    rotate: 14deg;
+  }
+}
+
+/* Bluetooth tersambung */
+.buddy .bt circle {
+  fill: #2563eb;
+}
+
+.buddy .bt path {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.buddy .bt.on {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: buddy-pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes buddy-pop-in {
+  from {
+    scale: 0;
+  }
+}
+
 /* Baterai lemah */
-.buddy .battery .shell {
+.buddy .battery .case {
   fill: none;
   stroke: #f87171;
   stroke-width: 0.9;

@@ -76,7 +76,7 @@ body[data-align="left"] .shell {
 
 .shell.open {
   width: 456px;
-  height: 404px;
+  height: 140px;
   border-radius: 22px;
 }
 
@@ -609,14 +609,21 @@ kbd {
   gap: 2px;
 }
 
+/* Tab berupa ikon; tiap ikon punya gerak kecil saat disorot / dibuka. */
 .tab-list button {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 8px;
-  border-radius: 8px;
+  min-width: 32px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 9px;
   font-size: 12px;
   color: var(--muted);
+  transition:
+    background 0.18s,
+    color 0.18s;
 }
 
 .tab-list button:hover {
@@ -625,7 +632,231 @@ kbd {
 
 .tab-list button[aria-selected="true"] {
   background: var(--surface);
-  color: var(--text);
+  color: var(--accent);
+}
+
+.tab-list button:active .ti {
+  scale: 0.86;
+}
+
+.ti {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+  transition: scale 0.12s;
+}
+
+.ti * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Angka di pojok ikon */
+.count.corner {
+  position: absolute;
+  top: -3px;
+  right: -2px;
+  min-width: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--bg);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  box-shadow: 0 0 0 2px var(--bg);
+  animation: badge-pop 0.3s var(--ease);
+}
+
+.dev-alert.corner {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+@keyframes badge-pop {
+  from {
+    scale: 0.2;
+  }
+}
+
+/* Aplikasi: kotak-kotak meletup bergantian */
+.tab-list button:hover .ti-apps rect,
+.tab-list button[aria-selected="true"] .ti-apps rect {
+  animation: ti-pop 0.42s var(--ease) backwards;
+}
+
+.ti-apps rect:nth-child(2) {
+  animation-delay: 0.05s !important;
+}
+
+.ti-apps rect:nth-child(3) {
+  animation-delay: 0.1s !important;
+}
+
+.ti-apps rect:nth-child(4) {
+  animation-delay: 0.15s !important;
+}
+
+@keyframes ti-pop {
+  0% {
+    scale: 0.4;
+  }
+  60% {
+    scale: 1.18;
+  }
+}
+
+/* Notifikasi: lonceng bergoyang (juga saat ada notifikasi baru) */
+.ti-bell .bell {
+  transform-origin: 50% 0;
+}
+
+.tab-list button:hover .ti-bell .bell,
+.tab-list button[aria-selected="true"] .ti-bell .bell,
+#tab-notifs.ring .ti-bell .bell {
+  animation: ti-ring 0.7s ease-in-out;
+}
+
+.tab-list button:hover .ti-bell .clapper,
+.tab-list button[aria-selected="true"] .ti-bell .clapper,
+#tab-notifs.ring .ti-bell .clapper {
+  animation: ti-clapper 0.7s ease-in-out;
+}
+
+@keyframes ti-ring {
+  15% {
+    rotate: 16deg;
+  }
+  35% {
+    rotate: -13deg;
+  }
+  55% {
+    rotate: 8deg;
+  }
+  75% {
+    rotate: -4deg;
+  }
+}
+
+@keyframes ti-clapper {
+  15% {
+    translate: -1.2px 0;
+  }
+  35% {
+    translate: 1.2px 0;
+  }
+  55% {
+    translate: -0.6px 0;
+  }
+}
+
+/* Fokus: jarum berputar; terus berputar selama fokus berjalan */
+.ti-focus .hand {
+  transform-box: view-box;
+  transform-origin: 8px 9px;
+}
+
+.tab-list button:hover .ti-focus .hand,
+.tab-list button[aria-selected="true"] .ti-focus .hand {
+  animation: ti-spin 0.6s var(--ease);
+}
+
+#tab-focus.running .ti-focus .hand {
+  animation: ti-spin 3s linear infinite;
+}
+
+@keyframes ti-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* Klip: penjepit memantul */
+.tab-list button:hover .ti-clip .clip,
+.tab-list button[aria-selected="true"] .ti-clip .clip {
+  animation: ti-bounce 0.5s var(--ease);
+}
+
+@keyframes ti-bounce {
+  35% {
+    translate: 0 -2px;
+  }
+  65% {
+    translate: 0 0.6px;
+  }
+}
+
+/* Catatan: garis tertulis satu per satu */
+.ti-note .line {
+  stroke-dasharray: 7;
+}
+
+.tab-list button:hover .ti-note .line,
+.tab-list button[aria-selected="true"] .ti-note .line {
+  animation: ti-write 0.4s ease-out backwards;
+}
+
+.ti-note .line:nth-of-type(2) {
+  animation-delay: 0.12s !important;
+}
+
+.ti-note .line:nth-of-type(3) {
+  animation-delay: 0.24s !important;
+}
+
+@keyframes ti-write {
+  from {
+    stroke-dashoffset: 7;
+  }
+}
+
+/* Dev: kurung membuka */
+.tab-list button:hover .ti-dev .left,
+.tab-list button[aria-selected="true"] .ti-dev .left {
+  animation: ti-left 0.5s var(--ease);
+}
+
+.tab-list button:hover .ti-dev .right,
+.tab-list button[aria-selected="true"] .ti-dev .right {
+  animation: ti-right 0.5s var(--ease);
+}
+
+.tab-list button:hover .ti-dev .slash,
+.tab-list button[aria-selected="true"] .ti-dev .slash {
+  animation: ti-tilt 0.5s var(--ease);
+}
+
+@keyframes ti-left {
+  40% {
+    translate: -1.6px 0;
+  }
+}
+
+@keyframes ti-right {
+  40% {
+    translate: 1.6px 0;
+  }
+}
+
+@keyframes ti-tilt {
+  40% {
+    rotate: 14deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ti *,
+  .count.corner {
+    animation: none !important;
+  }
 }
 
 .count {
@@ -953,27 +1184,76 @@ kbd {
   }
 }
 
-/* ---------- Tab Fokus (Pomodoro) ---------- */
+/* ---------- Tab Fokus (Pomodoro) & Timer ---------- */
 
 .focus-tab {
+  --phase: var(--accent);
   flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.focus-tab.rest {
+  --phase: #4ade80;
+}
+
+.focus-tab.final {
+  --phase: #fbbf24;
+}
+
+.focus-tab.paused {
+  --phase: #71717a;
+}
+
+/* Fokus | Timer */
+.focus-modes {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.focus-modes button {
   display: flex;
   align-items: center;
-  gap: 22px;
-  padding: 0 8px;
+  gap: 5px;
+  padding: 3px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  color: var(--muted);
+  transition:
+    background 0.18s,
+    color 0.18s;
+}
+
+.focus-modes button[aria-selected="true"] {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.focus-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 6px;
 }
 
 .ring {
   position: relative;
-  width: 118px;
-  height: 118px;
+  width: 132px;
+  height: 132px;
   flex: none;
 }
 
 .ring svg {
   width: 100%;
   height: 100%;
-  transform: rotate(-90deg);
+  overflow: visible;
 }
 
 .ring circle {
@@ -986,27 +1266,81 @@ kbd {
 }
 
 .ring-bar {
-  stroke: var(--accent);
+  stroke: var(--phase);
   stroke-linecap: round;
-  stroke-dasharray: 276.46;
-  transition: stroke-dashoffset 0.9s linear;
+  stroke-dasharray: 1000;
+  transition: stroke 0.4s;
 }
 
-.focus-tab.rest .ring-bar {
-  stroke: #4ade80;
+.ring-knob {
+  fill: var(--text) !important;
+  stroke: var(--phase);
+  stroke-width: 2.5 !important;
+  filter: drop-shadow(0 0 4px var(--phase));
+  transition: stroke 0.4s;
 }
 
-.focus-tab.paused .ring-bar {
-  stroke: #71717a;
+.focus-tab.idle .ring-knob {
+  opacity: 0;
+}
+
+/* Berjalan: cahaya lembut berdenyut di belakang lingkaran. */
+.ring::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border-radius: 50%;
+  background: var(--phase);
+  opacity: 0;
+  filter: blur(18px);
+  transition: background 0.4s;
+}
+
+.focus-tab.running .ring::before {
+  animation: ring-glow 3.2s ease-in-out infinite;
+}
+
+.focus-tab.final .ring::before {
+  animation-duration: 1s;
+}
+
+.focus-tab.paused .ring {
+  animation: ring-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes ring-glow {
+  50% {
+    opacity: 0.22;
+  }
+}
+
+@keyframes ring-breathe {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
 }
 
 .ring-time {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ring-label {
+  font-size: 11px;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1019,8 +1353,34 @@ kbd {
 }
 
 .focus-phase {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 16px;
   font-weight: 650;
+}
+
+.live-dot {
+  display: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--phase);
+  box-shadow: 0 0 0 0 var(--phase);
+}
+
+.focus-tab.running .live-dot {
+  display: block;
+  animation: live-dot 1.6s ease-out infinite;
+}
+
+@keyframes live-dot {
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
 .focus-sub {
@@ -1031,7 +1391,7 @@ kbd {
 .focus-dots {
   display: flex;
   gap: 5px;
-  margin: 4px 0 6px;
+  margin: 2px 0;
 }
 
 .focus-dots i {
@@ -1039,20 +1399,232 @@ kbd {
   height: 8px;
   border-radius: 50%;
   background: var(--surface-hover);
+  transition:
+    background 0.3s,
+    width 0.3s;
 }
 
 .focus-dots i.done {
-  background: var(--accent);
+  background: var(--phase);
 }
 
 .focus-dots i.now {
-  box-shadow: 0 0 0 2px var(--accent);
+  width: 18px;
+  border-radius: 4px;
+  background: var(--phase);
 }
 
-.focus-actions {
+.chips {
   display: flex;
   flex-wrap: wrap;
+  gap: 5px;
+  margin: 4px 0 2px;
+}
+
+.choice {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    scale 0.12s;
+}
+
+.choice:hover {
+  background: var(--surface-hover);
+}
+
+.choice:active {
+  scale: 0.94;
+}
+
+.choice[aria-checked="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.focus-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.round-btn {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  transition:
+    background 0.15s,
+    scale 0.12s;
+}
+
+.round-btn:hover {
+  background: var(--surface-hover);
+}
+
+.round-btn:active {
+  scale: 0.9;
+}
+
+.round-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.round-btn.primary {
+  width: 44px;
+  height: 44px;
+  background: var(--phase);
+  color: var(--bg);
+  box-shadow: 0 4px 16px -6px var(--phase);
+}
+
+.round-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+.round-btn.primary svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Timer */
+.timer-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+}
+
+.timer-view .chips {
+  margin: 0;
+}
+
+.timer-custom {
+  display: flex;
+  gap: 6px;
+}
+
+.timer-custom input {
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.timer-custom input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+#timer-minutes {
+  width: 76px;
+  flex: none;
+}
+
+#timer-label {
+  flex: 1;
+}
+
+.timer-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.timer-list .empty {
+  padding: 6px 2px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.timer-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 6px 6px 7px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.timer-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+.timer-row b {
+  font-size: 14px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-row .notif-x {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  opacity: 1;
+}
+
+.timer-bar {
+  grid-column: 1 / -1;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--surface-hover);
+  overflow: hidden;
+}
+
+.timer-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 1s linear;
+}
+
+.timer-row.final b,
+.timer-row.final .timer-bar span {
+  color: #fbbf24;
+  background-color: #fbbf24;
+}
+
+.timer-row.final b {
+  background: none;
+  animation: ring-breathe 0.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .focus-tab *,
+  .focus-tab .ring::before {
+    animation: none !important;
+  }
 }
 
 .live-count {
@@ -1467,35 +2039,163 @@ kbd {
 }
 
 /* Baterai lemah di kapsul */
+/* Baterai di kapsul: angka di dalam ikon (gaya iOS) */
 .pill-battery {
+  --bat: #e4e4e7;
+  display: flex;
+  align-items: center;
+  gap: 1px;
   flex: none;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: rgba(239, 68, 68, 0.18);
-  color: #fca5a5;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 16px;
+}
+
+.pill-battery.charging {
+  --bat: #4ade80;
+}
+
+.pill-battery.low {
+  --bat: #f87171;
+}
+
+.bat {
+  position: relative;
+  width: 25px;
+  height: 13px;
+  padding: 1.5px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1.2px color-mix(in srgb, var(--bat) 55%, transparent);
+}
+
+/* Kutub baterai */
+.bat::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: -2.5px;
+  width: 1.8px;
+  height: 5px;
+  border-radius: 0 1px 1px 0;
+  background: color-mix(in srgb, var(--bat) 55%, transparent);
+}
+
+.bat i {
+  display: block;
+  height: 100%;
+  border-radius: 2.4px;
+  background: var(--bat);
+  transition:
+    width 0.6s var(--ease),
+    background 0.3s;
+}
+
+.bat b {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 8.5px;
+  font-weight: 750;
+  line-height: 1;
+  color: #09090b;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 2px color-mix(in srgb, var(--bat) 70%, transparent);
+}
+
+.pill-battery.thin .bat b {
+  color: var(--text);
+  text-shadow: 0 0 2px #000;
+}
+
+.bat-bolt {
+  display: none;
+  width: 7px;
+  height: 11px;
+  margin-left: 2px;
+  fill: var(--bat);
+}
+
+.pill-battery.charging .bat-bolt {
+  display: block;
+  animation: bat-zap 1.6s ease-in-out infinite;
+}
+
+/* Mengisi daya: kilau berjalan di isi baterai */
+.pill-battery.charging .bat i {
+  background: linear-gradient(90deg, var(--bat) 0 40%, #bbf7d0 50%, var(--bat) 60% 100%) 0 0 / 250% 100%;
+  animation: bat-shine 1.8s linear infinite;
+}
+
+.pill-battery.low .bat {
+  animation: bat-low 1.2s ease-in-out infinite;
+}
+
+/* Baru dicolok / dicabut: memantul sekali */
+.pill-battery.zap {
+  animation: bat-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bat-zap {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes bat-shine {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+@keyframes bat-low {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes bat-pop {
+  40% {
+    scale: 1.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-battery,
+  .pill-battery * {
+    animation: none !important;
+  }
 }
 
 /* ---------- Halaman Cuaca ---------- */
 
 .page[data-page="weather"] {
-  gap: 2px;
+  gap: 6px;
 }
 
 .weather-main {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
+}
+
+.weather-scene {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: -4px -2px -4px -6px;
 }
 
 .weather-temp {
   font-size: 28px;
   font-weight: 650;
-  line-height: 1.1;
+  line-height: 1;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1515,19 +2215,208 @@ kbd {
 
 .weather-next {
   display: flex;
-  gap: 12px;
+  gap: 6px;
   font-size: 11px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
+.weather-next > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px 1px 3px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+}
+
 .weather-next b {
-  color: var(--text);
-  font-weight: 600;
+  color: var(--muted);
+  font-weight: 500;
 }
 
 .weather-next .wet {
   color: #7cc4ff;
+}
+
+/* Ilustrasi cuaca (weatherSvg di app.js) */
+.ws {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.ws.mini {
+  width: 16px;
+  height: 16px;
+}
+
+.ws * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Posisi/skala bawaan SVG (atribut transform) tetap dihitung dari titik 0,0. */
+.ws g[transform] {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+
+.ws-core {
+  fill: #fbbf24;
+  animation: ws-glow 3s ease-in-out infinite;
+}
+
+.ws-rays {
+  stroke: #fbbf24;
+  stroke-width: 2;
+  stroke-linecap: round;
+  animation: ws-spin 16s linear infinite;
+}
+
+.ws-moon {
+  fill: #e5e7eb;
+  animation: ws-glow 4s ease-in-out infinite;
+}
+
+.ws-star {
+  fill: #fde68a;
+  animation: ws-twinkle 2.4s ease-in-out infinite;
+}
+
+.ws-star.s2 {
+  animation-delay: 0.8s;
+}
+
+.ws-star.s3 {
+  animation-delay: 1.6s;
+}
+
+.ws-cloud {
+  fill: #e4e7ee;
+  animation: ws-drift 5s ease-in-out infinite alternate;
+}
+
+.ws-cloud.back {
+  fill: #8b93a3;
+  animation-duration: 7s;
+  animation-direction: alternate-reverse;
+}
+
+.ws-cloud.dark {
+  fill: #6b7280;
+}
+
+.ws-drop {
+  stroke: #60a5fa;
+  stroke-width: 2;
+  stroke-linecap: round;
+  animation: ws-fall 1s linear infinite;
+}
+
+.ws-drop.d1 {
+  animation-delay: 0.33s;
+}
+
+.ws-drop.d2 {
+  animation-delay: 0.66s;
+}
+
+.ws-bolt {
+  fill: #facc15;
+  animation: ws-flash 3.2s linear infinite;
+}
+
+.ws-fog line {
+  stroke: #a1a1aa;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  animation: ws-drift 4s ease-in-out infinite alternate;
+}
+
+.ws-fog .f2 {
+  animation-direction: alternate-reverse;
+}
+
+@keyframes ws-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@keyframes ws-glow {
+  50% {
+    scale: 1.07;
+  }
+}
+
+@keyframes ws-twinkle {
+  50% {
+    opacity: 0.2;
+    scale: 0.6;
+  }
+}
+
+@keyframes ws-drift {
+  from {
+    translate: -1.5px 0;
+  }
+  to {
+    translate: 1.5px 0;
+  }
+}
+
+@keyframes ws-fall {
+  from {
+    translate: 0 -4px;
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    translate: -1px 4px;
+    opacity: 0;
+  }
+}
+
+@keyframes ws-flash {
+  0%,
+  62%,
+  70%,
+  100% {
+    opacity: 0;
+  }
+  64%,
+  68%,
+  74% {
+    opacity: 1;
+  }
+}
+
+/* Ikon kecil per jam diam; animasi berhenti saat panel tertutup (hemat CPU). */
+.ws.mini *,
+.shell:not(.open) .ws * {
+  animation-play-state: paused;
+}
+
+.ws.mini * {
+  animation: none;
+}
+
+.ws.mini .ws-bolt {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws * {
+    animation: none !important;
+  }
+
+  .ws-bolt {
+    opacity: 1;
+  }
 }
 
 /* Perintah suara: level mikrofon di kapsul */
@@ -1914,33 +2803,6 @@ body[data-valign="bottom"] .shell {
 }
 
 /* Timer cepat (tab Fokus) */
-.timer-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 6px;
-}
-
-.timer-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.timer-row b {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-
-.timer-row .notif-x {
-  width: 20px;
-  height: 20px;
-  margin: 0;
-  opacity: 1;
-}
-
 .result-value {
   font-weight: 650;
   font-variant-numeric: tabular-nums;
@@ -2276,11 +3138,13 @@ button.quick-icon:hover {
 
 /* ---------- Sistem ---------- */
 
-.system-page .pet-bar {
+.system-page .pet-bar,
+[data-pane="device"] .pet-bar {
   grid-template-columns: 52px 1fr 64px;
 }
 
-.system-page .pet-bar em {
+.system-page .pet-bar em,
+[data-pane="device"] .pet-bar em {
   font-style: normal;
   font-size: 11px;
   color: var(--text);
@@ -2289,11 +3153,13 @@ button.quick-icon:hover {
   white-space: nowrap;
 }
 
-.system-page .pet-bar b {
+.system-page .pet-bar b,
+[data-pane="device"] .pet-bar b {
   background: var(--accent);
 }
 
-.system-page .pet-bar b.low {
+.system-page .pet-bar b.low,
+[data-pane="device"] .pet-bar b.low {
   background: #f59e0b;
 }
 
@@ -2324,4 +3190,1763 @@ button.quick-icon:hover {
 
 .system-net.off::before {
   background: #f87171;
+}
+
+/* ---------- Gaya notch: kapsul menempel ke tepi atas layar ---------- */
+
+.notch-cap {
+  display: none;
+}
+
+body[data-island="notch"] .shell {
+  top: var(--inset, 0px);
+  anchor-name: --island;
+  border-color: transparent;
+  border-radius: 0 0 16px 16px;
+}
+
+/* anchor() mengabaikan translate: tengahkan dengan margin supaya .notch-cap ikut. */
+body[data-island="notch"][data-align="center"] .shell {
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  translate: none;
+}
+
+body[data-island="notch"] .shell.open {
+  border-radius: 0 0 22px 22px;
+}
+
+/* Saat digeser mendekati tepi atas: lengkung atas menghilang dengan halus. */
+body[data-preview] .notch-cap::before,
+body[data-preview] .notch-cap::after {
+  animation: notch-ears 0.22s var(--ease);
+}
+
+@keyframes notch-ears {
+  from {
+    scale: 0;
+  }
+}
+
+body[data-island="notch"] .shell.peeking {
+  border-radius: 0 0 24px 24px;
+}
+
+/* Ikut lebar kapsul selama animasi; di macOS juga menutup bilah menu di atasnya. */
+body[data-island="notch"] .notch-cap {
+  display: block;
+  position: absolute;
+  position-anchor: --island;
+  top: 0;
+  left: anchor(left);
+  right: anchor(right);
+  height: var(--inset, 0px);
+  background: var(--bg);
+  pointer-events: none;
+}
+
+/* Lengkung cekung di kedua sudut atas, seperti notch macOS. */
+body[data-island="notch"] .notch-cap::before,
+body[data-island="notch"] .notch-cap::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 6px;
+}
+
+body[data-island="notch"] .notch-cap::before {
+  right: 100%;
+  background: radial-gradient(circle at 0 100%, transparent 5.5px, var(--bg) 6px);
+}
+
+body[data-island="notch"] .notch-cap::after {
+  left: 100%;
+  background: radial-gradient(circle at 100% 100%, transparent 5.5px, var(--bg) 6px);
+}
+
+/* ---------- Lirik lagu ---------- */
+
+.lyric-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tick.lyric-in .lyric-text {
+  animation: lyric-in 0.32s var(--ease);
+}
+
+@keyframes lyric-in {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+}
+
+.lyrics-page {
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+
+.lyrics-lines {
+  position: relative;
+  height: 54px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-size: 12px;
+  scrollbar-width: none;
+}
+
+.lyrics-lines li {
+  height: 18px;
+  line-height: 18px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+/* Tersinkron: digulir otomatis, baris aktif terang. */
+.lyrics-lines.synced {
+  overflow: hidden;
+}
+
+.lyrics-lines.synced li {
+  transition: color 0.25s;
+}
+
+.lyrics-lines.synced li.now {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.lyrics-lines:not(.synced) li {
+  color: var(--text);
+}
+
+.lyrics-lines li.lyrics-note {
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tick.lyric-in .lyric-text {
+    animation: none;
+  }
+}
+
+.lyrics-page .page-kicker {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Section: navigasi ikon, kartu atas + isi bawah yang di-swipe bersama ---------- */
+
+.panel {
+  gap: 10px;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.nav .tab-list button {
+  min-width: 30px;
+  padding: 0 7px;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.hero-view {
+  height: 84px;
+}
+
+.deck-view {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.deck-track {
+  display: flex;
+  height: 100%;
+  transition: transform 0.38s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Sedang digeser: track mengikuti kursor tanpa animasi. */
+.panel.swiping .hero-track,
+.panel.swiping .deck-track {
+  transition: none;
+}
+
+.panel.swiping {
+  cursor: grabbing;
+}
+
+.pane {
+  flex: 0 0 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.pane.scroll {
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.pane.scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.pane.scroll::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--surface-hover);
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+
+.pane .apps-tab,
+.pane .focus-tab,
+.pane .notifs,
+.pane .list-tab {
+  flex: 1;
+  min-height: 0;
+}
+
+.search-box .hint {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Beranda: sapaan + Zeno peliharaan */
+.home-page {
+  gap: 2px;
+}
+
+.home-page .page-kicker .dim {
+  color: #71717a;
+}
+
+.pet-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.pet-row button {
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  font-size: 12px;
+  line-height: 22px;
+  transition:
+    background 0.15s,
+    scale 0.12s;
+}
+
+.pet-row button:hover {
+  background: #2e2e36;
+}
+
+.pet-row button:active {
+  scale: 0.9;
+}
+
+.pet-row .pet-play {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.pet-mini {
+  display: block;
+  width: 36px;
+  flex: none;
+}
+
+.pet-mini i {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  overflow: hidden;
+}
+
+.pet-mini b {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: #4ade80;
+  transition: width 0.4s;
+}
+
+.pet-mini b.low {
+  background: #f59e0b;
+}
+
+.pet-mini.xp b {
+  background: var(--accent);
+}
+
+/* Musik: lirik besar */
+.lyrics-pane .lyrics-lines {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  font-size: 14px;
+  mask-image: linear-gradient(transparent, #000 18%, #000 82%, transparent);
+}
+
+.lyrics-pane .lyrics-lines li {
+  height: 26px;
+  line-height: 26px;
+}
+
+.lyrics-pane .lyrics-lines.synced li.now {
+  font-size: 15px;
+}
+
+.lyrics-pane .lyrics-lines li.lyrics-note {
+  height: auto;
+  padding-top: 30px;
+  white-space: normal;
+  text-align: center;
+}
+
+.lyrics-pane .lyrics-lines:not(.synced) {
+  mask-image: none;
+}
+
+/* Waktu */
+.pane .next-reminder {
+  margin-left: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.pane .next-reminder.empty {
+  color: var(--muted);
+}
+
+.pane .todo-list {
+  overflow: visible;
+}
+
+/* Cuaca: per jam, detail, analisa */
+.weather-hours {
+  display: flex;
+  gap: 4px;
+  flex: none;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.weather-hours .hour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  width: 46px;
+  padding: 7px 0 6px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-hours .hour b {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.weather-hours .hour .ws.mini {
+  width: 20px;
+  height: 20px;
+}
+
+.weather-hours .hour small {
+  min-height: 12px;
+  font-size: 10px;
+  color: #52525b;
+}
+
+.weather-hours .hour small.wet {
+  color: #7cc4ff;
+}
+
+.weather-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  flex: none;
+}
+
+.weather-details div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.weather-details span {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.weather-details b {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.weather-advice {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.weather-advice li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.weather-advice li.tip-rain .tick-icon svg,
+.weather-advice li.tip-storm .tick-icon svg {
+  stroke: #7cc4ff;
+}
+
+.weather-advice li.tip-hot .tick-icon svg,
+.weather-advice li.tip-uv .tick-icon svg {
+  stroke: #fbbf24;
+}
+
+.weather-advice li.tip-ok .tick-icon svg {
+  stroke: #4ade80;
+}
+
+/* Perangkat */
+.device-page {
+  gap: 8px;
+}
+
+.device-battery {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  --bat: #e4e4e7;
+}
+
+.device-battery.charging {
+  --bat: #4ade80;
+}
+
+.device-battery.low {
+  --bat: #f87171;
+}
+
+.bat.big {
+  width: 46px;
+  height: 22px;
+  padding: 2.5px;
+  border-radius: 6px;
+}
+
+.bat.big::after {
+  top: 7px;
+  right: -4px;
+  width: 3px;
+  height: 8px;
+}
+
+.device-battery.charging .bat i {
+  background: linear-gradient(90deg, var(--bat) 0 40%, #bbf7d0 50%, var(--bat) 60% 100%) 0 0 / 250% 100%;
+  animation: bat-shine 1.8s linear infinite;
+}
+
+.device-bat-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.device-bat-text b {
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.device-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.device-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+}
+
+.device-icon svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.device-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.device-row small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.pane .quick-sheet {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.pane .quick-toggle {
+  background: var(--surface-hover);
+}
+
+/* Kerja: Claude tidak aktif */
+.live.off {
+  background: #52525b;
+  animation: none;
+}
+
+/* Ikon navigasi: gerak kecil saat disorot / dibuka (lihat .ti di bagian Tab) */
+.ti-home .roof {
+  transform-origin: 50% 100%;
+}
+
+.tab-list button:hover .ti-home,
+.tab-list button[aria-selected="true"] .ti-home {
+  animation: ti-hop 0.45s var(--ease);
+}
+
+@keyframes ti-hop {
+  40% {
+    translate: 0 -2px;
+  }
+}
+
+.tab-list button:hover .ti-music .note,
+.tab-list button[aria-selected="true"] .ti-music .note {
+  animation: ti-wiggle 0.6s ease-in-out;
+}
+
+@keyframes ti-wiggle {
+  25% {
+    rotate: -12deg;
+  }
+  60% {
+    rotate: 9deg;
+  }
+}
+
+.ti-time .hand {
+  transform-box: view-box;
+  transform-origin: 8px 8px;
+}
+
+.tab-list button:hover .ti-time .hand,
+.tab-list button[aria-selected="true"] .ti-time .hand {
+  animation: ti-spin 0.7s var(--ease);
+}
+
+.tab-list button:hover .ti-weather .rays,
+.tab-list button[aria-selected="true"] .ti-weather .rays {
+  transform-box: view-box;
+  transform-origin: 5.5px 5.5px;
+  animation: ti-spin 1.2s var(--ease);
+}
+
+.tab-list button:hover .ti-weather .cloud,
+.tab-list button[aria-selected="true"] .ti-weather .cloud {
+  animation: ti-drift 0.9s ease-in-out;
+}
+
+@keyframes ti-drift {
+  50% {
+    translate: 1.5px 0;
+  }
+}
+
+.ti-device .pulse {
+  stroke-dasharray: 12;
+}
+
+.tab-list button:hover .ti-device .pulse,
+.tab-list button[aria-selected="true"] .ti-device .pulse {
+  animation: ti-pulse 0.7s ease-out;
+}
+
+@keyframes ti-pulse {
+  from {
+    stroke-dashoffset: 12;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-track,
+  .hero-track {
+    transition: none;
+  }
+}
+
+[data-pane="device"] .pet-bar {
+  grid-template-columns: 52px 1fr 72px;
+  font-size: 12px;
+}
+
+[data-pane="device"] .pet-bar i {
+  height: 7px;
+}
+
+/* ---------- Dibuka: ringkas (kartu atas saja) atau dengan detail ---------- */
+
+.shell.open.detail {
+  height: 456px;
+}
+
+.shell.open:not(.detail) .panel {
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.shell:not(.detail) .nav,
+.shell:not(.detail) .deck-view {
+  display: none;
+}
+
+.shell.detail .hero-dots {
+  display: none;
+}
+
+.shell.open:not(.detail) .hero-view {
+  cursor: pointer;
+}
+
+.detail-handle {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  flex: none;
+  width: 56px;
+  height: 14px;
+  margin-top: -2px;
+  border-radius: 999px;
+  color: var(--muted);
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+
+.detail-handle:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.detail-handle svg {
+  width: 16px;
+  height: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: rotate 0.25s var(--ease);
+}
+
+.shell.detail .detail-handle svg {
+  rotate: 180deg;
+}
+
+/* Isi bawah muncul pelan saat detail dibuka */
+.shell.detail .nav,
+.shell.detail .deck-view {
+  animation: detail-in 0.28s var(--ease);
+}
+
+@keyframes detail-in {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell.detail .nav,
+  .shell.detail .deck-view {
+    animation: none;
+  }
+}
+
+/* ---------- Island: kartu aksi per section ---------- */
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin-top: 4px;
+}
+
+.action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  max-width: 100%;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--surface-hover);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    scale 0.12s,
+    filter 0.15s;
+}
+
+.action-chip:hover {
+  background: #2e2e36;
+}
+
+.action-chip:active {
+  scale: 0.94;
+}
+
+.action-chip.primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.action-chip.primary:hover {
+  filter: brightness(1.1);
+}
+
+.action-chip.grow {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  font-weight: 500;
+}
+
+.action-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.action-icon svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Ikon kontrol (play/pause/stop) diisi penuh */
+.action-chip .action-icon svg path,
+.action-chip .action-icon svg rect {
+  fill: currentColor;
+}
+
+.action-chip.grow .action-icon svg path,
+.action-chip.grow .action-icon svg rect,
+.action-chip.grow .action-icon svg circle {
+  fill: none;
+}
+
+.action-chip.grow .action-icon svg {
+  stroke: var(--accent);
+}
+
+.action-chip.grow.primary .action-icon svg {
+  stroke: currentColor;
+}
+
+/* Beranda: aplikasi favorit */
+.quick-apps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.quick-app {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 11px;
+  background: var(--surface-hover);
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  transition:
+    scale 0.15s var(--ease),
+    background 0.15s;
+}
+
+.quick-app:hover {
+  scale: 1.08;
+}
+
+.quick-app:active {
+  scale: 0.92;
+}
+
+.quick-app img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.quick-app.search svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.quick-app.search:hover svg {
+  stroke: var(--text);
+}
+
+.home-page .page-kicker {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+/* Waktu */
+.time-page {
+  gap: 2px;
+}
+
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.time-row .clock-time {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.time-date {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.time-date span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.time-date .dim {
+  color: var(--muted);
+}
+
+/* Cuaca: saran terpenting */
+.weather-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.weather-tip span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.weather-tip.tip-rain .tick-icon svg,
+.weather-tip.tip-storm .tick-icon svg {
+  stroke: #7cc4ff;
+}
+
+.weather-tip.tip-hot .tick-icon svg,
+.weather-tip.tip-uv .tick-icon svg {
+  stroke: #fbbf24;
+}
+
+.weather-tip.tip-ok .tick-icon svg {
+  stroke: #4ade80;
+}
+
+/* Fokus */
+.focus-page {
+  gap: 2px;
+}
+
+.focus-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.focus-big {
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-top-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 11px;
+}
+
+.focus-top-title {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.focus-top-text .dim {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+/* Perangkat: baterai, internet, volume, Wi-Fi & Bluetooth */
+.device-page {
+  gap: 6px;
+}
+
+.device-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.device-top .system-net {
+  flex: none;
+  font-size: 11px;
+}
+
+.device-page .bat.big {
+  width: 34px;
+  height: 17px;
+  padding: 2px;
+  border-radius: 5px;
+}
+
+.device-page .bat.big::after {
+  top: 5px;
+  right: -3px;
+  width: 2px;
+  height: 6px;
+}
+
+.device-page .device-bat-text b {
+  font-size: 16px;
+}
+
+.device-page .quick-row {
+  gap: 8px;
+}
+
+.device-page .quick-icon {
+  width: 26px;
+  height: 26px;
+}
+
+.device-page input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.device-page .quick-value {
+  width: 32px;
+  font-size: 11px;
+}
+
+.quick-toggle.mini {
+  flex: none;
+  width: 30px;
+  height: 26px;
+  padding: 0;
+  justify-content: center;
+}
+
+/* Kotak masuk */
+.inbox-page {
+  gap: 3px;
+}
+
+.inbox-latest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inbox-latest .notif-icon {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  font-size: 11px;
+}
+
+.inbox-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.inbox-text b,
+.inbox-text span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.inbox-text span {
+  color: var(--muted);
+}
+
+.inbox-text.dim {
+  color: var(--muted);
+}
+
+/* Kerja: aktivitas Claude di detail */
+.claude-log {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.claude-log li {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 9px;
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.claude-log code {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.claude-page .action-row {
+  margin-top: 2px;
+}
+
+.claude-page .action-chip {
+  height: 22px;
+  font-size: 11px;
+}
+
+.pet-block .pet-actions {
+  margin-top: 2px;
+}
+
+/* Detail Beranda: seluruh isi di-scroll (grid aplikasi tidak dipotong blok Zeno). */
+[data-pane="home"] .apps-tab {
+  flex: none;
+}
+
+[data-pane="home"] .apps-tab .apps {
+  flex: none;
+  overflow: visible;
+}
+
+/* Tombol "Tambah" di akhir daftar aplikasi */
+.app.add .app-icon {
+  background: none;
+  border: 1.5px dashed #3f3f46;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.app.add:hover .app-icon {
+  border-color: var(--muted);
+  color: var(--text);
+}
+
+/* Gagang ⌄: tanpa cincin fokus biru saat diklik dengan mouse */
+.detail-handle:focus-visible {
+  outline: none;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* ---------- Detail Fokus: ringkasan ---------- */
+
+[data-pane="focus"] .focus-view {
+  flex: none;
+  gap: 18px;
+}
+
+[data-pane="focus"] .ring {
+  width: 112px;
+  height: 112px;
+}
+
+[data-pane="focus"] .ring-time {
+  font-size: 24px;
+}
+
+.focus-stats {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.focus-stats div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.focus-stats b {
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-stats span {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.week-chart {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  height: 78px;
+  padding: 8px 10px 6px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.week-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  min-height: 0;
+}
+
+.week-col i {
+  width: 100%;
+  max-width: 22px;
+  border-radius: 5px 5px 2px 2px;
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  transition: height 0.5s var(--ease);
+}
+
+.week-col i.zero {
+  background: var(--surface-hover);
+}
+
+.week-col.today i:not(.zero) {
+  background: var(--accent);
+}
+
+.week-col small {
+  min-height: 11px;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.week-col span {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.week-col.today span {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- Detail Musik: lirik, atau ringkasan dengar musik ---------- */
+
+.lyrics-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.music-report {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.music-report::-webkit-scrollbar {
+  width: 6px;
+}
+
+.music-report::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--surface-hover);
+}
+
+.music-report .focus-stats {
+  margin-top: 0;
+}
+
+.music-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: song;
+}
+
+.music-top li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr auto;
+  align-items: center;
+  gap: 2px 8px;
+  padding: 7px 10px 9px;
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 12px;
+  overflow: hidden;
+  counter-increment: song;
+}
+
+.music-top li::before {
+  content: counter(song);
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.music-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.music-name span {
+  color: var(--muted);
+}
+
+.music-top small {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bar lama dengar di dasar baris */
+.music-top li i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: #1db954;
+  opacity: 0.8;
+}
+
+.music-top li.music-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.music-top li.music-empty::before {
+  content: none;
+}
+
+/* Grafik musik pakai hijau Spotify supaya beda dari Fokus */
+#music-week .week-col i:not(.zero) {
+  background: color-mix(in srgb, #1db954 55%, transparent);
+}
+
+#music-week .week-col.today i:not(.zero) {
+  background: #1db954;
+}
+
+/* ---------- Island Fokus: lingkaran waktu mini ---------- */
+
+.focus-island {
+  --phase: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.focus-island.rest {
+  --phase: #4ade80;
+}
+
+.focus-island.final {
+  --phase: #fbbf24;
+}
+
+.focus-island.paused {
+  --phase: #71717a;
+}
+
+.mini-ring {
+  position: relative;
+  flex: none;
+  width: 68px;
+  height: 68px;
+}
+
+/* Cahaya lembut di belakang lingkaran saat berjalan */
+.mini-ring::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  background: var(--phase);
+  opacity: 0;
+  filter: blur(14px);
+  transition: background 0.4s;
+}
+
+.focus-island.running .mini-ring::before {
+  animation: ring-glow 3.2s ease-in-out infinite;
+}
+
+.focus-island.final .mini-ring::before {
+  animation-duration: 1s;
+}
+
+.focus-island.paused .mini-ring {
+  animation: ring-breathe 2.4s ease-in-out infinite;
+}
+
+.mini-ring svg {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.mini-ring circle {
+  fill: none;
+  stroke-width: 5;
+}
+
+.mini-track {
+  stroke: var(--surface-hover);
+}
+
+.mini-bar {
+  stroke: var(--phase);
+  stroke-linecap: round;
+  stroke-dasharray: 1000;
+  transition: stroke 0.4s;
+}
+
+.mini-knob {
+  fill: var(--text) !important;
+  stroke: var(--phase);
+  stroke-width: 2 !important;
+  filter: drop-shadow(0 0 3px var(--phase));
+  transition: stroke 0.4s;
+}
+
+.focus-island.idle .mini-knob {
+  opacity: 0;
+}
+
+/* Belum mulai: lingkaran putus-putus, menunggu ditekan ▶ */
+.focus-island.idle .mini-bar {
+  stroke-dasharray: 6 9;
+  stroke-linecap: butt;
+  opacity: 0.55;
+}
+
+.mini-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.mini-center b {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-island.idle .mini-center b {
+  font-size: 20px;
+}
+
+.mini-center span {
+  margin-top: 2px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.mini-center span:empty {
+  display: none;
+}
+
+.focus-island-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.focus-island .focus-top-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.focus-island .live-dot {
+  display: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--phase);
+}
+
+.focus-island.running .live-dot {
+  display: block;
+  animation: live-dot 1.6s ease-out infinite;
+}
+
+.focus-island-sub {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-island .action-row {
+  margin-top: 6px;
+}
+
+/* Tombol bulat (ikon saja) */
+.action-chip.round {
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.focus-island .action-chip.primary {
+  background: var(--phase);
+  color: var(--bg);
+  box-shadow: 0 3px 12px -4px var(--phase);
+}
+
+.focus-island .action-chip.round.primary {
+  width: 32px;
+  height: 32px;
+}
+
+.focus-island .action-chip.round.primary .action-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Ikon timer bergaris (bukan isi penuh) */
+.action-chip .action-icon svg circle {
+  fill: none;
+}
+
+/* Dijeda: lingkaran abu-abu, tapi tombol lanjut tetap menonjol */
+.focus-island.paused .action-chip.primary {
+  background: var(--accent);
+  box-shadow: 0 3px 12px -4px var(--accent);
+}
+
+/* ---------- Detail Cuaca: grafik ringkas 12 jam ---------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.wx-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+  padding: 10px 10px 6px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.wx-chart {
+  position: relative;
+  min-height: 140px;
+  border-radius: 8px;
+  cursor: crosshair;
+}
+
+.wx-chart:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.wx-chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.wx-area {
+  opacity: 0.1;
+}
+
+.wx-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Penanda: cincin 2px warna permukaan supaya terbaca di atas garis */
+.wx-dot {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.wx-bar.dry {
+  opacity: 0.45;
+}
+
+.wx-base {
+  stroke: var(--surface-hover);
+  stroke-width: 1;
+}
+
+.wx-cross {
+  stroke: var(--muted);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+/* Teks grafik memakai warna teks, bukan warna data */
+.wx-label,
+.wx-axis {
+  font-size: 10px;
+  fill: var(--muted);
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+.wx-label.strong {
+  font-size: 11px;
+  font-weight: 650;
+  fill: var(--text);
+}
+
+.wx-label.start,
+.wx-axis.start {
+  text-anchor: start;
+}
+
+.wx-label.end,
+.wx-axis.end {
+  text-anchor: end;
+}
+
+.wx-tip {
+  position: absolute;
+  top: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #26262c;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  font-size: 11px;
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.wx-tip b {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.wx-tip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Fakta: satu kartu, tiga kolom, tanpa kotak per item */
+.wx-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 8px;
+  flex: none;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.wx-facts div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.wx-facts span {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.wx-facts b {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Panel sempit: fakta jadi dua kolom */
+@media (max-width: 380px) {
+  .wx-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

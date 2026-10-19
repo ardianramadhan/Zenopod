@@ -1040,6 +1040,9 @@ function renderWeather() {
   $('weather-enabled').checked = w.enabled;
   $('weather-alerts').checked = w.alerts;
   $('battery-alerts').checked = state.config.battery.alerts;
+  $('battery-percent').checked = state.config.battery.showPercent;
+  $('bluetooth-alerts').checked = state.config.bluetooth.alerts;
+  $('usb-alerts').checked = state.config.usb.alerts;
   const now = state.weatherNow;
   $('weather-now').textContent = !w.city
     ? 'Pilih kota dulu.'
@@ -1058,6 +1061,9 @@ $('weather-enabled').addEventListener('change', (e) => {
 });
 $('weather-alerts').addEventListener('change', (e) => save({ weather: { ...state.config.weather, alerts: e.target.checked } }));
 $('battery-alerts').addEventListener('change', (e) => save({ battery: { ...state.config.battery, alerts: e.target.checked } }));
+$('usb-alerts').addEventListener('change', (e) => save({ usb: { ...state.config.usb, alerts: e.target.checked } }));
+$('bluetooth-alerts').addEventListener('change', (e) => save({ bluetooth: { ...state.config.bluetooth, alerts: e.target.checked } }));
+$('battery-percent').addEventListener('change', (e) => save({ battery: { ...state.config.battery, showPercent: e.target.checked } }));
 
 $('city-form').addEventListener('submit', async (event) => {
   event.preventDefault();
@@ -1106,9 +1112,12 @@ const SOUND_GROUPS = [
   { key: 'dev', title: 'Dev', sub: 'Server lokal mati.', sounds: [['uhoh', 'Server mati']] },
   {
     key: 'weather',
-    title: 'Cuaca & baterai',
-    sub: 'Mulai hujan, baterai lemah, charger dicolok.',
-    sounds: [['rain', 'Hujan'], ['lowbat', 'Baterai lemah'], ['charge', 'Charger']],
+    title: 'Cuaca, baterai & Bluetooth',
+    sub: 'Mulai hujan, baterai lemah, charger dicolok/dicabut, perangkat Bluetooth/USB tersambung.',
+    sounds: [
+      ['rain', 'Hujan'], ['lowbat', 'Baterai lemah'], ['charge', 'Charger dicolok'], ['unplug', 'Charger dicabut'],
+      ['connect', 'Perangkat tersambung'], ['disconnect', 'Perangkat terputus'],
+    ],
   },
   {
     key: 'buddy',
@@ -1220,13 +1229,21 @@ function renderDisplay() {
   $('ticker-enabled').checked = state.config.ticker.enabled;
   $('ticker-seconds').value = String(state.config.ticker.seconds);
   $('ticker-seconds').disabled = !state.config.ticker.enabled;
+  $('lyrics-enabled').checked = state.config.lyrics.enabled;
   for (const input of document.querySelectorAll('[name="position"]')) input.checked = input.value === state.config.position;
+  for (const input of document.querySelectorAll('[name="island"]')) input.checked = input.value === state.config.island;
   if (!$('shortcut').classList.contains('recording')) $('shortcut').value = state.config.shortcut.replace('Control', 'Ctrl');
   $('autostart').checked = state.autostart;
 }
 
 for (const input of document.querySelectorAll('[name="position"]')) {
   input.addEventListener('change', () => save({ position: input.value }));
+}
+
+$('lyrics-enabled').addEventListener('change', (e) => save({ lyrics: { enabled: e.target.checked } }));
+
+for (const input of document.querySelectorAll('[name="island"]')) {
+  input.addEventListener('change', () => save({ island: input.value }));
 }
 
 $('autostart').addEventListener('change', async (e) => {

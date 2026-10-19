@@ -644,6 +644,15 @@ select {
   right: 12%;
 }
 
+.positions.styles {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.pos-notch::after {
+  top: 0;
+  border-radius: 0 0 8px 8px;
+}
+
 .range {
   width: 200px;
   padding: 0;

@@ -37,12 +37,15 @@ const { createMacBridge } = require('./lib/macbridge');
 const calendar = require('./lib/calendar');
 const sysmon = require('./lib/sysmon');
 const habits = require('./lib/habits');
+const lyrics = require('./lib/lyrics');
 
 const SIZE = {
   collapsed: { width: 236, height: 40 },
   peek: { width: 388, height: 84 },
   peekTall: { width: 388, height: 122 },
-  expanded: { width: 468, height: 416 },
+  // Dibuka: hanya kartu atas (seperti island melebar); detail di bawahnya opsional.
+  compact: { width: 468, height: 152 },
+  expanded: { width: 468, height: 468 },
 };
 
 let win = null;
@@ -50,6 +53,7 @@ let settingsWin = null;
 let tray = null;
 let bridge = null;
 let expanded = false;
+let detail = false; // panel dibuka sampai isi bawah (dipilih lewat kartu / gagang ⌄)
 let items = [];
 let config = readConfig();
 let shortcut = null;
@@ -83,16 +87,20 @@ const shortcutKeys = (combo) =>
 
 // Zenopod menempel di tepi atas; saat melebar tetap di sisi yang sama.
 // offsetX = jarak dari tepi kiri/kanan layar (left/right) atau geser dari tengah (center).
-// Posisi bebas (hasil geser): config.custom = titik kiri-atas kapsul kecil.
+// Posisi bebas (hasil geser): config.custom = titik kiri-atas kapsul kecil; y = tepi atas
+// layar kerja artinya menempel di atas (gaya notch kalau config.island = 'auto').
 // Panel membuka ke arah yang masih muat: ke kiri kalau mepet kanan, ke atas kalau mepet bawah.
 function customLayout() {
   const point = { x: Math.round(config.custom?.x ?? 0), y: Math.round(config.custom?.y ?? 0) };
-  const { workArea: wa } = screen.getDisplayNearestPoint(point);
+  const display = screen.getDisplayNearestPoint(point);
+  const wa = display.workArea;
   const px = Math.min(Math.max(point.x, wa.x), wa.x + wa.width - SIZE.collapsed.width);
   const py = Math.min(Math.max(point.y, wa.y), wa.y + wa.height - SIZE.collapsed.height);
   return {
+    display,
     px,
     py,
+    top: py <= wa.y,
     align: px + SIZE.expanded.width <= wa.x + wa.width ? 'left' : 'right',
     valign: py + SIZE.expanded.height <= wa.y + wa.height ? 'top' : 'bottom',
   };
@@ -100,18 +108,27 @@ function customLayout() {
 
 const isCustom = () => config.position === 'custom' && config.custom;
 
+// Jarak dari tepi atas layar: kapsul yang dilepas di sini menempel ke atas.
+const SNAP_TOP = 28;
+
+// Gaya otomatis: menempel di tepi atas = notch, digeser ke bawah = pill.
+const isNotch = () => config.island !== 'pill' && (!isCustom() || customLayout().top);
+
+// macOS: notch menutup bilah menu, isi kapsul turun di bawahnya (menyatu dengan notch layar).
+function notchInset(display = screen.getPrimaryDisplay()) {
+  if (!IS_MAC || !isNotch()) return 0;
+  return Math.max(0, display.workArea.y - display.bounds.y);
+}
+
 function boundsFor(state) {
   const { width, height } = SIZE[state];
   if (isCustom()) {
     const l = customLayout();
-    return {
-      x: l.align === 'left' ? l.px : l.px + SIZE.collapsed.width - width,
-      y: l.valign === 'top' ? l.py : l.py + SIZE.collapsed.height - height,
-      width,
-      height,
-    };
+    const x = l.align === 'left' ? l.px : l.px + SIZE.collapsed.width - width;
+    if (isNotch()) return { x, y: l.display.bounds.y, width, height: height + notchInset(l.display) };
+    return { x, y: l.valign === 'top' ? l.py : l.py + SIZE.collapsed.height - height, width, height };
   }
-  const { workArea } = screen.getPrimaryDisplay();
+  const { workArea, bounds } = screen.getPrimaryDisplay();
   const offset = Number(config.offsetX) || 0;
   let x;
   if (config.position === 'top-left') {
@@ -121,6 +138,7 @@ function boundsFor(state) {
   } else {
     x = workArea.x + (workArea.width - width) / 2 + offset;
   }
+  if (isNotch()) return { x: Math.round(x), y: bounds.y, width, height: height + notchInset() };
   return { x: Math.round(x), y: workArea.y + 6, width, height };
 }
 
@@ -130,37 +148,56 @@ function align() {
 }
 
 function valign() {
-  return isCustom() ? customLayout().valign : 'top';
+  return isCustom() && !isNotch() ? customLayout().valign : 'top';
 }
 
 // ---------- Geser kapsul ----------
 
-let drag = null; // { bounds, align, valign } saat mulai digeser
+let drag = null; // { bounds, align, valign, snapped } saat mulai digeser
 
 function dragStart() {
   if (!win) return;
   clearTimeout(shrinkTimer);
-  drag = { bounds: win.getBounds(), align: align(), valign: valign() };
+  drag = { bounds: win.getBounds(), align: align(), valign: valign(), snapped: null };
 }
 
-function dragMove(dx, dy) {
-  if (!drag) return;
-  win.setBounds({ ...drag.bounds, x: Math.round(drag.bounds.x + dx), y: Math.round(drag.bounds.y + dy) });
-}
-
-// Lepas: simpan titik kapsul kecil. Dekat kiri/tengah/kanan atas = menempel ke posisi itu.
-function dragEnd() {
-  if (!drag) return;
-  const b = win.getBounds();
+// Titik kiri-atas kapsul kecil dari posisi jendela sekarang.
+function pillPoint(b) {
   const pw = SIZE.collapsed.width;
   const ph = SIZE.collapsed.height;
   const px = drag.align === 'right' ? b.x + b.width - pw : drag.align === 'center' ? b.x + (b.width - pw) / 2 : b.x;
   const py = drag.valign === 'bottom' ? b.y + b.height - ph : b.y;
+  return { px, py };
+}
+
+const nearTop = (py, wa) => py - wa.y < SNAP_TOP;
+
+// Selama digeser: dekat tepi atas = tertarik menempel (dan berubah jadi notch), lebih ke bawah = pill.
+function dragMove(dx, dy) {
+  if (!drag) return;
+  const next = { ...drag.bounds, x: Math.round(drag.bounds.x + dx), y: Math.round(drag.bounds.y + dy) };
+  const { px, py } = pillPoint(next);
+  const display = screen.getDisplayNearestPoint({ x: Math.round(px), y: Math.round(py) });
+  const snapped = config.island !== 'pill' && nearTop(py, display.workArea);
+  if (snapped) next.y = display.workArea.y;
+  win.setBounds(next);
+  if (snapped !== drag.snapped) {
+    drag.snapped = snapped;
+    send('kapsul:island-preview', snapped ? 'notch' : 'pill');
+  }
+}
+
+// Lepas: simpan titik kapsul kecil. Dekat kiri/tengah/kanan atas = menempel ke posisi itu;
+// dekat tepi atas di tempat lain = menempel di situ; lebih ke bawah = melayang (pill).
+function dragEnd() {
+  if (!drag) return;
+  const { px, py } = pillPoint(win.getBounds());
   drag = null;
 
   const { workArea: wa } = screen.getDisplayNearestPoint({ x: Math.round(px), y: Math.round(py) });
   const primary = screen.getPrimaryDisplay().workArea;
-  if (wa.x === primary.x && wa.y === primary.y && py - wa.y < 40) {
+  const top = nearTop(py, wa) || py < wa.y;
+  if (wa.x === primary.x && wa.y === primary.y && top) {
     for (const preset of ['top-left', 'top-center', 'top-right']) {
       const at = presetPillX(preset, wa);
       if (Math.abs(px - at) < 60) {
@@ -169,7 +206,8 @@ function dragEnd() {
       }
     }
   }
-  saveConfig({ ...config, position: 'custom', custom: { x: Math.round(px), y: Math.round(py) } });
+  const y = top && config.island !== 'pill' ? wa.y : Math.max(wa.y, py);
+  saveConfig({ ...config, position: 'custom', custom: { x: Math.round(px), y: Math.round(y) } });
   loadConfig();
 }
 
@@ -182,7 +220,7 @@ function presetPillX(preset, wa) {
 }
 
 function currentState() {
-  if (expanded) return 'expanded';
+  if (expanded) return detail ? 'expanded' : 'compact';
   if (currentPeek) return currentPeek.actions?.length ? 'peekTall' : 'peek';
   return 'collapsed';
 }
@@ -209,7 +247,7 @@ function createWindow() {
       sandbox: true,
     },
   });
-  win.setAlwaysOnTop(true, 'floating');
+  applyWindowLevel();
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.once('ready-to-show', () => win.showInactive());
@@ -219,6 +257,11 @@ function createWindow() {
 
   // Layar berubah (monitor dicolok/dicabut, resolusi) = posisikan ulang.
   screen.on('display-metrics-changed', () => win.setBounds(boundsFor(currentState())));
+}
+
+// macOS: notch harus di atas bilah menu.
+function applyWindowLevel() {
+  win?.setAlwaysOnTop(true, IS_MAC && isNotch() ? 'status' : 'floating');
 }
 
 let shrinkTimer = null;
@@ -272,6 +315,7 @@ function setExpanded(next, { focus = false } = {}) {
     watchCursor();
   } else {
     clearInterval(cursorTimer);
+    detail = false;
     send('kapsul:expanded', false);
     resize();
     if (peekQueue.length) setTimeout(nextPeek, 260);
@@ -361,6 +405,9 @@ function peekAction(id, action) {
   } else if (peek.kind === 'focus') {
     if (action === 'start') focus.start('focus');
     if (action === 'break') focus.start();
+  } else if (peek.kind === 'drive') {
+    if (action === 'open') openDrive(peek.ref);
+    if (action === 'eject') ejectDrive(peek.ref);
   }
   endPeek();
 }
@@ -380,6 +427,7 @@ async function loadConfig() {
   registerShortcut();
   registerVoiceShortcut();
   registerOcrShortcut();
+  applyWindowLevel();
   if (win) win.setBounds(boundsFor(currentState()));
   tray?.setContextMenu(buildTrayMenu());
   items = await apps.resolveItems(config.apps);
@@ -389,6 +437,7 @@ async function loadConfig() {
   sendTodos();
   syncClipboard();
   sendHabits();
+  updateLyrics();
   if (devTimers) {
     pollServices();
     pollGit();
@@ -415,12 +464,16 @@ function publicState() {
     align: align(),
     valign: valign(),
     position: config.position,
+    island: isNotch() ? 'notch' : 'pill',
+    notchInset: notchInset(isCustom() ? customLayout().display : undefined),
     buddyName: config.buddy.name,
     chatReady: chatReady(),
     devEnabled: config.dev.services.length > 0 || config.dev.projects.length > 0,
     focus: config.focus,
     sound: config.sound,
     ticker: config.ticker,
+    lyrics: config.lyrics,
+    battery: config.battery,
     userName: config.user.name,
     shortcut: shortcutKeys(shortcut),
     platform: process.platform,
@@ -440,6 +493,12 @@ function registerShortcut() {
   } catch (error) {
     console.warn(`Shortcut ${config.shortcut} tidak valid:`, error.message);
   }
+}
+
+function setIsland(island) {
+  if (island === config.island) return;
+  saveConfig({ ...config, island });
+  loadConfig();
 }
 
 function setPosition(position, { force = false } = {}) {
@@ -492,6 +551,7 @@ function handleBridge(message) {
   if (message.type === 'media') {
     lastMedia = message;
     send('kapsul:media', lastMedia);
+    updateLyrics();
   } else if (message.type === 'icon') {
     appIcons[message.app] = message.data;
     sendNotifications();
@@ -500,6 +560,10 @@ function handleBridge(message) {
   } else if (message.type === 'voices') {
     ttsVoices = Array.isArray(message.voices) ? message.voices : [message.voices].filter(Boolean);
     settingsWin?.webContents.send('settings:changed');
+  } else if (message.type === 'usb') {
+    onUsb(message);
+  } else if (message.type === 'bluetooth') {
+    onBluetooth(Array.isArray(message.devices) ? message.devices : [message.devices].filter(Boolean));
   } else if (message.type === 'quick') {
     quickState = message;
     send('kapsul:quick-state', quickState);
@@ -508,6 +572,210 @@ function handleBridge(message) {
   } else if (message.type === 'ocr') {
     onOcr(message);
   }
+}
+
+// ---------- Lirik lagu (lib/lyrics.js) ----------
+
+let lyricsState = { key: null, status: 'none', synced: false, lines: [] };
+const trackKey = (m) => (m?.title ? `${m.app}|${m.title}|${m.artist}` : null);
+
+async function updateLyrics({ force = false } = {}) {
+  const key = config.lyrics.enabled ? trackKey(lastMedia) : null;
+  if (!force && key === lyricsState.key) return;
+  if (!key) {
+    lyricsState = { key: null, status: 'none', synced: false, lines: [] };
+    send('kapsul:lyrics', lyricsState);
+    return;
+  }
+  lyricsState = { key, status: 'loading', synced: false, lines: [] };
+  send('kapsul:lyrics', lyricsState);
+  let found = null;
+  let status = 'missing';
+  try {
+    found = await lyrics.find({ title: lastMedia.title, artist: lastMedia.artist, duration: lastMedia.duration });
+    if (found?.instrumental) status = 'instrumental';
+    else if (found) status = 'ready';
+  } catch (error) {
+    debugLog('lyrics ' + error.message);
+    status = 'error';
+  }
+  // Lagu sudah berganti selagi mencari: hasilnya dibuang.
+  if (lyricsState.key !== key) return;
+  lyricsState = { key, status, synced: Boolean(found?.synced), lines: found?.lines ?? [] };
+  send('kapsul:lyrics', lyricsState);
+}
+
+// ---------- Bluetooth: Zeno bereaksi saat perangkat tersambung / terputus ----------
+
+let btDevices = null; // null = daftar pertama (perangkat yang sudah tersambung tidak dianggap baru)
+
+const BT_GLYPHS = {
+  audio: '<path d="M11 24v-4a9 9 0 0 1 18 0v4" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><rect x="9" y="22" width="5.5" height="9" rx="2.5" fill="#fff"/><rect x="25.5" y="22" width="5.5" height="9" rx="2.5" fill="#fff"/>',
+  input: '<rect x="13" y="9" width="14" height="22" rx="7" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M20 13v5" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>',
+  phone: '<rect x="13.5" y="8" width="13" height="24" rx="3" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M18.5 28h3" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>',
+  other: '<path d="M14.5 15 25 24.5 20 29.5V10.5l5 5-10.5 9.5" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+
+function bluetoothIcon(kind, connected) {
+  const glyph = BT_GLYPHS[kind] ?? BT_GLYPHS.other;
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="${connected ? '#2563eb' : '#3f3f46'}"/>${glyph}</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+const BT_TEXT = {
+  audio: ['Siap untuk musik dan panggilan', 'Asik, ayo dengar musik!'],
+  input: ['Siap dipakai'],
+  phone: ['HP tersambung ke laptop'],
+  other: ['Siap dipakai'],
+};
+
+// Tersambung / terputus: kartu seperti "Claude selesai". Panel terbuka = Zeno yang bereaksi.
+function bluetoothEvent(event, device) {
+  if (expanded) {
+    send('kapsul:device', { event, device });
+    return;
+  }
+  const connected = event === 'connected';
+  const lines = BT_TEXT[device.kind] ?? BT_TEXT.other;
+  showPeek({
+    kind: 'bluetooth',
+    mood: connected ? (device.kind === 'audio' ? 'music' : 'paired') : 'surprised',
+    sound: connected ? 'connect' : 'disconnect',
+    app: connected ? 'Bluetooth · tersambung' : 'Bluetooth · terputus',
+    title: device.name || 'Perangkat Bluetooth',
+    body: connected ? lines[Math.floor(Math.random() * lines.length)] : 'Sampai jumpa lagi!',
+    icon: bluetoothIcon(device.kind, connected),
+    seconds: 5,
+  });
+}
+
+// ---------- USB: perangkat & drive yang dicolok ----------
+
+let usbDevices = null; // null = daftar pertama (yang sudah tercolok tidak dianggap baru)
+let usbDrives = null;
+
+const USB_GLYPHS = {
+  storage: '<rect x="13" y="7" width="14" height="26" rx="3" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M17 12h6M17 16h6" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>',
+  phone: BT_GLYPHS.phone,
+  camera: '<rect x="8" y="13" width="24" height="16" rx="3" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="20" cy="21" r="4.5" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M15 13l2-3h6l2 3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>',
+  audio: BT_GLYPHS.audio,
+  mouse: BT_GLYPHS.input,
+  keyboard: '<rect x="7" y="13" width="26" height="15" rx="3" fill="none" stroke="#fff" stroke-width="2.2"/><path d="M12 18h.01M16 18h.01M20 18h.01M24 18h.01M28 18h.01M14 23h12" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>',
+  other: '<path d="M20 8v20M20 8l-3 4h6zM20 28a2.5 2.5 0 1 0 0 .01M20 22l-6-4v-4M20 19l6-3v-3" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><rect x="12" y="11" width="4" height="4" fill="#fff"/><circle cx="26" cy="12" r="2" fill="#fff"/>',
+};
+
+function usbIcon(kind, connected) {
+  const glyph = USB_GLYPHS[kind] ?? USB_GLYPHS.other;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="${connected ? '#7c3aed' : '#3f3f46'}"/>${glyph}</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+const USB_TEXT = {
+  phone: ['HP tersambung, bisa transfer file'],
+  camera: ['Kamera siap dipakai'],
+  audio: ['Audio siap dipakai'],
+  mouse: ['Mouse siap dipakai'],
+  keyboard: ['Keyboard siap dipakai'],
+  network: ['Jaringan lewat USB tersambung'],
+  serial: ['Port serial siap (mis. Arduino)'],
+  printer: ['Printer siap dipakai'],
+  other: ['Perangkat USB siap dipakai'],
+};
+
+const USB_NAMES = { phone: 'HP', camera: 'Kamera USB', audio: 'Audio USB', mouse: 'Mouse USB', keyboard: 'Keyboard USB', network: 'Jaringan USB', serial: 'Perangkat serial', printer: 'Printer', other: 'Perangkat USB' };
+// Nama bawaan driver yang tidak berarti apa-apa bagi pengguna.
+const GENERIC_USB = /^(USB (Composite|Input|Mass Storage) Device|USB Serial Device|HID-compliant .*)$/i;
+const usbName = (d) => (!d.name || GENERIC_USB.test(d.name) ? USB_NAMES[d.kind] ?? USB_NAMES.other : d.name);
+
+const bytes = (n) => {
+  const gb = n / 1024 ** 3;
+  return gb >= 1 ? `${gb.toFixed(gb >= 100 ? 0 : 1).replace('.', ',')} GB` : `${Math.round(n / 1024 ** 2)} MB`;
+};
+const driveName = (d) => `${d.label || (d.removable ? 'Flashdisk' : 'Drive eksternal')} (${d.letter})`;
+
+// Kartu seperti "Claude selesai". Panel terbuka = Zeno yang bereaksi (kartu akan telat).
+function usbPeek(peek, reaction) {
+  if (expanded) send('kapsul:device', reaction);
+  else showPeek(peek);
+}
+
+function onUsb({ devices = [], drives = [] }) {
+  const beforeDevices = usbDevices;
+  const beforeDrives = usbDrives;
+  usbDevices = new Map((Array.isArray(devices) ? devices : [devices]).filter((d) => d && d.id).map((d) => [d.id, d]));
+  usbDrives = new Map((Array.isArray(drives) ? drives : [drives]).filter((d) => d && d.letter).map((d) => [d.letter, d]));
+  sendDevices();
+  if (!beforeDevices || !config.usb.alerts) return;
+
+  for (const [letter, drive] of usbDrives) {
+    if (beforeDrives.has(letter)) continue;
+    usbPeek(
+      {
+        kind: 'drive',
+        mood: 'starstruck',
+        sound: 'connect',
+        app: `USB · ${drive.removable ? 'Flashdisk' : 'Penyimpanan'} tersambung`,
+        title: driveName(drive),
+        body: drive.size ? `${bytes(drive.free)} kosong dari ${bytes(drive.size)}` : '',
+        icon: usbIcon('storage', true),
+        ref: drive.letter,
+        seconds: 8,
+        actions: [
+          { id: 'eject', label: 'Keluarkan' },
+          { id: 'open', label: 'Buka', primary: true },
+        ],
+      },
+      { event: 'connected', device: { name: driveName(drive), kind: 'storage' } },
+    );
+  }
+  for (const [letter, drive] of beforeDrives) {
+    if (usbDrives.has(letter)) continue;
+    usbPeek(
+      { kind: 'usb', mood: 'surprised', sound: 'disconnect', app: 'USB · dilepas', title: driveName(drive), body: 'Sudah aman dicabut.', icon: usbIcon('storage', false), seconds: 4 },
+      { event: 'disconnected', device: { name: driveName(drive), kind: 'storage' } },
+    );
+  }
+  // Penyimpanan USB diwakili kartu drive di atas.
+  for (const [id, device] of usbDevices) {
+    if (beforeDevices.has(id) || device.kind === 'storage') continue;
+    const lines = USB_TEXT[device.kind] ?? USB_TEXT.other;
+    usbPeek(
+      { kind: 'usb', mood: device.kind === 'audio' ? 'music' : 'happy', sound: 'connect', app: 'USB · tersambung', title: usbName(device), body: lines[0], icon: usbIcon(device.kind, true), seconds: 5 },
+      { event: 'connected', device: { ...device, name: usbName(device) } },
+    );
+  }
+  for (const [id, device] of beforeDevices) {
+    if (usbDevices.has(id) || device.kind === 'storage') continue;
+    usbPeek(
+      { kind: 'usb', mood: 'surprised', sound: 'disconnect', app: 'USB · dicabut', title: usbName(device), body: 'Sampai jumpa lagi!', icon: usbIcon(device.kind, false), seconds: 4 },
+      { event: 'disconnected', device: { ...device, name: usbName(device) } },
+    );
+  }
+}
+
+function openDrive(letter) {
+  shell.openPath(IS_MAC ? letter : `${letter}\\`);
+}
+
+const ejectDrive = (letter) => bridgeCommand(`eject ${letter}`);
+
+// Daftar perangkat tersambung untuk section Perangkat di panel.
+function sendDevices() {
+  send('kapsul:devices', {
+    bluetooth: [...(btDevices?.values() ?? [])],
+    usb: [...(usbDevices?.values() ?? [])].map((d) => ({ ...d, name: usbName(d) })),
+    drives: [...(usbDrives?.values() ?? [])].map((d) => ({ ...d, name: driveName(d) })),
+  });
+}
+
+function onBluetooth(devices) {
+  const before = btDevices;
+  btDevices = new Map(devices.filter((d) => d && d.id).map((d) => [d.id, d]));
+  sendDevices();
+  if (!before || !config.bluetooth.alerts) return;
+  for (const [id, device] of btDevices) if (!before.has(id)) bluetoothEvent('connected', device);
+  for (const [id, device] of before) if (!btDevices.has(id)) bluetoothEvent('disconnected', device);
 }
 
 function bridgeCommand(command) {
@@ -747,9 +1015,10 @@ function dropPeek(id) {
 const focus = new Focus({
   settings: () => config.focus,
   onChange: (state) => send('kapsul:focus', state),
-  onPhaseEnd: (phase, state) => {
+  onPhaseEnd: (phase, state, spent) => {
     if (phase === 'focus') {
       statsAdd('focus');
+      if (spent > 0) statsAdd('focusMs', spent);
       const minutes = state.phase === 'long' ? config.focus.longBreakMinutes : config.focus.breakMinutes;
       showPeek({
         kind: 'focus',
@@ -781,9 +1050,10 @@ const focus = new Focus({
 
 const focusing = () => focus.state.phase === 'focus' && focus.state.running;
 
-function focusCommand(action) {
+function focusCommand(action, minutes) {
   if (action === 'start') focus.start();
-  else if (action === 'focus') focus.start('focus');
+  else if (action === 'focus') focus.start('focus', { minutes });
+  else if (action === 'extend') focus.extend((minutes || 5) * 60_000);
   else if (action === 'pause') focus.pause();
   else if (action === 'stop') focus.stop();
   else if (action === 'skip') focus.skip();
@@ -907,7 +1177,7 @@ async function pollWeather() {
   try {
     const before = weatherState;
     const now = await weather.currentWeather(config.weather.city);
-    weatherState = { ...now, city: config.weather.city.name, look: weather.weatherLook(now) };
+    weatherState = { ...now, city: config.weather.city.name, look: weather.weatherLook(now), advice: weather.advice(now) };
     const wet = (w) => w && (w.kind === 'rain' || w.kind === 'storm');
     // Kabari saat mulai hujan (bukan saat Zenopod baru menyala).
     if (before && !wet(before) && wet(weatherState) && config.weather.alerts) {
@@ -932,8 +1202,40 @@ async function pollWeather() {
 const batteryWarned = new Set();
 let lastBattery = null;
 
-function onBattery({ level, charging }) {
+// Ikon kartu (kanan): baterai dengan isi sesuai persen, hijau + petir saat mengisi.
+function batteryIcon(percent, charging) {
+  const color = charging ? '#4ade80' : percent <= 20 ? '#f87171' : '#e4e4e7';
+  const width = Math.max(2, Math.round((22 * percent) / 100));
+  const bolt = charging ? '<path d="M21.5 11 15.5 20.5h4.2L18 29l6.5-10h-4.2z" fill="#14532d" stroke="#4ade80" stroke-width="0.8" stroke-linejoin="round"/>' : '';
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" rx="9" fill="#1f1f24"/>` +
+    `<rect x="6" y="13" width="26" height="14" rx="3.5" fill="none" stroke="${color}" stroke-opacity="0.6" stroke-width="1.6"/>` +
+    `<rect x="33.2" y="17.5" width="2" height="5" rx="1" fill="${color}" fill-opacity="0.6"/>` +
+    `<rect x="8" y="15" width="${width}" height="10" rx="2" fill="${color}"/>${bolt}</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+const aboutTime = (seconds) => calc.durationLabel(Math.round(seconds / 60) * 60_000);
+
+function onBattery({ level, charging, chargingTime, dischargingTime }) {
   const percent = Math.round(level * 100);
+  // Charger dicolok / dicabut: kartu seperti "Claude selesai". Panel terbuka = Zeno yang bereaksi.
+  if (lastBattery && lastBattery.charging !== charging && !expanded && config.battery.showPercent) {
+    const name = config.buddy.name || 'Zeno';
+    const time = charging
+      ? Number.isFinite(chargingTime) && chargingTime > 0 ? `penuh sekitar ${aboutTime(chargingTime)}` : percent >= 95 ? 'hampir penuh' : 'Nyam, setrum!'
+      : Number.isFinite(dischargingTime) && dischargingTime > 0 ? `cukup sekitar ${aboutTime(dischargingTime)}` : 'Hemat-hemat ya.';
+    showPeek({
+      kind: 'battery',
+      mood: charging ? 'charging' : 'unplug',
+      sound: charging ? 'charge' : 'unplug',
+      app: `${name} · Baterai`,
+      title: charging ? `Mengisi daya · ${percent}%` : `Charger dicabut · ${percent}%`,
+      body: time,
+      icon: batteryIcon(percent, charging),
+      seconds: 5,
+    });
+  }
   if (charging || percent > 25) batteryWarned.clear();
   if (!charging && config.battery.alerts) {
     for (const threshold of [20, 10]) {
@@ -1478,7 +1780,15 @@ function sendStats() {
   statsTimer = setTimeout(() => {
     const today = stats.day();
     const top = stats.topSong();
-    const payload = { today: { ...today, songs: undefined, top }, pet: stats.pet() };
+    const listen = (songs) => Object.values(songs ?? {}).reduce((sum, ms) => sum + ms, 0);
+    const week = stats.week().map((d) => ({ key: d.key, focus: d.focus, focusMs: d.focusMs, listenMs: listen(d.songs) }));
+    // Ringkasan musik di detail Musik: 5 lagu terlama hari ini + total waktu dengar.
+    const songs = Object.entries(today.songs ?? {})
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, ms]) => ({ name, ms }));
+    const music = { listenMs: listen(today.songs), count: Object.keys(today.songs ?? {}).length, songs };
+    const payload = { today: { ...today, songs: undefined, top }, pet: stats.pet(), week, music };
     send('kapsul:stats', payload);
     settingsWin?.webContents.send('settings:changed');
   }, 300);
@@ -1514,7 +1824,10 @@ function showSummary() {
 function tickStats() {
   const busy = [...sessions.values()].some((s) => (s.state === 'thinking' || s.state === 'working') && Date.now() - s.updated < 10 * 60_000);
   if (busy) stats.add('claudeMs', 30_000);
-  if (lastMedia.playing && lastMedia.title) stats.song([lastMedia.title, lastMedia.artist].filter(Boolean).join(' · '), 30_000);
+  if (lastMedia.playing && lastMedia.title) {
+    stats.song([lastMedia.title, lastMedia.artist].filter(Boolean).join(' · '), 30_000);
+    sendStats();
+  }
 
   const [hh, mm] = String(config.stats.time || '20:00').split(':').map(Number);
   const now = new Date();
@@ -2187,6 +2500,18 @@ function buildTrayMenu() {
         .concat([{ label: 'Bebas (hasil geser)', type: 'radio', checked: config.position === 'custom', enabled: false }]),
     },
     {
+      label: 'Gaya',
+      submenu: [
+        ['auto', 'Otomatis (menempel di tepi atas)'],
+        ['pill', 'Selalu melayang (pill)'],
+      ].map(([value, label]) => ({
+        label,
+        type: 'radio',
+        checked: config.island === value,
+        click: () => setIsland(value),
+      })),
+    },
+    {
       label: 'Muat ulang',
       click: () => {
         loadConfig();
@@ -2240,12 +2565,28 @@ ipcMain.on('kapsul:notif-clear', () => bridgeCommand('clear'));
 ipcMain.on('kapsul:peek-action', (_event, id, action) => peekAction(String(id), String(action)));
 ipcMain.on('kapsul:peek-click', (_event, id) => {
   if (currentPeek?.id !== id) return;
-  if (currentPeek.kind === 'notification') peekAction(id, 'open');
+  if (currentPeek.kind === 'notification' || currentPeek.kind === 'drive') peekAction(id, 'open');
   else if (!currentPeek.sticky) endPeek();
 });
-ipcMain.on('kapsul:focus', (_event, action) => focusCommand(String(action)));
+ipcMain.on('kapsul:detail', (_event, value) => {
+  detail = Boolean(value);
+  if (expanded) resize();
+});
+ipcMain.on('kapsul:drive', (_event, action, letter) => {
+  if (!usbDrives?.has(String(letter))) return;
+  if (action === 'open') openDrive(String(letter));
+  if (action === 'eject') ejectDrive(String(letter));
+});
+ipcMain.on('kapsul:focus', (_event, action, minutes) => focusCommand(String(action), Number(minutes) || undefined));
 ipcMain.on('kapsul:battery', (_event, state) => {
-  if (state && typeof state.level === 'number') onBattery({ level: state.level, charging: Boolean(state.charging) });
+  if (state && typeof state.level === 'number') {
+    onBattery({
+      level: state.level,
+      charging: Boolean(state.charging),
+      chargingTime: Number(state.chargingTime),
+      dischargingTime: Number(state.dischargingTime),
+    });
+  }
 });
 ipcMain.on('kapsul:dev-open', (_event, kind, index) => devOpen(String(kind), Number(index)));
 ipcMain.on('kapsul:dev-refresh', () => {
@@ -2307,6 +2648,8 @@ ipcMain.on('kapsul:meeting', (_event, url) => openMeeting(String(url)));
 ipcMain.on('kapsul:ready', (event) => {
   event.sender.send('kapsul:state', publicState());
   event.sender.send('kapsul:media', lastMedia);
+  event.sender.send('kapsul:lyrics', lyricsState);
+  sendDevices();
   sendNotifications();
   sendReminders();
   sendClaude();
