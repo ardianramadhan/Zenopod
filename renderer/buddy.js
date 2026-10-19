@@ -205,17 +205,35 @@
           <path class="canopy" d="M21 6.5 Q33 -6.5 45 6.5 Q42 4.4 39 6.5 Q36 4.4 33 6.5 Q30 4.4 27 6.5 Q24 4.4 21 6.5 Z" />
         </g>
 
+        <!-- Headphone: bando berlapis + earcup dengan bantalan & lampu yang berdenyut mengikuti ketukan -->
         <g data-part="x-phones" class="phones">
-          <path class="band" d="M5.4 21 Q20 -2 34.6 21" />
-          <rect class="cup" x="2.6" y="17.6" width="4.8" height="8.6" rx="2.2" />
-          <rect class="cup" x="32.6" y="17.6" width="4.8" height="8.6" rx="2.2" />
+          <path class="band-shadow" d="M5.6 20.5 Q20 -1.8 34.4 20.5" />
+          <path class="band" d="M5.6 20.5 Q20 -1.8 34.4 20.5" />
+          <path class="band-shine" d="M10.6 11.6 Q20 3.6 29.4 11.6" />
+          <g class="cup-l">
+            <rect class="cup" x="1.8" y="16.4" width="6.4" height="11" rx="2.8" />
+            <rect class="cushion" x="6.4" y="17.6" width="2.4" height="8.6" rx="1.2" />
+            <circle class="led" cx="4.4" cy="21.9" r="1.15" />
+          </g>
+          <g class="cup-r">
+            <rect class="cup" x="31.8" y="16.4" width="6.4" height="11" rx="2.8" />
+            <rect class="cushion" x="31.2" y="17.6" width="2.4" height="8.6" rx="1.2" />
+            <circle class="led" cx="35.6" cy="21.9" r="1.15" />
+          </g>
         </g>
       </g>
 
       <g data-part="x-notes" class="notes">
-        <path d="M33 8.5v-5.2l3.2-0.9v4.8" />
-        <circle cx="32.1" cy="8.6" r="1.2" />
-        <circle cx="35.3" cy="7.3" r="1.2" />
+        <g class="note n1">
+          <path d="M33 8.5v-5.2l3.2-0.9v4.8" />
+          <circle cx="32.1" cy="8.6" r="1.2" />
+          <circle cx="35.3" cy="7.3" r="1.2" />
+        </g>
+        <g class="note n2">
+          <path d="M6.4 9.4v-4.6" />
+          <path class="flag" d="M6.4 4.8q2.2 0.6 2 2.6" />
+          <circle cx="5.5" cy="9.5" r="1.1" />
+        </g>
       </g>
       <g data-part="x-zzz" class="zzz"><text x="31" y="9">z</text><text x="35.5" y="4.5">z</text></g>
       <g data-part="x-vein" class="vein"><path d="M30.6 4.6 q1.6 1.5 0 3 M34 4.6 q-1.6 1.5 0 3 M30.6 9.4 q1.7 -1.5 3.4 0" /></g>

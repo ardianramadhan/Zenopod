@@ -1,6 +1,8 @@
 'use strict';
 
 const $ = (id) => document.getElementById(id);
+// Aktivitas live (privasi, rapat, unduhan) — diisi lewat onLive.
+let live = { privacy: { mic: [], camera: [] }, meeting: null, downloads: [] };
 const shell = $('shell');
 const appsEl = $('apps');
 
@@ -116,6 +118,12 @@ window.kapsul.onExpanded((value) => {
     setInboxMode('notifs');
     goToSection('inbox', { sound: false });
   }
+  // "Lihat detail" di laporan mingguan → detail Perangkat (waktu layar).
+  if (value && lastPeek.kind === 'weekly' && Date.now() - lastPeek.at < 20_000) {
+    lastPeek = { kind: null, at: 0 };
+    goToSection('device', { sound: false });
+    setDetail(true);
+  }
   if (!value) {
     hoveringBig = false;
     if (!$('power-sheet').hidden) closePower();
@@ -163,6 +171,50 @@ document.addEventListener('keydown', (event) => {
     window.kapsul.media('toggle');
   }
 });
+
+// ---------- Mode jam di kapsul ----------
+// Tanpa aktivitas (kursor diam) 30 dtk: Zeno menghilang, kapsul hanya menampilkan jam di tengah;
+// baterai, notifikasi, dan indikator musik tetap tampil. Kursor bergerak = Zeno bangun lagi.
+// Yang mendesak (suara, Claude menunggu, fokus, timer, kartu, reaksi) tetap memakai tampilan biasa.
+const REST_AFTER_MS = 30_000;
+let resting = false;
+
+function updateResting() {
+  const should = !open && !peekState && !voiceState && !saying && !reaction && !pillOverride() && Date.now() - lastMove > REST_AFTER_MS;
+  if (should === resting) {
+    if (resting) renderPillClock();
+    return;
+  }
+  resting = should;
+  shell.classList.toggle('resting', resting);
+  if (resting) renderPillClock();
+  else wakeUp();
+}
+
+function renderPillClock() {
+  const now = new Date();
+  const clockEl = $('pill-clock');
+  const text = `${String(now.getHours()).padStart(2, '0')}|${String(now.getMinutes()).padStart(2, '0')}`;
+  if (clockEl.dataset.text === text) return;
+  clockEl.dataset.text = text;
+  const [h, m] = text.split('|');
+  const colon = document.createElement('span');
+  colon.className = 'colon';
+  colon.textContent = ':';
+  clockEl.replaceChildren(h, colon, m);
+}
+
+// Bangun tidur: muncul kecil sambil menggeliat, lalu menguap sebentar.
+function wakeUp() {
+  const el = buddy.el;
+  el.classList.remove('waking');
+  void el.getBoundingClientRect();
+  el.classList.add('waking');
+  setTimeout(() => el.classList.remove('waking'), 1000);
+  react('yawn', 1400);
+}
+
+setInterval(updateResting, 1000);
 
 // ---------- Maskot ----------
 
@@ -326,7 +378,11 @@ function contextReaction() {
   }
   if (focusState.phase === 'focus' && focusState.running) return { mood: 'pout', sound: 'hmph', say: ['Ssst, lagi fokus nih!', 'Nanti dulu, fokus!'] };
   if ((petState?.hunger ?? 100) < 25) return { mood: 'hungry', sound: 'hmph', ms: 2200, say: ['Laper… kasih makan dong', 'Perutku bunyi…'] };
-  if (media.playing && Math.random() < 0.3) return { mood: 'music', sound: 'note', anim: 'jump', say: ['♪ Asik!', 'Lagunya enak!'] };
+  if (media.playing && Math.random() < 0.85) {
+    return Math.random() < 0.5
+      ? { mood: 'music', sound: 'note', anim: 'spin', ms: 1600, say: ['Ayo joget!', '♪ Muter dulu~', 'Lagunya enak banget!'] }
+      : { mood: 'music', sound: 'note', anim: 'jump', ms: 1400, say: ['♪ Asik!', 'Naik-naik~', 'Goyang terus!'] };
+  }
   return null;
 }
 
@@ -497,6 +553,7 @@ function lookAt(target, point) {
 window.kapsul.onCursor((point) => {
   const wasSleeping = !isNight() && Date.now() - lastMove > IDLE_SLEEP_MS;
   lastMove = Date.now();
+  if (resting) updateResting();
   // Dibangunkan setelah lama tidak ada gerakan: kaget sebentar.
   if (wasSleeping && !reaction && !media.playing) react('surprised', 1200);
 
@@ -529,21 +586,7 @@ function initials(name) {
 // Island Beranda memuat 5 aplikasi pertama; detail hanya menampilkan sisanya (tidak berulang).
 const QUICK_APPS = 5;
 
-function addAppTile() {
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'app add';
-  button.title = 'Tambah aplikasi';
-  const icon = document.createElement('span');
-  icon.className = 'app-icon';
-  icon.textContent = '+';
-  const name = document.createElement('span');
-  name.className = 'app-name';
-  name.textContent = 'Tambah';
-  button.append(icon, name);
-  button.addEventListener('click', () => window.kapsul.openSettings('apps'));
-  return button;
-}
+$('apps-manage').addEventListener('click', () => window.kapsul.openSettings('apps'));
 
 function renderApps(apps) {
   appsEl.replaceChildren();
@@ -602,7 +645,6 @@ function renderApps(apps) {
 
     appsEl.append(button);
   }
-  appsEl.append(addAppTile());
 }
 
 function renderShortcut(keys) {
@@ -625,6 +667,7 @@ window.kapsul.onState((state) => {
   document.body.style.setProperty('--inset', `${state.notchInset ?? 0}px`);
   if (state.sound) soundSettings = state.sound;
   chatReady = Boolean(state.chatReady);
+  chatName = state.chatName || 'AI';
   if (state.ticker && (state.ticker.enabled !== tickerSettings.enabled || state.ticker.seconds !== tickerSettings.seconds)) {
     tickerSettings = state.ticker;
     startTicker();
@@ -960,11 +1003,19 @@ function renderFocus() {
   tab.classList.toggle('running', running);
   tab.classList.toggle('paused', Boolean(phase) && !running && !waiting);
 
-  // Detail = ringkasan; ajakan "Siap fokus?" cukup di island.
-  $('focus-phase').textContent = !phase ? 'Ringkasan hari ini' : running ? PHASE[phase] : waiting ? `${PHASE[phase]} berikutnya` : `${PHASE[phase]} dijeda`;
+  // Detail = laporan: posisi di siklus Pomodoro (titik per sesi) + keterangan.
+  const cycles = focusSettings.cycles;
+  $('focus-cycle-text').textContent = !phase ? `${cycles} sesi = 1 siklus` : phase === 'focus' ? `Sesi ${cycle} dari ${cycles}` : PHASE[phase];
+  const left = cycles - cycle;
+  $('focus-sub').textContent = !phase
+    ? `Fokus ${focusSettings.focusMinutes} menit, istirahat ${focusSettings.breakMinutes} menit; setelah ${cycles} sesi istirahat panjang ${focusSettings.longBreakMinutes} menit.`
+    : phase === 'focus'
+      ? left > 0
+        ? `${left} sesi lagi sebelum istirahat panjang.`
+        : 'Sesi terakhir di siklus ini, habis ini istirahat panjang.'
+      : 'Regangkan badan dan minum air dulu.';
 
   const dots = $('focus-dots');
-  dots.hidden = !phase;
   dots.replaceChildren();
   for (let i = 1; i <= focusSettings.cycles; i++) {
     const dot = document.createElement('i');
@@ -980,30 +1031,11 @@ function renderFocus() {
   if (phase && running) startFocusLoop();
 }
 
-// Angka, lingkaran dan subjudul; berjalan tiap frame selama tab Fokus terbuka.
+// Sisa waktu di chip ikon Fokus (baris navigasi). Hitung mundur besarnya ada di island.
 function tickFocus() {
-  const { phase, running, cycle, done } = focusState;
-  const total = phase ? focusTotal() : pickedMinutes() * 60_000;
-  const remaining = phase ? Math.max(0, focusRemaining()) : total;
-  const progress = Math.min(1, remaining / total);
-
-  const text = clock(remaining);
-  if ($('focus-time').textContent !== text) $('focus-time').textContent = text;
-  $('focus-count').textContent = phase ? text : '';
-  $('ring-bar').style.strokeDashoffset = String(1000 * (1 - progress));
-  const angle = progress * 2 * Math.PI;
-  $('ring-knob').setAttribute('cx', (60 + 52 * Math.sin(angle)).toFixed(2));
-  $('ring-knob').setAttribute('cy', (60 - 52 * Math.cos(angle)).toFixed(2));
-  $('focus-tab').classList.toggle('final', phase === 'focus' && running && remaining < 60_000);
-
-  const label = !phase ? 'menit fokus' : running ? `selesai ${endTime.format(Date.now() + remaining)}` : 'dijeda';
-  if ($('focus-label').textContent !== label) $('focus-label').textContent = label;
-  const sub = !phase
-    ? 'Mulai fokus dari tombol di atas.'
-    : phase === 'focus'
-      ? `Sesi ${cycle} dari ${focusSettings.cycles}${done ? ` · ${done} selesai` : ''}`
-      : 'Regangkan badan dan minum air.';
-  if ($('focus-sub').textContent !== sub) $('focus-sub').textContent = sub;
+  const { phase } = focusState;
+  const remaining = phase ? Math.max(0, focusRemaining()) : 0;
+  $('focus-count').textContent = phase ? clock(remaining) : '';
 }
 
 let focusFrame = null;
@@ -1268,6 +1300,7 @@ window.kapsul.onDev(renderDev);
 
 const PAGES = [
   { id: 'home', label: 'Beranda', sound: 'hello' },
+  { id: 'chat', label: 'Chat', sound: 'pop' },
   { id: 'music', label: 'Musik', sound: 'note' },
   { id: 'time', label: 'Waktu & jadwal', sound: 'ticktock' },
   { id: 'weather', label: 'Cuaca', sound: 'today' },
@@ -1295,6 +1328,7 @@ try {
 function pageMood() {
   const page = PAGES[pageIndex].id;
   if (page === 'home') return (petState?.hunger ?? 100) < 25 ? 'hungry' : 'greet';
+  if (page === 'chat') return chatState.busy ? 'think' : pendingFiles.length ? 'hungry' : 'happy';
   if (page === 'music') return media.playing ? 'music' : 'listen';
   if (page === 'time') return 'clock';
   if (page === 'weather') return weatherNow?.look?.mood ?? 'idle';
@@ -1326,6 +1360,7 @@ function goToPage(index, { sound = true } = {}) {
     // tanpa penyimpanan
   }
   placeTracks();
+  $('media').classList.toggle('on-music', PAGES[next].id === 'music');
   for (const button of $('nav').querySelectorAll('[data-section]')) {
     const page = PAGES[sectionIndex(button.dataset.section)];
     button.setAttribute('aria-selected', String(page.id === PAGES[next].id));
@@ -1981,6 +2016,7 @@ function renderPage() {
   const page = PAGES[pageIndex].id;
   const now = new Date();
   if (page === 'home') renderHome(now);
+  else if (page === 'chat') renderChat();
   else if (page === 'music') renderLyrics();
   else if (page === 'time') {
     renderClock(now);
@@ -1995,6 +2031,7 @@ function renderPage() {
 }
 
 setInterval(() => {
+  if (open && PAGES[pageIndex].id === 'music') renderMusicProgress();
   if (open && PAGES[pageIndex].id === 'time') {
     renderClock(new Date());
     if (new Date().getSeconds() === 0) renderTimeCard();
@@ -2144,6 +2181,7 @@ function renderDeviceList() {
     ...connectedDevices.bluetooth.map((d) => ({ ...d, kind: d.kind === 'input' ? 'mouse' : d.kind, tag: 'Bluetooth' })),
   ];
   list.replaceChildren();
+  $('device-count').textContent = rows.length ? String(rows.length) : '';
   if (!rows.length) {
     const empty = document.createElement('div');
     empty.className = 'empty';
@@ -2162,7 +2200,20 @@ function renderDeviceList() {
     name.textContent = row.name;
     const tag = document.createElement('small');
     tag.textContent = row.tag;
-    el.append(icon, name, tag);
+    el.append(icon, name);
+    // Baterai perangkat (kalau dilaporkan): ikon kecil + persen, merah saat ≤ 20%.
+    if (row.battery != null) {
+      const bat = document.createElement('span');
+      bat.className = `device-bat${row.battery <= 20 ? ' low' : ''}`;
+      bat.title = `Baterai ${row.name}: ${row.battery}%`;
+      const shell = document.createElement('i');
+      const fill = document.createElement('b');
+      fill.style.width = `${Math.max(8, row.battery)}%`;
+      shell.append(fill);
+      bat.append(shell, `${row.battery}%`);
+      el.append(bat);
+    }
+    el.append(tag);
     if (row.drive) {
       for (const [label, fn] of [
         ['Buka', () => window.kapsul.openDrive(row.drive)],
@@ -2185,6 +2236,33 @@ window.kapsul.onDevices((state) => {
   renderDeviceList();
 });
 renderDeviceList();
+
+// ---------- Aktivitas live (dari main.js): privasi, rapat, unduhan ----------
+
+const sizeLabel = (n) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1).replace('.', ',')} GB` : n >= 1024 ** 2 ? `${(n / 1024 ** 2).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+function renderLive() {
+  const mic = live.privacy.mic.length > 0;
+  const cam = live.privacy.camera.length > 0;
+  $('privacy-dots').hidden = !mic && !cam;
+  $('privacy-mic').hidden = !mic;
+  $('privacy-cam').hidden = !cam;
+  $('privacy-dots').title = [mic ? `Mikrofon dipakai: ${live.privacy.mic.join(', ')}` : '', cam ? `Kamera dipakai: ${live.privacy.camera.join(', ')}` : ''].filter(Boolean).join('\n');
+  renderPillText();
+}
+
+window.kapsul.onLive((state) => {
+  const started = !live.meeting && state?.meeting;
+  live = { privacy: state?.privacy ?? { mic: [], camera: [] }, meeting: state?.meeting ?? null, downloads: state?.downloads ?? [] };
+  // Rapat baru mulai: tampilkan durasinya di kapsul.
+  if (started) tickIndex = 0;
+  renderLive();
+});
+
+// Durasi rapat & ukuran unduhan di kapsul diperbarui tiap detik.
+setInterval(() => {
+  if ((live.meeting || live.downloads.length) && ['meeting', 'download'].includes(tickKey)) renderPillText();
+}, 1000);
 
 // Perangkat Bluetooth / USB / flashdisk tersambung atau terputus saat panel terbuka (dari main.js):
 // Zeno menyapa perangkatnya. Saat tertutup, main.js menampilkan kartu.
@@ -2277,7 +2355,8 @@ function setVoiceState(state) {
   renderBuddy();
 }
 
-async function startListening() {
+// mode 'command' = perintah suara biasa; 'dictate' = isi kotak chat lalu kirim.
+async function startListening(mode = 'command') {
   if (listening || voiceState === 'thinking') return;
   let stream;
   try {
@@ -2305,6 +2384,7 @@ async function startListening() {
     stream.getTracks().forEach((t) => t.stop());
     ctx.close();
     sfx('tick');
+    $('chat-mic').classList.remove('on');
     if (!send || !heardAt) {
       setVoiceState(null);
       if (send) react('confused', 1800);
@@ -2319,7 +2399,8 @@ async function startListening() {
       offset += c.length;
     }
     try {
-      await window.kapsul.sendAudio(encodeWav(samples, 16000));
+      const result = await window.kapsul.sendAudio(encodeWav(samples, 16000), mode);
+      if (mode === 'dictate') onDictated(result);
     } finally {
       setVoiceState(null);
     }
@@ -2348,6 +2429,7 @@ async function startListening() {
   listening = { stop: () => finish(true) };
   sfx('blip');
   setVoiceState('listening');
+  $('chat-mic').classList.toggle('on', mode === 'dictate');
 }
 
 window.kapsul.onListen(() => {
@@ -2365,6 +2447,356 @@ window.kapsul.onSpeech((data) => {
     // tanpa suara
   }
 });
+
+makeSeekable($('np-progress').querySelector('i'), {
+  onPreview: (f) => {
+    $('np-bar').style.width = `${f * 100}%`;
+    $('np-elapsed').textContent = mmss(f * media.duration);
+  },
+});
+makeSeekable($('lyrics-progress').parentElement, {
+  onPreview: (f) => {
+    $('lyrics-progress').style.width = `${f * 100}%`;
+  },
+});
+
+// ---------- Chat dengan Zeno (kotak chat, suara, file) ----------
+
+let chatState = { messages: [], busy: false, ready: false, provider: 'AI' };
+let pendingFiles = []; // file yang sudah "dilahap", ikut pertanyaan berikutnya
+let pendingMsg = null; // pesan yang sedang dikirim (tampil sebelum riwayat dari main datang)
+let chatError = null;
+
+const CHAT_IMAGES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+const CHAT_TEXT = new Set(['txt', 'md', 'csv', 'json', 'js', 'ts', 'jsx', 'tsx', 'py', 'java', 'go', 'rs', 'php', 'rb', 'c', 'cpp', 'cs', 'html', 'css', 'xml', 'yml', 'yaml', 'sql', 'log', 'ini', 'env']);
+const FILE_ICONS = {
+  image: '<svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" /><circle cx="6" cy="6.5" r="1.2" /><path d="M2.5 11.5 6 8.5l3 2.5 2-1.5 2.5 2" /></svg>',
+  pdf: '<svg viewBox="0 0 16 16"><path d="M4 1.8h5.5L13 5.3V14H4z" /><path d="M9.5 1.8v3.5H13M6 9h5M6 11.5h3.5" /></svg>',
+  text: '<svg viewBox="0 0 16 16"><path d="M4 1.8h5.5L13 5.3V14H4z" /><path d="M6 7h5M6 9.3h5M6 11.6h3" /></svg>',
+};
+
+const readAs = (file, how) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader[how](file);
+  });
+
+// File dari 📎 atau seret → { name, mime, kind, data | text } atau { error }.
+async function readChatFile(file) {
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const mb = file.size / 1024 / 1024;
+  if (CHAT_IMAGES.has(file.type)) {
+    if (mb > 5) return { error: `${file.name} terlalu besar (maks. 5 MB untuk gambar).` };
+    return { name: file.name, mime: file.type, kind: 'image', data: String(await readAs(file, 'readAsDataURL')).split(',')[1] };
+  }
+  if (file.type === 'application/pdf' || ext === 'pdf') {
+    if (mb > 10) return { error: `${file.name} terlalu besar (maks. 10 MB untuk PDF).` };
+    return { name: file.name, mime: 'application/pdf', kind: 'pdf', data: String(await readAs(file, 'readAsDataURL')).split(',')[1] };
+  }
+  if (CHAT_TEXT.has(ext) || file.type.startsWith('text/') || file.type === 'application/json') {
+    if (mb > 1) return { error: `${file.name} terlalu besar (maks. 1 MB untuk file teks).` };
+    return { name: file.name, mime: 'text/plain', kind: 'text', text: String(await readAs(file, 'readAsText')) };
+  }
+  return { error: `Zeno belum bisa melahap file ${ext ? `.${ext}` : 'ini'}. Coba gambar, PDF, atau file teks.` };
+}
+
+// Zeno melahap file: kartu file terbang ke mulutnya, lalu mengunyah.
+function eatAnimation(file, from) {
+  const big = $('buddy-big').getBoundingClientRect();
+  const mouth = { x: big.left + big.width / 2, y: big.top + big.height * 0.62 };
+  const start = from ?? (() => {
+    const r = $('chat-attach').getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  })();
+  const chip = document.createElement('div');
+  chip.className = 'eat-chip';
+  chip.innerHTML = FILE_ICONS[file.kind] ?? FILE_ICONS.text;
+  const name = document.createElement('span');
+  name.textContent = file.name;
+  chip.append(name);
+  chip.style.left = `${start.x}px`;
+  chip.style.top = `${start.y}px`;
+  document.body.append(chip);
+  react('surprised', 700); // mulut terbuka menunggu
+  const dx = mouth.x - start.x;
+  const dy = mouth.y - start.y;
+  const flight = chip.animate(
+    [
+      { transform: 'translate(-50%, -50%) scale(1) rotate(0deg)', opacity: 1 },
+      { offset: 0.55, transform: `translate(calc(-50% + ${dx * 0.6}px), calc(-50% + ${dy * 0.6 - 28}px)) scale(0.75) rotate(-10deg)`, opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.1) rotate(25deg)`, opacity: 0.3 },
+    ],
+    { duration: 720, easing: 'cubic-bezier(0.45, 0, 0.55, 1)' },
+  );
+  flight.finished.then(() => {
+    chip.remove();
+    react('eat', 1800);
+    sfx('munch');
+    bigBuddy.jump();
+  });
+}
+
+async function attachFiles(list, from) {
+  const files = [...(list ?? [])];
+  if (!files.length) return;
+  goToSection('chat', { sound: false });
+  for (const [i, file] of files.entries()) {
+    if (pendingFiles.length >= 4) {
+      say(['Perutku penuh, maksimal 4 file sekali kirim ya.'], 3000);
+      break;
+    }
+    const read = await readChatFile(file).catch(() => ({ error: `${file.name} gagal dibaca.` }));
+    if (read.error) {
+      react('confused', 2000);
+      say([read.error], 3600);
+      continue;
+    }
+    pendingFiles.push(read);
+    setTimeout(() => eatAnimation(read, from && { x: from.x + i * 14, y: from.y }), i * 260);
+  }
+  renderChat();
+  $('chat-input').focus();
+}
+
+async function chatSend(text, { spoken = false } = {}) {
+  const value = (text ?? $('chat-input').value).trim();
+  if ((!value && !pendingFiles.length) || chatState.busy) return;
+  const files = pendingFiles;
+  pendingFiles = [];
+  chatError = null;
+  pendingMsg = { role: 'user', text: value || 'Tolong jelaskan file ini.', files: files.map((f) => ({ name: f.name, kind: f.kind })) };
+  $('chat-input').value = '';
+  sfx('blip');
+  renderChat();
+  const result = await window.kapsul.chatSend(value, files, { spoken });
+  pendingMsg = null;
+  if (!result?.ok) {
+    chatError = result?.error || 'Maaf, aku gagal menjawab.';
+    react('confused', 2200);
+  } else {
+    react('happy', 1400);
+  }
+  renderChat();
+}
+
+function onDictated(result) {
+  const heard = result?.heard?.trim();
+  if (!result?.ok || !heard) {
+    react('confused', 1800);
+    if (result?.error) say([result.error], 4000);
+    return;
+  }
+  $('chat-input').value = heard;
+  chatSend(heard, { spoken: true });
+}
+
+// Markdown ringan dari AI: **tebal** jadi tebal, "# Judul" jadi baris tebal; sisanya teks biasa.
+function richText(el, text) {
+  for (const [i, line] of String(text ?? '').split('\n').entries()) {
+    if (i) el.append('\n');
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    const parts = (heading ? `**${heading[1]}**` : line).split(/(\*\*[^*]+\*\*)/);
+    for (const part of parts) {
+      if (/^\*\*[^*]+\*\*$/.test(part)) {
+        const b = document.createElement('strong');
+        b.textContent = part.slice(2, -2);
+        el.append(b);
+      } else if (part) el.append(part);
+    }
+  }
+}
+
+const plainText = (text) => String(text ?? '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/^#{1,6}\s+/gm, '');
+
+function fileChip(f, onRemove) {
+  const chip = document.createElement('span');
+  chip.className = `file-chip ${f.kind}`;
+  chip.innerHTML = FILE_ICONS[f.kind] ?? FILE_ICONS.text;
+  const name = document.createElement('span');
+  name.textContent = f.name;
+  chip.append(name);
+  if (onRemove) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.title = `Batalkan ${f.name}`;
+    x.setAttribute('aria-label', `Batalkan ${f.name}`);
+    x.textContent = '×';
+    x.addEventListener('click', onRemove);
+    chip.append(x);
+  }
+  return chip;
+}
+
+// Kartu atas: jawaban terakhir (atau petunjuk), file yang menunggu, kolom tanya.
+function renderChatCard() {
+  const last = $('chat-last');
+  const files = $('chat-files');
+  files.hidden = !pendingFiles.length;
+  files.replaceChildren(...pendingFiles.map((f, i) => fileChip(f, () => {
+    pendingFiles.splice(i, 1);
+    renderChat();
+  })));
+  last.hidden = pendingFiles.length > 0;
+  last.classList.toggle('setup', !chatState.ready);
+  last.classList.toggle('thinking', chatState.busy);
+  const lastAnswer = [...chatState.messages].reverse().find((m) => m.role === 'assistant');
+  last.textContent = !chatState.ready
+    ? 'Atur AI dulu di Pengaturan › Ngobrol (Claude, ChatGPT, atau Gemini).'
+    : chatState.busy
+      ? 'Zeno sedang berpikir…'
+      : chatError ?? (lastAnswer ? plainText(lastAnswer.text) : 'Tanya apa saja, atau seret file ke sini supaya dilahap Zeno.');
+  $('chat-send').disabled = chatState.busy;
+}
+
+// Isi bawah: gelembung percakapan.
+function renderChatLog() {
+  $('chat-head').textContent = `Obrolan dengan Zeno · ${chatState.provider}`;
+  const log = $('chat-log');
+  log.replaceChildren();
+  if (!chatState.ready) {
+    const box = document.createElement('div');
+    box.className = 'chat-empty';
+    box.append('Zeno perlu otak AI dulu. Pilih Claude, ChatGPT, atau Gemini lalu tempel API key-mu.');
+    box.append(actionChip('Buka Pengaturan', () => window.kapsul.openSettings('chat'), { primary: true }));
+    log.append(box);
+    return;
+  }
+  const messages = [...chatState.messages, ...(pendingMsg ? [pendingMsg] : [])];
+  if (!messages.length) {
+    const box = document.createElement('div');
+    box.className = 'chat-empty';
+    box.append('Belum ada obrolan. Coba salah satu:');
+    const row = document.createElement('div');
+    row.className = 'action-row wrap';
+    for (const q of ['Ingatkan aku minum air 30 menit lagi', 'Apa jadwalku hari ini?', 'Jelaskan file yang kulampirkan']) {
+      row.append(actionChip(q, () => (q.startsWith('Jelaskan') ? $('chat-file').click() : chatSend(q))));
+    }
+    box.append(row);
+    log.append(box);
+  }
+  for (const m of messages) {
+    const bubble = document.createElement('div');
+    bubble.className = `msg ${m.role === 'user' ? 'user' : 'zeno'}`;
+    if (m.files?.length) {
+      const files = document.createElement('div');
+      files.className = 'msg-files';
+      files.append(...m.files.map((f) => fileChip(f)));
+      bubble.append(files);
+    }
+    // Aksi yang dijalankan Zeno untuk pesan ini (pengingat, timer, buka aplikasi, …).
+    if (m.actions?.length) {
+      const list = document.createElement('ul');
+      list.className = 'msg-actions';
+      for (const a of m.actions) {
+        const li = document.createElement('li');
+        li.className = a.ok ? 'ok' : 'fail';
+        li.innerHTML = a.ok
+          ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" /></svg>'
+          : '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" /></svg>';
+        const label = document.createElement('span');
+        label.textContent = a.label;
+        li.append(label);
+        list.append(li);
+      }
+      bubble.append(list);
+    }
+    const text = document.createElement('div');
+    text.className = 'msg-text';
+    if (m.role === 'user') text.textContent = m.text;
+    else richText(text, m.text);
+    bubble.append(text);
+    log.append(bubble);
+  }
+  if (chatState.busy) {
+    const typing = document.createElement('div');
+    typing.className = 'msg zeno typing-bubble';
+    typing.setAttribute('aria-label', 'Zeno sedang mengetik');
+    typing.append(...[0, 1, 2].map(() => document.createElement('i')));
+    log.append(typing);
+  }
+  if (chatError) {
+    const err = document.createElement('div');
+    err.className = 'msg zeno error';
+    err.textContent = chatError;
+    log.append(err);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+function renderChat() {
+  renderChatCard();
+  renderChatLog();
+  if (PAGES[pageIndex].id === 'chat') renderBuddy();
+}
+
+window.kapsul.onChat((state) => {
+  chatState = { ...chatState, ...(state ?? {}) };
+  if (!chatState.busy) pendingMsg = null;
+  renderChat();
+});
+
+$('chat-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  chatSend();
+});
+$('chat-attach').addEventListener('click', () => $('chat-file').click());
+$('chat-file').addEventListener('change', (event) => {
+  attachFiles(event.target.files);
+  event.target.value = '';
+});
+$('chat-mic').addEventListener('click', () => {
+  if (listening) listening.stop();
+  else startListening('dictate');
+});
+$('chat-new').addEventListener('click', () => {
+  chatError = null;
+  pendingFiles = [];
+  window.kapsul.chatReset();
+  sfx('swipe');
+});
+$('chat-last').addEventListener('click', () => {
+  if (!chatState.ready) window.kapsul.openSettings('chat');
+});
+
+// Seret file ke island: panel terbuka di section Chat, lepas = Zeno melahapnya.
+(() => {
+  let depth = 0;
+  const hasFiles = (event) => [...(event.dataTransfer?.types ?? [])].includes('Files');
+  const hide = () => {
+    depth = 0;
+    $('drop-hint').hidden = true;
+    shell.classList.remove('dropping');
+  };
+  document.addEventListener('dragenter', (event) => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    depth++;
+    if (!open) window.kapsul.expand(true);
+    goToSection('chat', { sound: false });
+    $('drop-hint').hidden = false;
+    shell.classList.add('dropping');
+    if (depth === 1) react('hungry', 1600);
+  });
+  document.addEventListener('dragover', (event) => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  });
+  document.addEventListener('dragleave', (event) => {
+    if (!hasFiles(event)) return;
+    depth = Math.max(0, depth - 1);
+    if (!depth) hide();
+  });
+  // Jangan biarkan Electron membuka file yang dilepas sebagai halaman.
+  document.addEventListener('drop', (event) => {
+    event.preventDefault();
+    if (!hasFiles(event)) return;
+    hide();
+    attachFiles(event.dataTransfer.files, { x: event.clientX, y: event.clientY });
+  });
+})();
 
 // ---------- Cari aplikasi ----------
 // Tombol panel + semua aplikasi terpasang. ↑↓ pilih, Enter buka.
@@ -2446,7 +2878,7 @@ function renderSearch() {
   const looksLikeQuestion = /\?$|^(tanya|apa|siapa|kenapa|mengapa|bagaimana|gimana|kapan|dimana|di mana|berapa)\b/.test(query);
   if (chatReady && query.length > 2 && !quick && (looksLikeQuestion || !searchMatches.length)) {
     const question = $('app-search').value.trim().replace(/^tanya\s+/i, '');
-    searchMatches.push({ name: `Tanya ${profile.buddyName || 'Zeno'}: “${question}”`, ask: true, tag: 'Claude', open: () => askFromSearch(question) });
+    searchMatches.push({ name: `Tanya ${profile.buddyName || 'Zeno'}: “${question}”`, ask: true, tag: chatName, open: () => askFromSearch(question) });
   }
   if (quickTimers.length && /^(batal|cancel|stop)/.test(query)) {
     searchMatches.unshift({ name: 'Batalkan semua timer', tag: 'Timer', open: () => window.kapsul.timer('cancel', {}) });
@@ -2507,6 +2939,7 @@ function openResult(item) {
 }
 
 let chatReady = false;
+let chatName = 'AI'; // nama penyedia obrolan (Claude, ChatGPT, Gemini) untuk label pencarian
 
 // Pertanyaan dari kotak cari: panel ditutup, Zeno "berpikir", jawaban muncul di kartu.
 async function askFromSearch(question) {
@@ -2647,6 +3080,7 @@ function renderFocusReport() {
   $('focus-stat-sessions').textContent = String(t.focus ?? 0);
   $('focus-stat-minutes').textContent = String(Math.round((t.focusMs ?? 0) / 60_000));
   const days = statsWeek.length ? statsWeek : [{ key: '', focus: t.focus ?? 0 }];
+  $('focus-stat-week').textContent = String(days.reduce((sum, d) => sum + (d.focus ?? 0), 0));
   $('focus-week-total').textContent = `${days.reduce((sum, d) => sum + (d.focus ?? 0), 0)} sesi`;
   renderWeekChart($('focus-week'), days, (d) => d.focus ?? 0, (d) => String(d.focus), (d) => `${d.focus ?? 0} sesi${d.focusMs ? ` · ${Math.round(d.focusMs / 60_000)} menit` : ''}`);
 }
@@ -2699,6 +3133,75 @@ function renderMusicReport() {
   $('music-week-total').textContent = minutesText(days.reduce((sum, d) => sum + (d.listenMs ?? 0), 0));
   renderWeekChart($('music-week'), days, (d) => d.listenMs ?? 0, (d) => String(Math.round(d.listenMs / 60_000)), (d) => `${minutesText(d.listenMs ?? 0)} mendengarkan`);
 }
+
+// ---------- Waktu layar (detail Perangkat) ----------
+
+let screenState = null;
+const hoursText = (ms) => {
+  const h = ms / 3_600_000;
+  return h >= 10 ? String(Math.round(h)) : h.toFixed(1).replace('.', ',').replace(',0', '');
+};
+const shortDate = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
+
+function renderScreen() {
+  const s = screenState ?? { today: { totalMs: 0, apps: [], count: 0 }, week: [], lastWeek: null };
+  $('screen-total').textContent = s.today.totalMs >= 60_000 ? minutesText(s.today.totalMs) : '';
+  const list = $('screen-top');
+  list.replaceChildren();
+  const longest = s.today.apps[0]?.ms || 1;
+  for (const a of s.today.apps) {
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.className = 'music-name';
+    const b = document.createElement('b');
+    b.textContent = a.name;
+    name.append(b);
+    const time = document.createElement('small');
+    time.textContent = minutesText(a.ms);
+    const bar = document.createElement('i');
+    bar.style.width = `${(100 * a.ms) / longest}%`;
+    li.append(name, time, bar);
+    list.append(li);
+  }
+  if (!s.today.apps.length) {
+    const li = document.createElement('li');
+    li.className = 'music-empty';
+    li.textContent = 'Zeno mencatat aplikasi yang kamu pakai (tanpa saat idle atau terkunci). Datanya hanya disimpan di laptop ini.';
+    list.append(li);
+  }
+
+  const days = s.week.length ? s.week : [{ key: '', ms: s.today.totalMs }];
+  const total = days.reduce((n, d) => n + (d.ms ?? 0), 0);
+  $('screen-week-total').textContent = total >= 60_000 ? `${minutesText(total / days.length)} / hari` : '';
+  renderWeekChart($('screen-week'), days, (d) => d.ms ?? 0, (d) => `${hoursText(d.ms)} j`, (d) => `${minutesText(d.ms ?? 0)} waktu layar`);
+
+  const w = s.lastWeek;
+  $('screen-weekly').hidden = !w;
+  if (w) {
+    $('screen-weekly-range').textContent = `${shortDate.format(new Date(`${w.from}T12:00`))} – ${shortDate.format(new Date(`${w.to}T12:00`))}`;
+    const stats = $('screen-weekly-stats');
+    stats.replaceChildren();
+    for (const [value, label] of [
+      [w.screenMs, 'layar'],
+      [w.focusMs, 'fokus'],
+      [w.listenMs, 'musik'],
+    ]) {
+      const cell = document.createElement('div');
+      const b = document.createElement('b');
+      b.textContent = value >= 60_000 ? minutesText(value) : '–';
+      const span = document.createElement('span');
+      span.textContent = label;
+      cell.append(b, span);
+      stats.append(cell);
+    }
+    $('screen-weekly-change').textContent = [w.change ? `Waktu layar ${w.change}.` : '', w.apps[0] ? `Paling lama di ${w.apps[0].name}.` : ''].filter(Boolean).join(' ');
+  }
+}
+
+window.kapsul.onScreen((data) => {
+  screenState = data;
+  renderScreen();
+});
 
 window.kapsul.onStats((data) => {
   statsToday = data?.today ?? null;
@@ -2801,11 +3304,14 @@ window.kapsul.onHabits((list) => {
 
 // ---------- Sistem & internet ----------
 
-function bar(id, percent, text, warn) {
+// level: 'ok' | 'mid' (kuning) | 'high' (merah) → warna meter.
+function bar(id, percent, text, level = 'ok') {
   $(id).style.width = `${percent ?? 0}%`;
-  $(id).classList.toggle('low', Boolean(warn));
+  $(id).dataset.level = level;
   $(`${id}-text`).textContent = text;
 }
+
+const loadLevel = (p) => (p == null ? 'ok' : p >= 90 ? 'high' : p >= 75 ? 'mid' : 'ok');
 
 function renderSystem() {
   const s = systemNow;
@@ -2813,11 +3319,11 @@ function renderSystem() {
   const net = $('system-net');
   net.className = `system-net ${s.online === false ? 'off' : s.online ? 'on' : ''}`;
   net.textContent = s.online == null ? 'Mengecek…' : s.online ? `Online${s.ms ? ` · ${s.ms} ms` : ''}` : 'Internet putus';
-  bar('system-cpu', s.cpu, s.cpu != null ? `${s.cpu}%` : '–', s.cpu >= 90);
-  bar('system-ram', s.memory?.percent, s.memory ? `${s.memory.percent}%` : '–', s.memory?.percent >= 90);
+  bar('system-cpu', s.cpu, s.cpu != null ? `${s.cpu}%` : '–', loadLevel(s.cpu));
+  bar('system-ram', s.memory?.percent, s.memory ? `${s.memory.percent}%` : '–', loadLevel(s.memory?.percent));
   const diskFree = s.disk ? 100 - s.disk.percent : null;
-  $('system-disk-label').textContent = s.disk?.drive ? `Disk ${s.disk.drive}` : 'Disk';
-  bar('system-disk', s.disk?.percent, s.disk ? `sisa ${bytesText(s.disk.free)}` : '–', diskFree != null && diskFree < 10);
+  $('system-disk-label').textContent = s.disk?.drive ? `Sisa disk ${s.disk.drive}` : 'Sisa disk';
+  bar('system-disk', s.disk?.percent, s.disk ? bytesText(s.disk.free) : '–', diskFree == null ? 'ok' : diskFree < 10 ? 'high' : diskFree < 20 ? 'mid' : 'ok');
 }
 
 function bytesText(n) {
@@ -2902,10 +3408,13 @@ setInterval(() => {
 function renderPet() {
   if (!petState) return;
   const hunger = Math.round(petState.hunger);
-  $('pet-level').textContent = `${profile.buddyName || 'Zeno'} · Level ${petState.level}`;
-  $('pet-xp').textContent = `${Math.floor(petState.xp)}/${petState.needed} XP`;
+  $('pet-level').textContent = profile.buddyName || 'Zeno';
+  $('pet-xp').textContent = `${Math.floor(petState.xp)} / ${petState.needed} XP ke level ${petState.level + 1}`;
+  $('pet-lv').textContent = String(petState.level);
+  $('pet-xpring').style.strokeDasharray = `${Math.min(100, (petState.xp / petState.needed) * 100)} 100`;
   $('pet-hunger').style.width = `${hunger}%`;
   $('pet-hunger').classList.toggle('low', hunger < 25);
+  $('pet-hunger-text').textContent = `${hunger}%`;
   $('pet-xpbar').style.width = `${Math.min(100, (petState.xp / petState.needed) * 100)}%`;
   if (PAGES[pageIndex].id === 'home') renderBuddy();
 }
@@ -2957,6 +3466,12 @@ function renderQuick() {
     button.hidden = quick[what] == null;
     button.setAttribute('aria-pressed', String(quick[what] === 'On'));
   }
+  // Mikrofon: tombol menyala (merah) = mikrofon dibisukan.
+  const mic = $('quick-mic');
+  mic.hidden = quick.micMuted == null;
+  mic.setAttribute('aria-pressed', String(Boolean(quick.micMuted)));
+  mic.title = quick.micMuted ? 'Nyalakan mikrofon' : 'Bisukan mikrofon';
+  mic.setAttribute('aria-label', mic.title);
 }
 
 window.kapsul.onQuickState((state) => {
@@ -2983,6 +3498,13 @@ for (const what of ['volume', 'brightness']) {
 }
 
 $('quick-mute').addEventListener('click', () => window.kapsul.quickSet('mute', 'toggle'));
+$('quick-mic').addEventListener('click', () => {
+  const muted = !(quick?.micMuted);
+  if (quick) quick = { ...quick, micMuted: muted };
+  window.kapsul.micMute(muted);
+  renderQuick();
+  sfx(muted ? 'disconnect' : 'connect');
+});
 for (const what of ['wifi', 'bluetooth']) {
   $(`quick-${what}`).addEventListener('click', () => {
     const on = $(`quick-${what}`).getAttribute('aria-pressed') === 'true';
@@ -3013,18 +3535,87 @@ for (const button of document.querySelectorAll('[data-cmd]')) {
 $('edit').addEventListener('click', () => window.kapsul.openSettings());
 $('next-reminder').addEventListener('click', () => window.kapsul.openSettings('reminders'));
 
+// "SpotifyAB.SpotifyMusic_…!Spotify" / "chrome.exe" / "Music" → nama yang dikenal orang.
+function mediaSource(app) {
+  const a = String(app ?? '');
+  if (/spotify/i.test(a)) return 'Spotify';
+  if (/msedge|edge/i.test(a)) return 'Edge';
+  if (/chrome/i.test(a)) return 'Chrome';
+  if (/firefox/i.test(a)) return 'Firefox';
+  if (/^music$|apple/i.test(a)) return 'Apple Music';
+  if (/zunemusic|mediaplayer/i.test(a)) return 'Media Player';
+  if (/vlc/i.test(a)) return 'VLC';
+  return '';
+}
+
+// Bar progres di kartu Musik (diperbarui tiap detik saat section Musik terbuka).
+function renderMusicProgress() {
+  const ms = trackPosition();
+  const duration = media.duration;
+  const show = Boolean(media.title) && ms != null && duration > 0;
+  $('np-progress').hidden = !show;
+  if (!show) return;
+  $('np-elapsed').textContent = mmss(Math.min(ms, duration));
+  $('np-total').textContent = mmss(duration);
+  $('np-bar').style.width = `${Math.min(100, (100 * ms) / duration)}%`;
+}
+
+// Lompat ke posisi lagu; tampilan langsung ikut, bridge menyusul.
+function seekTo(ms) {
+  if (!media.title || !(media.duration > 0)) return;
+  const pos = Math.max(0, Math.min(media.duration - 500, ms));
+  media = { ...media, position: pos, positionAt: Date.now() };
+  window.kapsul.seek(pos);
+  lyricIndex = -1;
+  renderMusicProgress();
+  renderLyrics();
+}
+
+// Seret di bar progres: ikut kursor, lepas = lompat.
+function makeSeekable(track, { onPreview } = {}) {
+  const fraction = (event) => {
+    const r = track.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (event.clientX - r.left) / (r.width || 1)));
+  };
+  let dragging = false;
+  // Klik di bar tidak ikut membuka detail / mengganti section.
+  track.addEventListener('click', (event) => event.stopPropagation());
+  track.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || !(media.duration > 0)) return;
+    event.stopPropagation();
+    dragging = true;
+    track.setPointerCapture(event.pointerId);
+    track.classList.add('seeking');
+    onPreview?.(fraction(event));
+  });
+  track.addEventListener('pointermove', (event) => dragging && onPreview?.(fraction(event)));
+  const end = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    track.classList.remove('seeking');
+    seekTo(fraction(event) * media.duration);
+  };
+  track.addEventListener('pointerup', end);
+  track.addEventListener('pointercancel', () => {
+    dragging = false;
+    track.classList.remove('seeking');
+  });
+}
+
 function renderMedia() {
   const hasTrack = Boolean(media.title);
 
   $('media').classList.toggle('idle', !hasTrack);
   $('title').textContent = hasTrack ? media.title : 'Tidak ada yang diputar';
-  $('artist').textContent = hasTrack ? media.artist || '' : 'Putar lagu di Spotify atau Chrome';
+  const source = hasTrack ? mediaSource(media.app) : '';
+  $('artist').textContent = hasTrack ? [media.artist, source].filter(Boolean).join(' · ') : 'Putar lagu di Spotify atau Chrome';
   $('icon-play').toggleAttribute('hidden', media.playing);
   $('icon-pause').toggleAttribute('hidden', !media.playing);
 
   const artImg = $('art-img');
   if (hasTrack && media.art) artImg.src = media.art;
   applyArtTint(hasTrack ? media.art : null);
+  renderMusicProgress();
   artImg.hidden = !(hasTrack && media.art);
   renderPillText();
   renderBuddy();
@@ -3040,6 +3631,8 @@ const timeFormat = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '
 // Bisa diatur di Pengaturan › Tampilan (saklar & durasi).
 let tickerSettings = { enabled: true, seconds: 5 };
 const PILL_ICONS = {
+  mic: '<svg viewBox="0 0 16 16"><rect x="5.5" y="1.8" width="5" height="8" rx="2.5" /><path d="M3.2 7.5a4.8 4.8 0 0 0 9.6 0M8 12.3v2" /></svg>',
+  download: '<svg viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg>',
   music: '<svg viewBox="0 0 16 16"><path d="M6 12V3.5l7-1.5V10.5" /><circle cx="4.5" cy="12" r="1.6" /><circle cx="11.5" cy="10.5" r="1.6" /></svg>',
   cloud: '<svg viewBox="0 0 16 16"><path d="M4.5 12.5h7.2a2.8 2.8 0 0 0 .2-5.6 4 4 0 0 0-7.7 1A2.3 2.3 0 0 0 4.5 12.5z" /></svg>',
   rain: '<svg viewBox="0 0 16 16"><path d="M4.5 9.5h7.2a2.8 2.8 0 0 0 .2-5.6 4 4 0 0 0-7.7 1A2.3 2.3 0 0 0 4.5 9.5zM5.5 11.5l-.7 2M8.5 11.5l-.7 2M11.5 11.5l-.7 2" /></svg>',
@@ -3091,6 +3684,32 @@ function pillOverride() {
 // Slide tersemat (fokus, timer, Claude bekerja): tampil selang-seling dengan slide lain.
 function pinnedSlides() {
   const pinned = [];
+  if (live.meeting) {
+    pinned.push({
+      key: 'meeting',
+      mood: 'hear',
+      render: (el) => {
+        const icon = document.createElement('span');
+        icon.className = `tick-icon live-mic${live.meeting.muted ? ' muted' : ''}`;
+        icon.innerHTML = PILL_ICONS.mic;
+        const time = document.createElement('span');
+        time.className = 'tabular';
+        time.textContent = clock(Date.now() - live.meeting.since);
+        const label = document.createElement('span');
+        label.className = 'dim';
+        label.textContent = ` · ${live.meeting.app}${live.meeting.muted ? ' · mic mati' : ''}`;
+        el.append(icon, time, label);
+      },
+    });
+  }
+  const dl = live.downloads[0];
+  if (dl) {
+    pinned.push({
+      key: 'download',
+      // Ukuran & kecepatan dulu (yang berubah), nama file sesudahnya karena bisa terpotong.
+      render: slideContent('download', sizeLabel(dl.bytes), `${dl.speed > 0 ? `${sizeLabel(dl.speed)}/dtk · ` : ''}${live.downloads.length > 1 ? `${live.downloads.length} file` : dl.name}`),
+    });
+  }
   const timer = quickTimers[0];
   if (timer) {
     pinned.push({
@@ -3203,7 +3822,7 @@ function renderPillText(animate = false) {
 
   const changed = slide.key !== tickKey;
   tickKey = slide.key;
-  pillSlide = override || ['focus', 'claude', 'timer'].includes(slide.key) ? null : slide;
+  pillSlide = override || ['focus', 'claude', 'timer', 'meeting', 'download'].includes(slide.key) ? null : slide;
 
   const inner = document.createElement('span');
   inner.className = 'tick';
@@ -3317,6 +3936,10 @@ function renderLyrics() {
     box.replaceChildren(
       ...lyricsNow.lines.map((line) => {
         const li = document.createElement('li');
+        if (lyricsNow.synced) {
+          li.title = 'Lompat ke baris ini';
+          li.addEventListener('click', () => seekTo(line.t + 50));
+        }
         if (line.text) {
           const text = document.createElement('span');
           text.textContent = line.text;
@@ -3369,8 +3992,13 @@ const tintCache = new Map();
 
 function applyArtTint(src) {
   const view = $('lyrics-view');
-  if (!src) return view.style.removeProperty('--tint');
-  if (tintCache.has(src)) return view.style.setProperty('--tint', tintCache.get(src));
+  const card = $('media');
+  const set = (tint) => {
+    for (const el of [view, card]) tint ? el.style.setProperty('--tint', tint) : el.style.removeProperty('--tint');
+    card.classList.toggle('tinted', Boolean(tint));
+  };
+  if (!src) return set(null);
+  if (tintCache.has(src)) return set(tintCache.get(src));
   const img = new Image();
   img.onload = () => {
     const canvas = document.createElement('canvas');
@@ -3392,8 +4020,7 @@ function applyArtTint(src) {
     const tint = n ? `rgb(${Math.round(r / n)} ${Math.round(g / n)} ${Math.round(b / n)})` : null;
     if (tintCache.size > 30) tintCache.clear();
     tintCache.set(src, tint);
-    if (tint) view.style.setProperty('--tint', tint);
-    else view.style.removeProperty('--tint');
+    set(tint);
   };
   img.src = src;
 }

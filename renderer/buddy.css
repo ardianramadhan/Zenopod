@@ -78,7 +78,7 @@
 }
 
 .buddy .cup {
-  fill: #3f3f46;
+  fill: #2a2a31;
 }
 
 .buddy .notes {
@@ -621,7 +621,6 @@
   animation: buddy-jump 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
 }
 
-.buddy .notes.on,
 .buddy .hearts.on {
   transform-origin: center;
   animation: buddy-float 1.6s ease-out infinite;
@@ -1148,5 +1147,139 @@
   .buddy *,
   .buddy[data-mood] .b-body {
     animation: none !important;
+  }
+}
+
+/* Hemat CPU: bagian wajah yang sedang tidak dipakai (mata, mulut, air mata lain) tidak dianimasikan. */
+.buddy [data-part]:not(.on),
+.buddy [data-part]:not(.on) * {
+  animation-play-state: paused !important;
+}
+
+/* ---------- Headphone & joget saat musik ---------- */
+
+.buddy .phones .band-shadow {
+  fill: none;
+  stroke: #18181b;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+
+.buddy .phones .band {
+  fill: none;
+  stroke: #3f3f46;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.buddy .phones .band-shine {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+
+.buddy .phones .cup {
+  fill: #2a2a31;
+  stroke: #18181b;
+  stroke-width: 0.5;
+}
+
+.buddy .phones .cushion {
+  fill: #52525b;
+}
+
+.buddy .phones .led {
+  fill: var(--accent, #5ba8f5);
+  opacity: 0.55;
+}
+
+.buddy .phones .cup-l,
+.buddy .phones .cup-r {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Lagu diputar: meloncat mengikuti ketukan (±115 BPM), memipih saat mendarat, kepala mengangguk
+   kiri-kanan; earcup & lampunya ikut berdenyut. Satu siklus = dua ketukan. */
+.buddy[data-mood="music"] .b-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: buddy-groove 1.04s ease-in-out infinite;
+}
+
+.buddy[data-mood="music"] .phones .led {
+  animation: buddy-led 0.52s ease-out infinite;
+}
+
+.buddy[data-mood="music"] .phones .cup-l,
+.buddy[data-mood="music"] .phones .cup-r {
+  animation: buddy-cup 0.52s ease-out infinite;
+}
+
+@keyframes buddy-groove {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg) scale(1.08, 0.92);
+  }
+  8%,
+  58% {
+    transform: translateY(-0.6px) rotate(-2deg) scale(1, 1);
+  }
+  25% {
+    transform: translateY(-3.6px) rotate(0deg) scale(0.95, 1.06);
+  }
+  50% {
+    transform: translateY(0) rotate(6deg) scale(1.08, 0.92);
+  }
+  75% {
+    transform: translateY(-3.6px) rotate(0deg) scale(0.95, 1.06);
+  }
+}
+
+@keyframes buddy-led {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes buddy-cup {
+  0% {
+    scale: 1.08;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* Dua not musik melayang bergantian dari kanan & kiri */
+.buddy .notes .flag {
+  fill: none;
+}
+
+.buddy .notes.on .note {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: buddy-float 1.6s ease-out infinite;
+}
+
+.buddy .notes.on .note.n2 {
+  animation-delay: 0.8s;
+}
+
+/* Lagu dijeda (headphone tetap terpasang): bernapas pelan, lampu redup */
+.buddy[data-mood="listen"] .phones .led {
+  opacity: 0.3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy[data-mood="music"] .b-body,
+  .buddy[data-mood="music"] .phones .led,
+  .buddy[data-mood="music"] .phones .cup-l,
+  .buddy[data-mood="music"] .phones .cup-r {
+    animation: none;
   }
 }

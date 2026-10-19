@@ -261,7 +261,10 @@ function render() {
   if (section === 'display') renderDisplay();
   if (section === 'calendar') renderCalendar();
   if (section === 'habits') renderHabitSettings();
-  if (section === 'system') renderSystemSettings();
+  if (section === 'system') {
+    renderSystemSettings();
+    renderLive();
+  }
 }
 
 // ---------- Perkenalan ----------
@@ -709,41 +712,127 @@ $('add-project').addEventListener('click', async () => {
   if (dir && !state.config.dev.projects.includes(dir)) saveDev({ projects: [...state.config.dev.projects, dir] });
 });
 
+// ---------- Aktivitas live ----------
+
+for (const key of ['privacy', 'meetings', 'downloads']) {
+  $(`live-${key}`).addEventListener('change', (e) => save({ live: { ...state.config.live, [key]: e.target.checked } }));
+}
+
+function renderLive() {
+  for (const key of ['privacy', 'meetings', 'downloads']) $(`live-${key}`).checked = state.config.live[key];
+}
+
 // ---------- Ngobrol ----------
+
+const CUSTOM_MODEL = '__lain__';
+// Model yang tersedia untuk key tersimpan, dimuat sekali per penyedia: { openai: [...], gemini: [...] }.
+const accountModels = {};
+const loadingModels = new Set();
+
+async function loadAccountModels(provider) {
+  if (loadingModels.has(provider)) return;
+  loadingModels.add(provider);
+  const result = await api.chatModels(provider);
+  loadingModels.delete(provider);
+  accountModels[provider] = result.ok ? result.models : [];
+  if (chatProvider() === provider) renderChat();
+}
+const chatProvider = () => state.config.chat.provider || 'anthropic';
+const providerInfo = () => state.chatProviders?.[chatProvider()] ?? null;
 
 function renderChat() {
   const c = state.config.chat;
+  const info = providerInfo();
   $('chat-enabled').checked = c.enabled;
-  const select = $('chat-model');
-  if (!select.options.length) {
-    for (const [id, label] of Object.entries(state.chatModels ?? {})) select.append(new Option(label, id));
+  $('chat-actions').checked = c.actions;
+
+  // Kartu pilihan penyedia
+  const box = $('chat-providers');
+  box.replaceChildren();
+  for (const [id, p] of Object.entries(state.chatProviders ?? {})) {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'chat-provider';
+    input.value = id;
+    input.checked = id === chatProvider();
+    input.addEventListener('change', () => save({ chat: { ...state.config.chat, provider: id } }).then(renderChat));
+    const name = document.createElement('b');
+    name.textContent = p.label;
+    const status = document.createElement('small');
+    status.textContent = p.keyMask ? 'Key tersimpan' : p.envKey ? `Pakai ${p.env}` : 'Belum ada key';
+    status.className = p.keyMask || p.envKey ? 'ok' : '';
+    label.append(input, name, status);
+    box.append(label);
   }
-  select.value = c.model;
-  $('chat-key-status').textContent = state.chatKeyMask
-    ? `Tersimpan: ${state.chatKeyMask}`
-    : state.chatEnvKey
-      ? 'Memakai variabel lingkungan ANTHROPIC_API_KEY.'
-      : 'Belum ada API key.';
-  $('chat-key-remove').disabled = !state.chatKeyMask;
+  if (!info) return;
+
+  $('chat-key-label').textContent = `API key ${info.short}`;
+  $('chat-key').placeholder = info.keyHint;
+  $('chat-key-where').textContent = `Buat key di ${info.keyWhere}. Key disimpan terenkripsi di laptop ini dan tidak pernah ditampilkan utuh.`;
+  $('chat-key-status').textContent = info.keyMask ? `Tersimpan: ${info.keyMask}` : info.envKey ? `Memakai variabel lingkungan ${info.env}.` : 'Belum ada API key.';
+  $('chat-key-remove').disabled = !info.keyMask;
+
+  // Model: pilihan cepat + model dari akunmu (OpenAI & Gemini) + "Model lain…"
+  const provider = chatProvider();
+  const hasKey = Boolean(info.keyMask || info.envKey);
+  if (info.customModel && hasKey && !(provider in accountModels)) loadAccountModels(provider);
+  const select = $('chat-model');
+  const quick = Object.entries(info.models ?? {}).map(([id, label]) => new Option(label, id));
+  const fromAccount = (accountModels[provider] ?? []).filter((m) => !info.models?.[m.id]);
+  if (fromAccount.length) {
+    const g1 = document.createElement('optgroup');
+    g1.label = 'Pilihan cepat';
+    g1.append(...quick);
+    const g2 = document.createElement('optgroup');
+    g2.label = 'Dari akunmu';
+    g2.append(...fromAccount.map((m) => new Option(m.label ? `${m.label} (${m.id})` : m.id, m.id)));
+    select.replaceChildren(g1, g2);
+  } else {
+    select.replaceChildren(...quick);
+  }
+  if (info.customModel) select.append(new Option('Model lain…', CUSTOM_MODEL));
+  const current = c[info.modelField];
+  const known = Boolean(info.models?.[current]) || fromAccount.some((m) => m.id === current);
+  select.value = known ? current : info.customModel && current ? CUSTOM_MODEL : Object.keys(info.models ?? {})[0];
+  $('chat-custom-field').hidden = select.value !== CUSTOM_MODEL;
+  if (select.value === CUSTOM_MODEL && document.activeElement !== $('chat-custom-model')) $('chat-custom-model').value = known ? '' : current || '';
 }
 
+const saveModel = (model) => {
+  const info = providerInfo();
+  if (info) save({ chat: { ...state.config.chat, [info.modelField]: model } });
+};
+
 $('chat-enabled').addEventListener('change', (e) => save({ chat: { ...state.config.chat, enabled: e.target.checked } }));
-$('chat-model').addEventListener('change', (e) => save({ chat: { ...state.config.chat, model: e.target.value } }));
+$('chat-actions').addEventListener('change', (e) => save({ chat: { ...state.config.chat, actions: e.target.checked } }));
+$('chat-model').addEventListener('change', (e) => {
+  const custom = e.target.value === CUSTOM_MODEL;
+  $('chat-custom-field').hidden = !custom;
+  if (custom) $('chat-custom-model').focus();
+  else saveModel(e.target.value);
+});
+$('chat-custom-model').addEventListener('change', (e) => {
+  const value = e.target.value.trim();
+  if (/^[\w.:-]{2,80}$/.test(value)) saveModel(value);
+});
 $('chat-key-form').addEventListener('submit', async (event) => {
   event.preventDefault();
-  const result = await api.chatKey($('chat-key').value);
+  const result = await api.chatKey($('chat-key').value, chatProvider());
   $('chat-key').value = '';
   if (!result.ok) {
     $('chat-key-status').textContent = result.error;
     return;
   }
   state = result.state;
+  delete accountModels[chatProvider()];
   renderChat();
 });
 $('chat-key-remove').addEventListener('click', async () => {
-  const result = await api.chatKey('');
+  const result = await api.chatKey('', chatProvider());
   if (result.ok) {
     state = result.state;
+    delete accountModels[chatProvider()];
     renderChat();
   }
 });
@@ -956,6 +1045,7 @@ function renderStats() {
     table.append(row);
   });
   $('summary-enabled').checked = state.config.stats.summary;
+  $('weekly-enabled').checked = state.config.stats.weekly;
   $('summary-time').value = state.config.stats.time;
   $('summary-time').disabled = !state.config.stats.summary;
 }
@@ -963,6 +1053,8 @@ function renderStats() {
 $('summary-enabled').addEventListener('change', (e) => save({ stats: { ...state.config.stats, summary: e.target.checked } }).then(renderStats));
 $('summary-time').addEventListener('change', (e) => e.target.value && save({ stats: { ...state.config.stats, time: e.target.value } }));
 $('preview-summary').addEventListener('click', () => api.preview('summary'));
+$('weekly-enabled').addEventListener('change', (e) => save({ stats: { ...state.config.stats, weekly: e.target.checked } }));
+$('preview-weekly').addEventListener('click', () => api.preview('weekly'));
 
 // ---------- Perintah suara ----------
 

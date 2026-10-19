@@ -6,7 +6,7 @@ if (process.argv.includes('--zenopod-hook')) {
   return;
 }
 
-const { app, BrowserWindow, Tray, Menu, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, nativeImage, screen, session, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, session, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -310,6 +310,7 @@ function setExpanded(next, { focus = false } = {}) {
       send('kapsul:peek', null);
     }
     send('kapsul:expanded', true);
+    sendScreen();
     resize();
     if (focus) win.focus();
     watchCursor();
@@ -394,6 +395,13 @@ function peekAction(id, action) {
     }
   } else if (peek.kind === 'timer') {
     if (action === 'again') startTimer(peek.ref.total, peek.ref.label);
+  } else if (peek.kind === 'weekly') {
+    // Renderer membuka detail Perangkat (lastPeek 'weekly').
+    if (action === 'open') {
+      endPeek();
+      setExpanded(true, { focus: true });
+      return;
+    }
   } else if (peek.kind === 'meeting') {
     if (action === 'join') openMeeting(peek.ref);
   } else if (peek.kind === 'habit') {
@@ -405,6 +413,11 @@ function peekAction(id, action) {
   } else if (peek.kind === 'focus') {
     if (action === 'start') focus.start('focus');
     if (action === 'break') focus.start();
+  } else if (peek.kind === 'meeting') {
+    if (action === 'mute') setMicMuted(!quickState?.micMuted);
+  } else if (peek.kind === 'download') {
+    if (action === 'open') shell.openPath(String(peek.ref));
+    if (action === 'folder') shell.showItemInFolder(String(peek.ref));
   } else if (peek.kind === 'drive') {
     if (action === 'open') openDrive(peek.ref);
     if (action === 'eject') ejectDrive(peek.ref);
@@ -437,6 +450,7 @@ async function loadConfig() {
   sendTodos();
   syncClipboard();
   sendHabits();
+  sendChat();
   updateLyrics();
   if (devTimers) {
     pollServices();
@@ -468,6 +482,7 @@ function publicState() {
     notchInset: notchInset(isCustom() ? customLayout().display : undefined),
     buddyName: config.buddy.name,
     chatReady: chatReady(),
+    chatName: chatProvider().short,
     devEnabled: config.dev.services.length > 0 || config.dev.projects.length > 0,
     focus: config.focus,
     sound: config.sound,
@@ -560,11 +575,16 @@ function handleBridge(message) {
   } else if (message.type === 'voices') {
     ttsVoices = Array.isArray(message.voices) ? message.voices : [message.voices].filter(Boolean);
     settingsWin?.webContents.send('settings:changed');
+  } else if (message.type === 'foreground') {
+    onForeground(message);
+  } else if (message.type === 'privacy') {
+    onPrivacy(message);
   } else if (message.type === 'usb') {
     onUsb(message);
   } else if (message.type === 'bluetooth') {
     onBluetooth(Array.isArray(message.devices) ? message.devices : [message.devices].filter(Boolean));
   } else if (message.type === 'quick') {
+    if (Boolean(quickState?.micMuted) !== Boolean(message.micMuted)) setTimeout(sendLive, 0);
     quickState = message;
     send('kapsul:quick-state', quickState);
   } else if (message.type === 'speech') {
@@ -617,6 +637,188 @@ async function updateLyrics({ force = false } = {}) {
   }
 }
 
+// ---------- Aktivitas live: privasi mic/kamera, rapat, unduhan ----------
+
+let privacy = { mic: [], camera: [] };
+let meeting = null; // { app, since } — mikrofon dipakai aplikasi rapat/panggilan
+let meetingEndTimer = null;
+const downloads = new Map(); // nama file sementara → { name, bytes, speed, at }
+
+// Aplikasi yang memakai mikrofon untuk rapat/panggilan (nama proses/paket, huruf kecil).
+const MEETING_APPS = {
+  zoom: 'Zoom',
+  msteams: 'Teams',
+  teams: 'Teams',
+  'ms-teams': 'Teams',
+  webex: 'Webex',
+  ciscocollabhost: 'Webex',
+  skype: 'Skype',
+  discord: 'Discord',
+  slack: 'Slack',
+  whatsapp: 'WhatsApp',
+  telegram: 'Telegram',
+  chrome: 'Chrome',
+  msedge: 'Edge',
+  firefox: 'Firefox',
+  brave: 'Brave',
+  opera: 'Opera',
+  'zoom.us': 'Zoom',
+  facetime: 'FaceTime',
+};
+
+const appLabel = (name) => MEETING_APPS[String(name).toLowerCase()] ?? String(name).replace(/^./, (c) => c.toUpperCase());
+
+function sendLive() {
+  send('kapsul:live', {
+    privacy: config.live.privacy ? { mic: privacy.mic.map(appLabel), camera: privacy.camera.map(appLabel) } : { mic: [], camera: [] },
+    meeting: config.live.meetings && meeting ? { ...meeting, muted: Boolean(quickState?.micMuted), camera: privacy.camera.length > 0 } : null,
+    downloads: config.live.downloads ? [...downloads.values()].map(({ name, bytes, speed }) => ({ name, bytes, speed })) : [],
+  });
+}
+
+function setMicMuted(muted) {
+  bridgeCommand(`quick micmute ${muted ? '1' : '0'}`);
+  if (quickState) quickState = { ...quickState, micMuted: muted };
+  sendLive();
+}
+
+function onPrivacy(message) {
+  privacy = { mic: Array.isArray(message.mic) ? message.mic : [message.mic].filter(Boolean), camera: Array.isArray(message.camera) ? message.camera : [message.camera].filter(Boolean) };
+  const caller = privacy.mic.find((name) => MEETING_APPS[String(name).toLowerCase()]);
+  if (caller) {
+    clearTimeout(meetingEndTimer);
+    meetingEndTimer = null;
+    if (!meeting) {
+      meeting = { app: appLabel(caller), since: Date.now() };
+      if (config.live.meetings && !expanded) {
+        showPeek({
+          kind: 'meeting',
+          mood: 'hear',
+          sound: 'chime',
+          app: `${meeting.app} · panggilan dimulai`,
+          title: 'Mikrofon sedang dipakai',
+          body: quickState?.micMuted ? 'Mikrofon sedang dibisukan.' : 'Zeno bisa membisukan mikrofonmu kapan saja.',
+          seconds: 8,
+          actions: [
+            { id: 'ok', label: 'Oke' },
+            { id: 'mute', label: quickState?.micMuted ? 'Nyalakan mic' : 'Bisukan mic', primary: true },
+          ],
+        });
+      }
+    } else if (meeting.app !== appLabel(caller)) meeting = { ...meeting, app: appLabel(caller) };
+  } else if (meeting && !meetingEndTimer) {
+    // Mikrofon dilepas sebentar (mis. ganti perangkat) belum berarti rapat selesai.
+    meetingEndTimer = setTimeout(() => {
+      const minutes = Math.max(1, Math.round((Date.now() - meeting.since) / 60_000));
+      if (config.live.meetings && !expanded) {
+        showPeek({ kind: 'meeting', mood: 'happy', sound: 'today', app: `${meeting.app} · panggilan selesai`, title: `Selesai dalam ${minutes} menit`, body: 'Saatnya regangkan badan sebentar.', seconds: 5 });
+      }
+      meeting = null;
+      meetingEndTimer = null;
+      sendLive();
+    }, 6000);
+  }
+  sendLive();
+}
+
+// Unduhan: browser menulis file sementara (.crdownload / .part / …) di folder Downloads,
+// lalu menggantinya dengan nama akhir saat selesai.
+const TEMP_DOWNLOAD = /\.(crdownload|part|partial|download|opdownload)$/i;
+let downloadsDir = null;
+let downloadTimer = null;
+let recentlyFinished = 0;
+
+function scanDownloads() {
+  if (!downloadsDir) return;
+  let names;
+  try {
+    names = fs.readdirSync(downloadsDir);
+  } catch {
+    return;
+  }
+  const now = Date.now();
+  const temps = new Set(names.filter((n) => TEMP_DOWNLOAD.test(n)));
+  for (const temp of temps) {
+    let bytes = 0;
+    try {
+      bytes = fs.statSync(path.join(downloadsDir, temp)).size;
+    } catch {
+      continue;
+    }
+    const prev = downloads.get(temp);
+    // "Unconfirmed 123456.crdownload" (Chrome belum tahu namanya) → tampil sebagai "File".
+    const name = /^Unconfirmed \d+/.test(temp) ? 'File' : temp.replace(TEMP_DOWNLOAD, '');
+    const speed = prev ? Math.max(0, ((bytes - prev.bytes) * 1000) / Math.max(1, now - prev.at)) : 0;
+    downloads.set(temp, { name, bytes, speed: prev ? prev.speed * 0.5 + speed * 0.5 : 0, at: now });
+  }
+  // Selesai: file sementara hilang dan file akhirnya ada.
+  for (const [temp, d] of downloads) {
+    if (temps.has(temp)) continue;
+    downloads.delete(temp);
+    const final = d.name !== 'File' && names.includes(d.name) ? d.name : newestFile(names);
+    if (final && config.live.downloads && now - recentlyFinished > 1500) {
+      recentlyFinished = now;
+      const full = path.join(downloadsDir, final);
+      let size = d.bytes;
+      try {
+        size = fs.statSync(full).size;
+      } catch {
+        // ukuran terakhir yang diketahui
+      }
+      showPeek({
+        kind: 'download',
+        mood: 'starstruck',
+        sound: 'connect',
+        app: 'Unduhan selesai',
+        title: final,
+        body: bytesLabel(size),
+        ref: full,
+        seconds: 8,
+        actions: [
+          { id: 'folder', label: 'Tampilkan di folder' },
+          { id: 'open', label: 'Buka', primary: true },
+        ],
+      });
+    }
+  }
+  sendLive();
+  clearTimeout(downloadTimer);
+  // Selama ada unduhan: perbarui ukuran & kecepatan tiap detik.
+  if (downloads.size) downloadTimer = setTimeout(scanDownloads, 1000);
+}
+
+function newestFile(names) {
+  let best = null;
+  let bestAt = Date.now() - 10_000;
+  for (const n of names) {
+    if (TEMP_DOWNLOAD.test(n) || n.startsWith('.') || n === 'desktop.ini') continue;
+    try {
+      const at = fs.statSync(path.join(downloadsDir, n)).mtimeMs;
+      if (at > bestAt) {
+        best = n;
+        bestAt = at;
+      }
+    } catch {
+      // abaikan
+    }
+  }
+  return best;
+}
+
+const bytesLabel = (n) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1).replace('.', ',')} GB` : n >= 1024 ** 2 ? `${(n / 1024 ** 2).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+function watchDownloads() {
+  try {
+    downloadsDir = app.getPath('downloads');
+    fs.watch(downloadsDir, () => {
+      clearTimeout(downloadTimer);
+      downloadTimer = setTimeout(scanDownloads, 250);
+    });
+  } catch (error) {
+    debugLog('downloads ' + error.message);
+  }
+}
+
 // ---------- Bluetooth: Zeno bereaksi saat perangkat tersambung / terputus ----------
 
 let btDevices = null; // null = daftar pertama (perangkat yang sudah tersambung tidak dianggap baru)
@@ -656,7 +858,9 @@ function bluetoothEvent(event, device) {
     sound: connected ? 'connect' : 'disconnect',
     app: connected ? 'Bluetooth · tersambung' : 'Bluetooth · terputus',
     title: device.name || 'Perangkat Bluetooth',
-    body: connected ? lines[Math.floor(Math.random() * lines.length)] : 'Sampai jumpa lagi!',
+    body: connected
+      ? `${lines[Math.floor(Math.random() * lines.length)]}${device.battery != null ? ` · baterai ${device.battery}%` : ''}`
+      : 'Sampai jumpa lagi!',
     icon: bluetoothIcon(device.kind, connected),
     seconds: 5,
   });
@@ -781,10 +985,32 @@ function sendDevices() {
   });
 }
 
+// Baterai perangkat Bluetooth ≤ 20% (lalu ≤ 10%): kabari sekali per ambang selama tersambung.
+const btLowWarned = new Map(); // id → ambang terakhir yang sudah dikabari
+
+function checkDeviceBattery(device) {
+  if (device.battery == null) return;
+  if (device.battery > 25) return btLowWarned.delete(device.id);
+  const threshold = device.battery <= 10 ? 10 : device.battery <= 20 ? 20 : null;
+  if (!threshold || (btLowWarned.get(device.id) ?? 100) <= threshold) return;
+  btLowWarned.set(device.id, threshold);
+  showPeek({
+    kind: 'bluetooth',
+    mood: 'lowbat',
+    sound: 'lowbat',
+    app: 'Bluetooth · baterai lemah',
+    title: `${device.name} · ${device.battery}%`,
+    body: device.battery <= 10 ? 'Hampir habis, isi dayanya sekarang ya.' : 'Baterainya mulai lemah, siapkan charger.',
+    icon: bluetoothIcon(device.kind, true),
+    seconds: 8,
+  });
+}
+
 function onBluetooth(devices) {
   const before = btDevices;
   btDevices = new Map(devices.filter((d) => d && d.id).map((d) => [d.id, d]));
   sendDevices();
+  if (config.bluetooth.alerts) for (const device of btDevices.values()) checkDeviceBattery(device);
   if (!before || !config.bluetooth.alerts) return;
   for (const [id, device] of btDevices) if (!before.has(id)) bluetoothEvent('connected', device);
   for (const [id, device] of before) if (!btDevices.has(id)) bluetoothEvent('disconnected', device);
@@ -796,6 +1022,13 @@ function bridgeCommand(command) {
 
 function mediaCommand(command) {
   if (['toggle', 'next', 'prev', 'refresh'].includes(command)) bridgeCommand(command);
+}
+
+// Lompat ke posisi lagu (dari bar progres atau baris lirik).
+function seekMedia(ms) {
+  const duration = Number(lastMedia?.duration) || 0;
+  if (!lastMedia?.title || !(ms >= 0) || (duration && ms > duration)) return;
+  bridgeCommand(`seek ${Math.round(ms)}`);
 }
 
 // ---------- Notifikasi Windows ----------
@@ -1470,12 +1703,15 @@ async function fallbackAnswer(heard) {
   return reply(heard, `Maaf, aku belum paham “${heard}”.`, 'confused');
 }
 
-ipcMain.handle('kapsul:audio', async (_event, wav) => {
+// mode 'dictate' (mikrofon di kotak chat): suara → teks saja, tanpa menjalankan perintah.
+ipcMain.handle('kapsul:audio', async (_event, wav, mode = 'command') => {
   if (!voice.status().ready) {
+    if (mode === 'dictate') return { ok: false, error: 'Mesin suara belum diunduh. Buka Pengaturan › Perintah suara.' };
     reply('', 'Mesin suaraku belum diunduh. Buka Pengaturan › Perintah suara ya.', 'confused');
     return { ok: false };
   }
   try {
+    if (mode === 'dictate') return { ok: true, heard: await voice.transcribe(Buffer.from(wav), 'Zeno, tolong jelaskan, ringkas, terjemahkan.') };
     const prompt = `Zeno, buka ${items.map((i) => i.name).join(', ')}. Putar musik, ingatkan aku, catat, jam berapa, cuaca.`;
     const heard = await voice.transcribe(Buffer.from(wav), prompt);
     await runVoiceCommand(heard);
@@ -1578,25 +1814,145 @@ function setupUpdates() {
 
 // ---------- Kontrol cepat Windows ----------
 
-const QUICK_KEYS = new Set(['volume', 'mute', 'brightness', 'wifi', 'bluetooth']);
+const QUICK_KEYS = new Set(['volume', 'mute', 'micmute', 'brightness', 'wifi', 'bluetooth']);
 
 function quickSet(what, value) {
   if (!QUICK_KEYS.has(what)) return;
   bridgeCommand(`quick ${what} ${String(value).replace(/\s+/g, '')}`);
 }
 
-// ---------- Ngobrol dengan Zeno (Claude API) ----------
+// ---------- Ngobrol dengan Zeno (Claude, ChatGPT, atau Gemini) ----------
 
 const conversation = new chat.Chat();
+const chatProvider = () => chat.PROVIDERS[config.chat.provider] ?? chat.PROVIDERS.anthropic;
 
-const chatReady = () => config.chat.enabled && (Boolean(config.chat.apiKeyEnc) || Boolean(process.env.ANTHROPIC_API_KEY));
+const chatReady = () => config.chat.enabled && (Boolean(config.chat[chatProvider().keyField]) || Boolean(process.env[chatProvider().env]));
 
-async function askZeno(question) {
-  return conversation.ask(question, {
-    apiKey: chat.decryptKey(config.chat.apiKeyEnc),
-    model: config.chat.model,
+// Kotak chat di panel: riwayat obrolan + status sedang menjawab.
+let chatBusy = false;
+function sendChat() {
+  send('kapsul:chat', { messages: conversation.display(), busy: chatBusy, ready: chatReady(), provider: chatProvider().short });
+}
+
+// ---------- Aksi dari obrolan (tool calling, lihat lib/zeno-tools.js) ----------
+// Tiap aksi → { ok, label (chip di kotak chat; kosong = tanpa chip), result (dikirim balik ke AI) }.
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
+function runZenoTool(name, input) {
+  const text = (v, max = 200) => String(v ?? '').trim().slice(0, max);
+  switch (name) {
+    case 'set_reminder': {
+      const title = text(input.title, 120);
+      const date = text(input.date);
+      const time = text(input.time).padStart(5, '0');
+      if (!title || !DATE_RE.test(date) || !TIME_RE.test(time)) return { ok: false, label: 'Pengingat gagal: waktunya tidak jelas', result: { error: 'title, date (YYYY-MM-DD), dan time (HH:MM) wajib' } };
+      const repeat = ['none', 'daily', 'weekdays'].includes(input.repeat) ? input.repeat : 'none';
+      const reminder = schedule.prepare({ id: crypto.randomUUID(), title, date, time, repeat, note: text(input.note) });
+      if (repeat === 'none' && reminder.next < Date.now() - 60_000) return { ok: false, label: 'Pengingat gagal: waktunya sudah lewat', result: { error: 'waktu sudah lewat' } };
+      saveConfig({ ...config, reminders: [...config.reminders, reminder] });
+      sendReminders();
+      settingsWin?.webContents.send('settings:changed');
+      return { ok: true, label: `Pengingat · ${title} · ${formatTime(reminder.next)}`, result: { when: formatTime(reminder.next) } };
+    }
+    case 'start_timer': {
+      const ms = Math.round(Number(input.minutes) * 60_000);
+      if (!(ms >= 5000 && ms <= 24 * 3_600_000)) return { ok: false, label: 'Timer gagal: lamanya tidak valid', result: { error: 'minutes antara 0.1 dan 1440' } };
+      const timer = startTimer(ms, text(input.label, 60) || undefined);
+      return { ok: true, label: `Timer · ${timer.label}`, result: { label: timer.label } };
+    }
+    case 'focus': {
+      const action = String(input.action);
+      if (action === 'start') {
+        const minutes = Math.round(Number(input.minutes)) || 0;
+        if (minutes >= 1 && minutes <= 180) focusCommand('focus', minutes);
+        else focusCommand('focus');
+        return { ok: true, label: `Fokus · ${minutes >= 1 && minutes <= 180 ? minutes : config.focus.focusMinutes} menit dimulai`, result: {} };
+      }
+      if (action === 'pause' || action === 'stop') {
+        focusCommand(action);
+        return { ok: true, label: action === 'pause' ? 'Fokus dijeda' : 'Fokus dihentikan', result: {} };
+      }
+      return { ok: false, label: 'Aksi fokus tidak dikenal', result: { error: 'action: start | pause | stop' } };
+    }
+    case 'open_app': {
+      const found = commands.matchApp(text(input.name, 80), voiceApps());
+      if (!found) return { ok: false, label: `Aplikasi “${text(input.name, 40)}” tidak ditemukan`, result: { error: 'aplikasi tidak ditemukan' } };
+      apps.launch(found.item ?? { launch: found.installed.aumid ? { aumid: found.installed.aumid } : { target: found.installed.target } });
+      statsAdd('apps');
+      return { ok: true, label: `Membuka ${found.name}`, result: { opened: found.name } };
+    }
+    case 'media_control': {
+      const action = String(input.action);
+      if (!['play', 'pause', 'next', 'prev'].includes(action)) return { ok: false, label: 'Aksi musik tidak dikenal', result: { error: 'action: play | pause | next | prev' } };
+      if (!lastMedia?.title) return { ok: false, label: 'Tidak ada musik yang terbuka', result: { error: 'tidak ada pemutar media aktif' } };
+      const playing = Boolean(lastMedia.playing);
+      if ((action === 'play' && !playing) || (action === 'pause' && playing)) bridgeCommand('toggle');
+      if (action === 'next' || action === 'prev') bridgeCommand(action);
+      const label = { play: 'Musik diputar', pause: 'Musik dijeda', next: 'Lagu berikutnya', prev: 'Lagu sebelumnya' }[action];
+      return { ok: true, label, result: { track: `${lastMedia.title}${lastMedia.artist ? ` - ${lastMedia.artist}` : ''}` } };
+    }
+    case 'add_todo': {
+      const todo = text(input.text);
+      if (!todo) return { ok: false, label: 'Tugas kosong', result: { error: 'text wajib' } };
+      todoCommand('add', { text: todo });
+      return { ok: true, label: `Tugas · ${todo}`, result: {} };
+    }
+    case 'get_schedule': {
+      const tomorrow = input.day === 'tomorrow';
+      const now = new Date();
+      const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (tomorrow ? 2 : 1)).getTime();
+      const reminders = config.reminders
+        .filter((r) => !r.done && r.next >= now.getTime() - 60_000 && r.next < dayEnd)
+        .sort((a, b) => a.next - b.next)
+        .map((r) => `${formatTime(r.next)} ${r.title}`);
+      // Membaca saja: tanpa chip.
+      return {
+        ok: true,
+        label: '',
+        result: { calendar: agendaText(tomorrow), reminders, todos: config.todos.filter((t) => !t.done).map((t) => t.text).slice(0, 20) },
+      };
+    }
+    default:
+      return { ok: false, label: '', result: { error: `tool ${name} tidak ada` } };
+  }
+}
+
+async function askZeno(question, { files = [], style = 'card' } = {}) {
+  const p = chatProvider();
+  chatBusy = true;
+  sendChat();
+  try {
+    return await conversation.ask(question, {
+      files,
+      style,
+    provider: config.chat.provider,
+    // Claude: tanpa key tersimpan, SDK membaca ANTHROPIC_API_KEY sendiri.
+    apiKey: chat.decryptKey(config.chat[p.keyField]) || (config.chat.provider === 'anthropic' ? '' : process.env[p.env] || ''),
+    model: config.chat[p.modelField],
     buddyName: config.buddy.name,
     userName: config.user.name,
+    runTool: config.chat.actions ? runZenoTool : null,
+    });
+  } finally {
+    chatBusy = false;
+    sendChat();
+  }
+}
+
+// Lampiran dari kotak chat: gambar ≤ 5 MB, PDF ≤ 10 MB, teks ≤ 300 rb karakter; maks. 4 file.
+const CHAT_IMAGE = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
+function cleanChatFiles(files) {
+  if (!Array.isArray(files)) return [];
+  return files.slice(0, 4).flatMap((f) => {
+    const name = String(f?.name ?? 'file').slice(0, 120);
+    if (f?.kind === 'text' && typeof f.text === 'string') return [{ name, mime: 'text/plain', kind: 'text', text: f.text.slice(0, 300_000) }];
+    if (typeof f?.data !== 'string') return [];
+    const bytes = Math.floor((f.data.length * 3) / 4);
+    if (f.kind === 'image' && CHAT_IMAGE.has(f.mime) && bytes <= 5 * 1024 * 1024) return [{ name, mime: f.mime, kind: 'image', data: f.data }];
+    if (f.kind === 'pdf' && bytes <= 10 * 1024 * 1024) return [{ name, mime: 'application/pdf', kind: 'pdf', data: f.data }];
+    return [];
   });
 }
 
@@ -1804,6 +2160,128 @@ function sendStats() {
     send('kapsul:stats', payload);
     settingsWin?.webContents.send('settings:changed');
   }, 300);
+}
+
+// ---------- Waktu layar & laporan mingguan ----------
+// Bridge mengirim aplikasi di depan saat berganti; tiap 15 dtk waktunya ditambahkan ke aplikasi itu,
+// kecuali saat layar terkunci, laptop tidur, atau idle > 2 menit (menonton video tetap dihitung).
+
+const SCREEN_TICK_MS = 15_000;
+const IDLE_LIMIT_S = 120;
+const NOT_SCREEN = /^(zenopod|electron|lockapp|searchhost|shellexperiencehost|startmenuexperiencehost)$/i;
+let foregroundApp = null;
+let screenLocked = false;
+let screenAt = Date.now();
+let screenTicks = 0;
+
+function screenTick() {
+  const now = Date.now();
+  const elapsed = now - screenAt;
+  screenAt = now;
+  // Lompatan besar = laptop baru bangun dari tidur: tidak dihitung.
+  if (!foregroundApp || screenLocked || elapsed > 4 * SCREEN_TICK_MS) return;
+  if (powerMonitor.getSystemIdleTime() > IDLE_LIMIT_S && !lastMedia?.playing) return;
+  stats.screen(foregroundApp, elapsed);
+}
+
+function onForeground(message) {
+  screenTick();
+  const name = String(message.app ?? '').trim().slice(0, 60);
+  foregroundApp = name && !NOT_SCREEN.test(String(message.process ?? '')) && !NOT_SCREEN.test(name) ? name : null;
+}
+
+const mondayOf = (date = new Date()) => {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+};
+
+function weeklyReports() {
+  const thisMonday = mondayOf();
+  const last = new Date(thisMonday);
+  last.setDate(last.getDate() - 7);
+  const before = new Date(last);
+  before.setDate(before.getDate() - 7);
+  return { last: stats.weekReport(last), before: stats.weekReport(before) };
+}
+
+// Selisih terhadap minggu sebelumnya: "12% lebih sedikit" / null kalau tidak ada pembanding.
+function changeText(now, before) {
+  if (!(before > 30 * 60_000) || !(now > 0)) return null;
+  const pct = Math.round(((now - before) / before) * 100);
+  if (Math.abs(pct) < 3) return 'sama seperti minggu sebelumnya';
+  return `${Math.abs(pct)}% ${pct < 0 ? 'lebih sedikit' : 'lebih banyak'} dari minggu sebelumnya`;
+}
+
+function sendScreen() {
+  const today = stats.day();
+  const apps = stats.screenApps([dayKey()]);
+  const week = stats.week().map((d) => ({ key: d.key, ms: Object.values(d.screen ?? {}).reduce((n, ms) => n + ms, 0) }));
+  const { last, before } = weeklyReports();
+  send('kapsul:screen', {
+    today: { totalMs: Object.values(today.screen ?? {}).reduce((n, ms) => n + ms, 0), apps: apps.slice(0, 6), count: apps.length },
+    week,
+    lastWeek: last.screenMs > 0 || last.focusMs > 0 ? { ...last, change: changeText(last.screenMs, before.screenMs) } : null,
+  });
+}
+
+// Senin (mulai jam 9, atau saat pertama dibuka sesudahnya): ringkasan minggu lalu, sekali per minggu.
+// force: dari tombol pratinjau di Pengaturan (tanpa menandai sudah tampil).
+function checkWeekly(force = false) {
+  const now = new Date();
+  const monday = dayKey(mondayOf(now));
+  if (!force) {
+    if (!config.stats?.weekly || stats.data.weeklyShownFor === monday) return;
+    if (now.getDay() === 1 && now.getHours() < 9) return;
+    stats.data.weeklyShownFor = monday;
+    stats.save();
+  }
+  const { last, before } = weeklyReports();
+  if (!(last.screenMs > 0 || last.focusMs > 0)) {
+    if (force) showPeek({ kind: 'weekly', mood: 'thinking', app: 'Laporan minggu lalu', title: 'Belum ada data minggu lalu', body: 'Zeno mulai mencatat waktu layar & fokus minggu ini. Laporan pertama muncul Senin depan.', seconds: 7 });
+    return;
+  }
+  const top = last.apps[0];
+  const lines = [
+    last.screenMs > 0 ? `Waktu layar ${duration(last.screenMs)}${changeText(last.screenMs, before.screenMs) ? `, ${changeText(last.screenMs, before.screenMs)}` : ''}.` : '',
+    top ? `Paling lama di ${top.name} (${duration(top.ms)}).` : '',
+    last.focusMs > 0 ? `Fokus ${duration(last.focusMs)} dalam ${last.focus} sesi.` : '',
+    last.listenMs > 0 ? `Musik ${duration(last.listenMs)}.` : '',
+    last.todos > 0 ? `${last.todos} tugas selesai.` : '',
+  ].filter(Boolean);
+  showPeek({
+    kind: 'weekly',
+    mood: 'starstruck',
+    sound: 'today',
+    app: 'Laporan minggu lalu',
+    title: `${last.activeDays} hari aktif minggu lalu`,
+    body: lines.join(' '),
+    seconds: 14,
+    actions: [
+      { id: 'ok', label: 'Oke' },
+      { id: 'open', label: 'Lihat detail', primary: true },
+    ],
+  });
+}
+
+function startScreenTime() {
+  powerMonitor.on('lock-screen', () => {
+    screenTick();
+    screenLocked = true;
+  });
+  powerMonitor.on('unlock-screen', () => {
+    screenLocked = false;
+    screenAt = Date.now();
+  });
+  powerMonitor.on('suspend', () => screenTick());
+  powerMonitor.on('resume', () => (screenAt = Date.now()));
+  setInterval(() => {
+    screenTick();
+    // Detail Perangkat diperbarui tiap menit selama panel terbuka.
+    if (expanded && ++screenTicks % 4 === 0) sendScreen();
+  }, SCREEN_TICK_MS);
+  setTimeout(checkWeekly, 20_000);
+  setInterval(checkWeekly, 30 * 60_000);
 }
 
 function statsAdd(field, amount = 1) {
@@ -2327,6 +2805,24 @@ function settingsState() {
     chatModels: chat.MODELS,
     chatKeyMask: chat.maskKey(config.chat.apiKeyEnc),
     chatEnvKey: Boolean(process.env.ANTHROPIC_API_KEY),
+    // Per penyedia (tanpa pola regex, yang tidak bisa dikirim lewat IPC).
+    chatProviders: Object.fromEntries(
+      Object.entries(chat.PROVIDERS).map(([id, p]) => [
+        id,
+        {
+          label: p.label,
+          short: p.short,
+          keyHint: p.keyHint,
+          keyWhere: p.keyWhere,
+          env: p.env,
+          customModel: p.customModel,
+          modelField: p.modelField,
+          models: id === 'anthropic' ? chat.MODELS : p.models,
+          keyMask: chat.maskKey(config.chat[p.keyField]),
+          envKey: Boolean(process.env[p.env]),
+        },
+      ]),
+    ),
     platform: process.platform,
     calendarStatus: {
       checkedAt: calendarState.checkedAt,
@@ -2398,16 +2894,30 @@ ipcMain.handle('settings:search-city', async (_event, name) => {
 });
 
 // API key hanya lewat sini: dienkripsi sebelum disimpan, tidak pernah dikirim balik utuh.
-ipcMain.handle('settings:chat-key', async (_event, key) => {
+ipcMain.handle('settings:chat-key', async (_event, key, provider = 'anthropic') => {
+  const p = chat.PROVIDERS[provider];
+  if (!p) return { ok: false, error: 'Penyedia tidak dikenal.' };
   const value = typeof key === 'string' ? key.trim() : '';
-  if (value && !/^sk-ant-/.test(value)) return { ok: false, error: 'API key Claude diawali "sk-ant-".' };
+  if (value && !p.keyPattern.test(value)) return { ok: false, error: p.keyError };
   try {
-    saveConfig({ ...config, chat: { ...config.chat, apiKeyEnc: chat.encryptKey(value) } });
+    saveConfig({ ...config, chat: { ...config.chat, [p.keyField]: chat.encryptKey(value) } });
     conversation.reset();
     await loadConfig();
     return { ok: true, state: settingsState() };
   } catch (error) {
     return { ok: false, error: error.message };
+  }
+});
+
+// Model yang tersedia untuk key tersimpan (OpenAI & Gemini), supaya pilihan model tidak usang.
+ipcMain.handle('settings:chat-models', async (_event, provider) => {
+  const p = chat.PROVIDERS[provider];
+  if (!p || provider === 'anthropic') return { ok: false, models: [] };
+  try {
+    const key = chat.decryptKey(config.chat[p.keyField]) || process.env[p.env] || '';
+    return { ok: true, models: await chat.listModels(provider, key) };
+  } catch (error) {
+    return { ok: false, error: error.message, models: [] };
   }
 });
 
@@ -2465,6 +2975,7 @@ ipcMain.handle('settings:pick-folder', async () => {
 ipcMain.handle('settings:preview', (_event, kind) => {
   if (kind === 'greeting') greet();
   if (kind === 'summary') showSummary();
+  if (kind === 'weekly') checkWeekly(true);
   return true;
 });
 
@@ -2571,6 +3082,7 @@ ipcMain.on('kapsul:launch', (_event, index) => {
   setExpanded(false);
 });
 ipcMain.on('kapsul:media', (_event, command) => mediaCommand(String(command)));
+ipcMain.on('kapsul:seek', (_event, ms) => seekMedia(Number(ms)));
 ipcMain.on('kapsul:notif-open', (_event, id) => openNotification(Number(id)));
 ipcMain.on('kapsul:notif-dismiss', (_event, id) => bridgeCommand(`dismiss ${Number(id)}`));
 ipcMain.on('kapsul:notif-clear', () => bridgeCommand('clear'));
@@ -2584,6 +3096,7 @@ ipcMain.on('kapsul:detail', (_event, value) => {
   detail = Boolean(value);
   if (expanded) resize();
 });
+ipcMain.on('kapsul:mic-mute', (_event, muted) => setMicMuted(Boolean(muted)));
 ipcMain.on('kapsul:drive', (_event, action, letter) => {
   if (!usbDrives?.has(String(letter))) return;
   if (action === 'open') openDrive(String(letter));
@@ -2609,11 +3122,31 @@ ipcMain.on('kapsul:clip', (_event, action, id) => clipCommand(String(action), id
 ipcMain.on('kapsul:todo', (_event, action, payload) => todoCommand(String(action), payload ?? {}));
 ipcMain.on('kapsul:position', (_event, position) => setPosition(String(position)));
 ipcMain.on('kapsul:drag-start', () => dragStart());
+// Kotak chat: pertanyaan (+ file) → jawaban; riwayat dikirim lewat 'kapsul:chat'.
+ipcMain.handle('kapsul:chat-send', async (_event, text, files, { spoken = false } = {}) => {
+  const q = String(text ?? '').trim();
+  const attached = cleanChatFiles(files);
+  if (!q && !attached.length) return { ok: false };
+  if (!chatReady()) return { ok: false, error: `Atur dulu API key ${chatProvider().short} di Pengaturan › Ngobrol ya.` };
+  try {
+    const answer = await askZeno(q || 'Tolong jelaskan file ini.', { files: attached, style: 'chat' });
+    // Ditanya lewat suara: jawabannya dibacakan.
+    if (spoken) speak(answer);
+    return { ok: true, answer };
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+});
+ipcMain.on('kapsul:chat-reset', () => {
+  conversation.reset();
+  sendChat();
+});
+
 ipcMain.handle('kapsul:ask', async (_event, question) => {
   const q = String(question).trim();
   if (!q) return { ok: false };
   if (!chatReady()) {
-    reply(q, 'Atur dulu API key Claude di Pengaturan › Ngobrol ya.', 'confused');
+    reply(q, `Atur dulu API key ${chatProvider().short} di Pengaturan › Ngobrol ya.`, 'confused');
     return { ok: false };
   }
   try {
@@ -2662,6 +3195,9 @@ ipcMain.on('kapsul:ready', (event) => {
   event.sender.send('kapsul:media', lastMedia);
   event.sender.send('kapsul:lyrics', lyricsState);
   sendDevices();
+  sendChat();
+  sendLive();
+  sendScreen();
   sendNotifications();
   sendReminders();
   sendClaude();
@@ -2696,6 +3232,8 @@ app.whenReady().then(async () => {
   await loadConfig();
   watchConfig();
   startBridge();
+  watchDownloads();
+  startScreenTime();
   feedCursor();
   claude.startServer(onClaudeEvent, onPermission);
   watchGreetings();

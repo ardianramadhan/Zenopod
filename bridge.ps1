@@ -5,7 +5,7 @@
 # - Bluetooth: perangkat yang sedang tersambung (untuk reaksi Zeno saat tersambung/terputus).
 # - USB: perangkat USB luar (bukan bawaan laptop) dan drive (flashdisk / hard disk eksternal).
 # Menulis satu baris JSON per perubahan: {type: media|notifications|icon|bluetooth|usb, ...}.
-# Perintah dari stdin: toggle | next | prev | refresh | dismiss <id> | clear | speak | quick | ocr <id> <file> | eject <E:>.
+# Perintah dari stdin: toggle | next | prev | seek <ms> | refresh | dismiss <id> | clear | speak | quick | ocr <id> <file> | eject <E:>.
 
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -190,14 +190,24 @@ interface IMMDevice { int Activate(ref System.Guid id, int clsCtx, int activatio
 interface IMMDeviceEnumerator { int f(); int GetDefaultAudioEndpoint(int dataFlow, int role, out IMMDevice endpoint); }
 [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] class MMDeviceEnumeratorComObject { }
 public class ZenoAudio {
-  static IAudioEndpointVolume Vol() {
+  // flow 0 = speaker, 1 = mikrofon; role 0 = konsol, 1 = multimedia, 2 = komunikasi (rapat).
+  static IAudioEndpointVolume Endpoint(int flow, int role) {
     var enumerator = new MMDeviceEnumeratorComObject() as IMMDeviceEnumerator;
     IMMDevice dev = null;
-    Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(0, 1, out dev));
+    Marshal.ThrowExceptionForHR(enumerator.GetDefaultAudioEndpoint(flow, role, out dev));
     IAudioEndpointVolume epv = null;
     var id = typeof(IAudioEndpointVolume).GUID;
     Marshal.ThrowExceptionForHR(dev.Activate(ref id, 23, 0, out epv));
     return epv;
+  }
+  static IAudioEndpointVolume Vol() { return Endpoint(0, 1); }
+  // Mikrofon: bisukan perangkat bawaan untuk rapat dan untuk umum (sering perangkat yang sama).
+  public static bool MicMute {
+    get { bool m; Marshal.ThrowExceptionForHR(Endpoint(1, 2).GetMute(out m)); return m; }
+    set {
+      Marshal.ThrowExceptionForHR(Endpoint(1, 2).SetMute(value, System.Guid.Empty));
+      try { Marshal.ThrowExceptionForHR(Endpoint(1, 0).SetMute(value, System.Guid.Empty)); } catch { }
+    }
   }
   public static float Volume { get { float v = -1; Marshal.ThrowExceptionForHR(Vol().GetMasterVolumeLevelScalar(out v)); return v; } set { Marshal.ThrowExceptionForHR(Vol().SetMasterVolumeLevelScalar(value, System.Guid.Empty)); } }
   public static bool Mute { get { bool m; Marshal.ThrowExceptionForHR(Vol().GetMute(out m)); return m; } set { Marshal.ThrowExceptionForHR(Vol().SetMute(value, System.Guid.Empty)); } }
@@ -219,8 +229,9 @@ function Get-Radios {
 $lastQuick = $null
 
 function Emit-Quick([bool]$force) {
-    $state = @{ type = 'quick'; volume = $null; muted = $null; brightness = $null; wifi = $null; bluetooth = $null }
+    $state = @{ type = 'quick'; volume = $null; muted = $null; micMuted = $null; brightness = $null; wifi = $null; bluetooth = $null }
     try { $state.volume = [int][math]::Round([ZenoAudio]::Volume * 100); $state.muted = [ZenoAudio]::Mute } catch { }
+    try { $state.micMuted = [ZenoAudio]::MicMute } catch { }
     try { $state.brightness = [int](Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction Stop | Select-Object -First 1).CurrentBrightness } catch { }
     try {
         foreach ($r in (Get-Radios)) {
@@ -228,7 +239,7 @@ function Emit-Quick([bool]$force) {
             if ($r.Kind.ToString() -eq 'Bluetooth') { $state.bluetooth = $r.State.ToString() }
         }
     } catch { }
-    $key = "$($state.volume)|$($state.muted)|$($state.brightness)|$($state.wifi)|$($state.bluetooth)"
+    $key = "$($state.volume)|$($state.muted)|$($state.micMuted)|$($state.brightness)|$($state.wifi)|$($state.bluetooth)"
     if (-not $force -and $key -eq $script:lastQuick) { return }
     $script:lastQuick = $key
     Send $state
@@ -256,21 +267,48 @@ function Get-BluetoothKind($id) {
     return $kind
 }
 
+# Baterai perangkat Bluetooth (DEVPKEY_Bluetooth_Battery) per wadah perangkat: headset, mouse,
+# keyboard, dll. yang melaporkannya (lewat profil Hands-Free atau layanan baterai BLE). ±40 ms.
+$btBatteryKey = '{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2'
+function Get-BluetoothBatteries {
+    $map = @{}
+    try {
+        $sel = 'System.Devices.DeviceInstanceId:~<"BTHENUM\" OR System.Devices.DeviceInstanceId:~<"BTHLE\"'
+        $list = Await ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync($sel, [string[]]@($script:btBatteryKey, 'System.Devices.ContainerId'), [Windows.Devices.Enumeration.DeviceInformationKind]::Device)) `
+            ([Windows.Devices.Enumeration.DeviceInformationCollection])
+        foreach ($d in $list) {
+            $level = $null; $container = $null
+            foreach ($kv in $d.Properties) {
+                if ($kv.Key -eq $script:btBatteryKey -and $kv.Value -ne $null) { $level = [int]$kv.Value }
+                if ($kv.Key -eq 'System.Devices.ContainerId' -and $kv.Value) { $container = "$($kv.Value)".ToLower() }
+            }
+            if ($container -and $level -ne $null) { $map[$container] = $level }
+        }
+    } catch { }
+    return $map
+}
+
 function Emit-Bluetooth([bool]$force) {
     $devices = @()
+    $batteries = Get-BluetoothBatteries
     $selectors = @(
         @([Windows.Devices.Bluetooth.BluetoothDevice]::GetDeviceSelectorFromConnectionStatus('Connected'), $true),
         @([Windows.Devices.Bluetooth.BluetoothLEDevice]::GetDeviceSelectorFromConnectionStatus('Connected'), $false)
     )
     foreach ($pair in $selectors) {
-        $list = Await ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync($pair[0])) ([Windows.Devices.Enumeration.DeviceInformationCollection])
+        $list = Await ([Windows.Devices.Enumeration.DeviceInformation]::FindAllAsync($pair[0], [string[]]@('System.Devices.ContainerId', 'System.Devices.Aep.ContainerId'))) ([Windows.Devices.Enumeration.DeviceInformationCollection])
         foreach ($d in $list) {
             if (-not $d.Name) { continue }
             $kind = if ($pair[1]) { Get-BluetoothKind $d.Id } else { 'other' }
-            $devices += @{ id = $d.Id; name = $d.Name; kind = $kind }
+            $container = $null
+            # Daftar Bluetooth memakai kunci Aep.ContainerId; simpul perangkat memakai ContainerId.
+            foreach ($kv in $d.Properties) { if (($kv.Key -eq 'System.Devices.ContainerId' -or $kv.Key -eq 'System.Devices.Aep.ContainerId') -and $kv.Value) { $container = "$($kv.Value)".ToLower() } }
+            $battery = if ($container -and $batteries.ContainsKey($container)) { $batteries[$container] } else { $null }
+            $devices += @{ id = $d.Id; name = $d.Name; kind = $kind; battery = $battery }
         }
     }
-    $key = ($devices | ForEach-Object { $_.id } | Sort-Object) -join ','
+    # Persen baterai ikut dibandingkan, supaya perubahannya juga dikirim.
+    $key = ($devices | ForEach-Object { "$($_.id)=$($_.battery)" } | Sort-Object) -join ','
     if (-not $force -and $key -eq $script:lastBluetooth) { return }
     $script:lastBluetooth = $key
     Send @{ type = 'bluetooth'; devices = @($devices) }
@@ -343,10 +381,53 @@ function Eject-Drive($letter) {
     if ($item) { $item.InvokeVerb('Eject') }
 }
 
+# ---------- Privasi: aplikasi yang sedang memakai mikrofon / kamera ----------
+# Sumber yang sama dengan ikon mikrofon di taskbar: CapabilityAccessManager mencatat waktu mulai &
+# berhenti per aplikasi; LastUsedTimeStop = 0 artinya sedang dipakai. Zenopod sendiri dilewati.
+
+$consentRoot = 'Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore'
+$lastPrivacy = $null
+
+function Get-CapabilityUsers($cap) {
+    $names = @()
+    $base = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("$($script:consentRoot)\$cap")
+    if (-not $base) { return $names }
+    $scan = @(@($base, $false))
+    $np = $base.OpenSubKey('NonPackaged')
+    if ($np) { $scan += , @($np, $true) }
+    foreach ($pair in $scan) {
+        $key = $pair[0]
+        foreach ($sub in $key.GetSubKeyNames()) {
+            if ($sub -eq 'NonPackaged') { continue }
+            $k = $key.OpenSubKey($sub)
+            if (-not $k) { continue }
+            $start = $k.GetValue('LastUsedTimeStart'); $stop = $k.GetValue('LastUsedTimeStop')
+            $k.Close()
+            if ($start -eq $null -or [long]$start -eq 0 -or [long]$stop -ne 0) { continue }
+            # "C:#Users#…#Zoom.exe" → "Zoom"; "MSTeams_8wekyb3d8bbwe" → "MSTeams"
+            $name = if ($pair[1]) { [IO.Path]::GetFileNameWithoutExtension(($sub -split '#')[-1]) } else { ($sub -split '_')[0] }
+            if ($name -match '^(Zenopod|electron)$') { continue }
+            $names += $name
+        }
+        $key.Close()
+    }
+    return @($names | Sort-Object -Unique)
+}
+
+function Emit-Privacy([bool]$force) {
+    $mic = @(); $camera = @()
+    try { $mic = Get-CapabilityUsers 'microphone'; $camera = Get-CapabilityUsers 'webcam' } catch { }
+    $key = "$($mic -join ',')|$($camera -join ',')"
+    if (-not $force -and $key -eq $script:lastPrivacy) { return }
+    $script:lastPrivacy = $key
+    Send @{ type = 'privacy'; mic = @($mic); camera = @($camera) }
+}
+
 function Set-Quick($what, $value) {
     switch ($what) {
         'volume' { [ZenoAudio]::Volume = [math]::Max(0, [math]::Min(100, [double]$value)) / 100; if ([ZenoAudio]::Mute) { [ZenoAudio]::Mute = $false } }
         'mute' { [ZenoAudio]::Mute = if ($value -eq 'toggle') { -not [ZenoAudio]::Mute } else { $value -eq '1' } }
+        'micmute' { [ZenoAudio]::MicMute = if ($value -eq 'toggle') { -not [ZenoAudio]::MicMute } else { $value -eq '1' } }
         'brightness' {
             $level = [int][math]::Max(0, [math]::Min(100, [double]$value))
             Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods | Invoke-CimMethod -MethodName WmiSetBrightness -Arguments @{ Timeout = 1; Brightness = [byte]$level } | Out-Null
@@ -431,12 +512,61 @@ function Speak($id, $payload) {
 # jadi stdin dibaca lewat StreamReader sendiri (benar-benar async).
 $stdin = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), [System.Text.Encoding]::UTF8)
 $pending = $stdin.ReadLineAsync()
+# ---------- Waktu layar: aplikasi yang sedang di depan ----------
+# Dikirim hanya saat berganti; main.js yang menghitung lamanya (dan melewati saat idle/terkunci).
+
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class ZenoWin {
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int max);
+  public static uint ForegroundPid() { uint pid; GetWindowThreadProcessId(GetForegroundWindow(), out pid); return pid; }
+  public static string ForegroundTitle() { var sb = new StringBuilder(256); GetWindowText(GetForegroundWindow(), sb, 256); return sb.ToString(); }
+}
+"@
+
+$appNames = @{}   # pid → nama ramah ("Google Chrome", bukan "chrome")
+$lastForeground = $null
+
+function Emit-Foreground {
+    $procId = [ZenoWin]::ForegroundPid()
+    $name = $null
+    if ($procId -gt 0) {
+        $proc = Get-Process -Id $procId -ErrorAction SilentlyContinue
+        if ($proc) {
+            if ($proc.ProcessName -eq 'ApplicationFrameHost') {
+                # Aplikasi Store (Pengaturan, Kalkulator, …) dibungkus satu proses: pakai judul jendelanya.
+                $name = [ZenoWin]::ForegroundTitle()
+            } elseif ($proc.ProcessName -match '^(LockApp|Idle)$') {
+                $name = $null
+            } else {
+                if (-not $appNames.ContainsKey($procId)) {
+                    $desc = $null
+                    try { $desc = $proc.MainModule.FileVersionInfo.FileDescription } catch { }
+                    if (-not $desc -or $desc.Length -gt 40) { $desc = $proc.ProcessName }
+                    $appNames[$procId] = $desc.Trim()
+                    if ($appNames.Count -gt 300) { $appNames.Clear() }
+                }
+                $name = $appNames[$procId]
+            }
+        }
+    }
+    $key = "$procId|$name"
+    if ($key -eq $script:lastForeground) { return }
+    $script:lastForeground = $key
+    Send @{ type = 'foreground'; app = $name; process = if ($proc) { $proc.ProcessName } else { $null } }
+}
+
 try { Emit-Media $true } catch { }
 try { Emit-Notifications $true } catch { }
 try { Emit-Voices } catch { }
 try { Emit-Quick $true } catch { }
 try { Emit-Bluetooth $true } catch { }
 try { Emit-Usb $true } catch { }
+try { Emit-Privacy $true } catch { }
 $quickTick = 0
 
 while ($true) {
@@ -448,6 +578,8 @@ while ($true) {
         try {
             switch ($parts[0]) {
                 'toggle'  { if ($session) { Await ($session.TryTogglePlayPauseAsync()) ([bool]) | Out-Null } }
+                # seek <ms>: lompat ke posisi lagu (TimeSpan dalam tick 100 ns).
+                'seek'    { if ($session) { Await ($session.TryChangePlaybackPositionAsync([long]$parts[1] * 10000)) ([bool]) | Out-Null; Start-Sleep -Milliseconds 150; Emit-Media $true } }
                 'next'    { if ($session) { Await ($session.TrySkipNextAsync()) ([bool]) | Out-Null } }
                 'prev'    { if ($session) { Await ($session.TrySkipPreviousAsync()) ([bool]) | Out-Null } }
                 'refresh' { Emit-Media $true; Emit-Notifications $true }
@@ -468,7 +600,11 @@ while ($true) {
     # Volume/kecerahan/radio bisa berubah dari luar: cek tiap ±4 detik.
     $quickTick++
     # USB & drive tiap ±1,6 dtk (cepat: satu kueri WinRT + daftar drive).
-    if ($quickTick % 2 -eq 0) { try { Emit-Usb $false } catch { } }
+    try { Emit-Foreground } catch { }
+    if ($quickTick % 2 -eq 0) {
+        try { Emit-Usb $false } catch { }
+        try { Emit-Privacy $false } catch { }
+    }
     if ($quickTick -ge 6) {
         $quickTick = 0
         try { Emit-Quick $false } catch { }

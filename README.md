@@ -17,14 +17,14 @@ Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama
 - 💧 **Istirahat sehat:** pengingat istirahat mata (aturan 20-20-20) dan minum air.
 - ⏱️ **Timer dan kalkulator cepat:** ketik `250.000 x 3` atau `timer 10 menit` di kotak cari.
 - 🔊 **Kontrol cepat Windows:** volume, kecerahan layar, Wi-Fi, dan Bluetooth dari panel atau suara.
-- 💬 **Ngobrol dengan Zeno** lewat Claude API (pakai API key milikmu sendiri).
+- 💬 **Ngobrol dengan Zeno** lewat Claude (Anthropic), ChatGPT (OpenAI), atau Gemini (Google), pakai API key milikmu sendiri.
 - 📅 **Rapat berikutnya** dari Google Calendar atau Outlook, dengan pengingat dan tombol **Gabung** untuk Zoom, Meet, dan Teams.
 - 🔍 **Ambil teks dari layar:** seret kotak di atas gambar, PDF hasil scan, atau video, dan teksnya langsung tersalin (offline).
 - 📶 **Monitor sistem & internet:** CPU, RAM, disk, dan kabar saat internet putus atau tersambung lagi.
 - 🔥 **Kebiasaan harian:** centang kebiasaan, jaga streak, dan Zeno dapat XP.
 - 🎭 **Maskot hidup:** puluhan ekspresi, mata mengikuti kursor, suara-suara kecil, dan kostum musiman (peci saat Jumat dan Ramadan, ketupat saat Lebaran, merah putih saat 17 Agustus, topi pesta saat ulang tahunmu).
 
-> Zenopod untuk **Windows 10/11** dan **macOS 11+** (versi Mac masih **beta**, lihat [bagian 2](#versi-macos-beta)).
+> Zenopod untuk **Windows 10/11** dan **macOS 12+** (versi Mac masih **beta**, lihat [bagian 2](#versi-macos-beta)). Spesifikasi minimum dan pemakaian RAM ada di [bagian 1](#1-kebutuhan).
 
 ---
 
@@ -45,12 +45,32 @@ Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama
 
 ## 1. Kebutuhan
 
-| Kebutuhan | Keterangan |
+### Spesifikasi minimum
+
+| | Minimum | Disarankan |
+|---|---|---|
+| **Windows** | Windows 10 versi 1809 (build 17763) 64-bit | Windows 11 64-bit |
+| **macOS** | macOS 12 Monterey, Apple Silicon (M1–M4) atau Intel | macOS 13 Ventura ke atas |
+| **RAM** | 4 GB | 8 GB atau lebih |
+| **Prosesor** | 64-bit, 2 core | 4 core atau lebih |
+| **Ruang disk** | ±350 MB | ±600 MB kalau memakai perintah suara (mesin suara ±210 MB) |
+| **Internet** | Hanya untuk mengunduh, cuaca, lirik, kalender, ngobrol dengan Zeno, pembaruan otomatis, dan sekali saat mengunduh mesin suara | |
+| [Node.js](https://nodejs.org/) 20+ | **Hanya** kalau menjalankan dari kode sumber (Cara B di bawah) | |
+
+Windows 32-bit dan Windows 7/8 tidak didukung. Batas macOS 12 mengikuti Electron 38 yang dipakai Zenopod.
+
+### Pemakaian sumber daya
+
+Diukur di laptop Windows 11 (RAM 16 GB, prosesor 16 thread, layar 144 Hz) dengan Zenopod 0.3.1 berjalan biasa: lagu diputar, charger tercolok, panel tertutup.
+
+| | Pemakaian |
 |---|---|
-| Windows 10 atau 11 (64-bit), atau macOS 11 Big Sur ke atas | Mac: Apple Silicon (M1–M4) maupun Intel |
-| Koneksi internet | Saat mengunduh, untuk cuaca, pembaruan otomatis, ngobrol dengan Zeno, dan sekali untuk mengunduh mesin suara |
-| Ruang disk | Sekitar 400 MB (ditambah ~170 MB kalau memakai perintah suara) |
-| [Node.js](https://nodejs.org/) 20+ | **Hanya** kalau menjalankan dari kode sumber (Cara B di bawah) |
+| **RAM** | ±350–380 MB untuk Zenopod (5 proses Electron) ditambah ±85 MB untuk helper PowerShell yang membaca musik, notifikasi, dan perangkat. Totalnya **±450 MB**. |
+| **CPU** | ±4–6% dari total CPU (setara ±0,5–0,7 core) selama animasi kapsul terlihat, misalnya Zeno, bar musik, dan kilau baterai saat mengisi. Di layar 120/144 Hz angkanya lebih tinggi daripada di layar 60 Hz, karena animasi digambar sesuai refresh rate. |
+| **Mode jam** | Setelah 30 detik tanpa gerakan kursor, Zeno disembunyikan dan animasinya berhenti, jadi lebih hemat. |
+| **Disk** | ±340 MB setelah dipasang (installer ±91 MB). |
+
+Pemakaian RAM dan CPU bisa berbeda di perangkat lain. Cara mengeceknya sendiri: buka **Task Manager**, lalu jumlahkan semua baris **Zenopod** dan **Windows PowerShell** di bawahnya.
 
 ---
 
@@ -191,6 +211,19 @@ Lewat suara: "Zeno, berapa 250 ribu kali 3", "timer 10 menit", "batalkan timer".
 
 Halaman **Hari ini** menampilkan waktu fokus, tugas selesai, dan lagu yang paling sering diputar hari ini. Setiap malam (bawaan jam 20.00) Zeno mengirim ringkasan hari itu. Riwayat 7 hari ada di Pengaturan › **Statistik**. Lewat suara: "Zeno, statistik hari ini".
 
+### Waktu layar dan laporan mingguan
+
+- Zeno mencatat berapa lama tiap aplikasi ada di depan layar. Saat idle lebih dari 2 menit, layar terkunci, atau laptop tidur, waktunya tidak dihitung. Menonton video atau mendengarkan musik tetap dihitung.
+- Detail **Perangkat** (geser ke halaman Perangkat lalu buka bagian bawahnya) menampilkan aplikasi terlama hari ini, grafik 7 hari, dan ringkasan minggu lalu.
+- Setiap **Senin pagi** Zeno menampilkan laporan minggu lalu: waktu layar dibanding minggu sebelumnya, aplikasi terlama, fokus, musik, dan tugas yang selesai. Bisa dimatikan atau dilihat kapan saja di Pengaturan › **Statistik**.
+
+### Aktivitas live
+
+- **Titik privasi:** titik oranye di kapsul berarti ada aplikasi yang memakai mikrofon, dan titik hijau berarti kamera sedang dipakai. Arahkan kursor ke titiknya untuk melihat nama aplikasinya.
+- **Panggilan & rapat:** saat Zoom, Teams, Meet (di browser), Discord, WhatsApp, dan aplikasi sejenis memakai mikrofon, kapsul menampilkan durasi panggilan. Di kartu Perangkat ada tombol **bisukan mikrofon** yang membisukan mic untuk semua aplikasi. Setelah panggilan selesai, Zeno memberi tahu lamanya.
+- **Unduhan:** unduhan browser di folder Downloads tampil di kapsul beserta ukuran dan kecepatannya. Saat selesai muncul kartu dengan tombol **Buka** dan **Tampilkan di folder**.
+- Ketiganya bisa dimatikan di Pengaturan › **Sistem & layar**. Di macOS, titik privasi dan deteksi rapat belum tersedia.
+
 ### Ambil teks dari layar
 
 1. Tekan `Ctrl` + `Alt` + `O`, klik ikon pindai di pojok kanan bawah panel, atau bilang "Zeno, ambil teks".
@@ -258,13 +291,13 @@ Buka dari ikon ⚙ di pojok kanan bawah panel, atau klik kanan ikon tray › **P
 | **Kalender** | Sambungkan Google Calendar / Outlook, kapan diingatkan sebelum rapat |
 | **Fokus** | Durasi fokus, istirahat, dan istirahat panjang; istirahat otomatis; tahan notifikasi saat fokus; pengingat istirahat mata dan minum air |
 | **Kebiasaan** | Tambah, urutkan, hapus kebiasaan; hari dan jam pengingat; centang hari ini |
-| **Statistik** | Tabel 7 hari terakhir, ringkasan harian dan jamnya |
+| **Statistik** | Tabel 7 hari terakhir, ringkasan harian dan jamnya, laporan mingguan |
 | **Claude Code** | Pasang/lepas hook, jawab izin dari Zenopod, kartu Claude |
 | **Dev** | Daftar server lokal (website atau port) dan folder project Git yang dipantau |
-| **Ngobrol** | API key Claude, pilihan model, tombol coba |
+| **Ngobrol** | Penyedia AI (Claude, ChatGPT, Gemini), API key per penyedia, pilihan model, Zeno boleh beraksi, tombol coba |
 | **Perintah suara** | Unduh mesin suara, tombol pintas, suara jawaban Zeno, kecepatan dan nada |
 | **Cuaca & baterai** | Pilih kota, kabar saat hujan, peringatan baterai |
-| **Sistem & layar** | Tombol pintas ambil teks, kabar internet putus, kabar CPU/RAM/disk |
+| **Sistem & layar** | Tombol pintas ambil teks, kabar internet putus, kabar CPU/RAM/disk, aktivitas live (titik privasi, rapat, unduhan) |
 | **Suara** | Saklar utama, volume, saklar per kategori, dan tombol ▶ untuk mendengarkan tiap suara |
 | **Tampilan** | Posisi, kostum Zeno (otomatis atau pilih sendiri), tombol pintas panel, versi dan **Cek pembaruan**, **Jalankan saat Windows mulai** |
 
@@ -327,14 +360,28 @@ Lalu di Zenopod: Pengaturan › **Kalender** › isi nama dan alamatnya › **Sa
 
 ### 💬 Ngobrol dengan Zeno
 
-Zeno menjawab pertanyaan singkat memakai Claude API. Kamu butuh API key sendiri, dan pemakaiannya **berbayar** sesuai tarif Anthropic (ditagih ke akunmu, bukan ke Zenopod).
+Zeno menjawab pertanyaan singkat memakai AI pilihanmu: **Claude** (Anthropic), **ChatGPT** (OpenAI), atau **Gemini** (Google). Kamu butuh API key sendiri dari penyedia yang dipilih, dan pemakaiannya **berbayar** sesuai tarif penyedia itu (ditagih ke akunmu, bukan ke Zenopod; Gemini punya kuota gratis terbatas).
 
-1. Buat API key di [console.anthropic.com](https://console.anthropic.com/) › **API Keys**.
-2. Pengaturan › **Ngobrol** › tempel key › **Simpan**, lalu **Coba**.
-3. Pilih model: **Claude Opus 5** (paling pintar, bawaan), **Claude Sonnet 5** (seimbang), atau **Claude Haiku 4.5** (paling cepat dan murah).
-4. Bertanya lewat kotak cari (baris **Tanya Zeno**) atau suara: "Zeno, apa ibu kota Australia?". Ucapan yang bukan perintah juga diteruskan ke Claude.
+1. Buat API key di penyedia yang kamu mau:
 
-Zeno mengingat 10 pesan terakhir, dan lupa setelah 10 menit tidak diajak ngobrol. API key disimpan terenkripsi oleh Windows dan tidak pernah ditampilkan utuh. Kalau variabel lingkungan `ANTHROPIC_API_KEY` sudah ada, Zeno bisa memakainya.
+   | Penyedia | Tempat membuat key | Key diawali |
+   |---|---|---|
+   | Claude | [platform.claude.com](https://platform.claude.com/) › **API Keys** | `sk-ant-` |
+   | ChatGPT | [platform.openai.com](https://platform.openai.com/api-keys) › **API keys** | `sk-` |
+   | Gemini | [aistudio.google.com](https://aistudio.google.com/apikey) › **Get API key** | `AIza` |
+
+2. Pengaturan › **Ngobrol** › pilih **penyedia** › tempel key › **Simpan key**, lalu **Coba tanya Zeno**.
+3. Pilih model:
+   - **Claude:** Opus 5 (paling pintar, bawaan), Sonnet 5 (seimbang), atau Haiku 4.5 (paling cepat dan murah).
+   - **ChatGPT:** GPT-5, GPT-5 mini (bawaan), atau GPT-5 nano.
+   - **Gemini:** Pro, Flash (bawaan), atau Flash-Lite versi terbaru. Model dari akunmu juga ikut terdaftar.
+
+   Untuk ChatGPT dan Gemini ada pilihan **Model lain…**, tempat mengetik nama model yang lebih baru.
+4. Bertanya lewat kotak cari (baris **Tanya Zeno**) atau suara: "Zeno, apa ibu kota Australia?". Ucapan yang bukan perintah juga diteruskan ke AI.
+
+**Zeno bisa beraksi.** Dari obrolan, Zeno bisa membuat pengingat ("ingatkan aku rapat besok jam 9"), menyalakan timer dan fokus, membuka aplikasi, mengatur musik, menambah tugas, dan membaca jadwal serta tugasmu ("apa jadwalku hari ini?"). Setiap aksi tampil sebagai baris centang di obrolan. Fitur ini bisa dimatikan lewat **Zeno boleh beraksi** di Pengaturan › Ngobrol.
+
+Key tiap penyedia disimpan terpisah, jadi kamu bisa berganti penyedia kapan saja tanpa mengetik ulang key. Zeno mengingat 10 pesan terakhir dan lupa setelah 10 menit tidak diajak ngobrol. API key disimpan terenkripsi oleh sistem dan tidak pernah ditampilkan utuh. Kalau variabel lingkungan `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, atau `GEMINI_API_KEY` sudah ada, Zeno bisa memakainya.
 
 ### 🤖 Claude Code
 
@@ -355,7 +402,9 @@ Hook ditambahkan ke `%USERPROFILE%\.claude\settings.json` tanpa mengubah hook la
 ## 7. Privasi
 
 - **Lokal:** semua data tersimpan di laptopmu: pengaturan di `config.json` (versi installer: `%APPDATA%\kapsul`, versi kode sumber: folder Zenopod), statistik dan peliharaan di `%APPDATA%\kapsul\stats.json`. Tidak ada akun dan tidak ada server Zenopod.
-- **Ngobrol:** hanya pertanyaan yang kamu kirim ke Zeno (dan percakapan 10 menit terakhir) yang dikirim ke Anthropic. Mati kalau tidak ada API key.
+- **Waktu layar:** nama aplikasi dan lamanya disimpan di `stats.json` (30 hari terakhir), tidak pernah dikirim ke mana pun. Judul jendela tidak disimpan, kecuali untuk aplikasi Store yang hanya bisa dikenali dari judulnya (mis. "Kalkulator").
+- **Ngobrol:** hanya pertanyaan yang kamu kirim ke Zeno (dan percakapan 10 menit terakhir) yang dikirim, dan hanya ke penyedia yang kamu pilih (Anthropic, OpenAI, atau Google). Mati kalau tidak ada API key. Saat Zeno boleh beraksi dan kamu menanyakan jadwal, agenda, pengingat, dan tugas hari itu ikut dikirim ke penyedia tersebut.
+- **Lirik:** yang dikirim ke [LRCLIB](https://lrclib.net/) hanya judul, artis, dan durasi lagu yang sedang diputar. Bisa dimatikan di Pengaturan › Tampilan.
 - **Pembaruan:** versi installer mengecek GitHub Releases tiap 6 jam.
 - **Kalender:** Zenopod hanya mengunduh file kalender dari Google/Outlook. Alamatnya disimpan terenkripsi oleh Windows.
 - **Ambil teks:** gambar potongan layar diproses OCR Windows di laptop ini lalu langsung dihapus. Teksnya hanya masuk clipboard.

@@ -13,6 +13,8 @@
       <div class="pill" id="pill">
         <span class="buddy-slot" id="buddy-slot"></span>
         <span class="pill-text" id="pill-text"></span>
+        <!-- Mode jam: tanpa aktivitas 30 dtk, Zeno tidur & kapsul hanya menampilkan jam -->
+        <span class="pill-clock" id="pill-clock" aria-hidden="true"></span>
         <span class="typing" id="typing" hidden><i></i><i></i><i></i></span>
         <span class="eq" id="eq" hidden><i></i><i></i><i></i></span>
         <span class="dev-alert" id="pill-dev-alert" title="Ada server lokal yang mati" hidden></span>
@@ -21,6 +23,8 @@
           <svg class="bat-bolt" viewBox="0 0 8 12" aria-hidden="true"><path d="M5 0.5 1 7h2.6L2.8 11.5 7 5H4.4z" /></svg>
         </span>
         <span class="mic-level" id="mic-level" hidden><i></i><i></i><i></i><i></i></span>
+        <!-- Privasi: titik oranye = mikrofon dipakai, hijau = kamera dipakai (seperti iPhone) -->
+        <span class="privacy-dots" id="privacy-dots" hidden><i class="mic" id="privacy-mic" hidden></i><i class="cam" id="privacy-cam" hidden></i></span>
         <span class="badge" id="badge" hidden></span>
       </div>
 
@@ -49,6 +53,9 @@
           <div class="tab-list" id="nav" role="tablist" aria-label="Section">
             <button type="button" role="tab" data-section="home" aria-label="Beranda" title="Beranda">
               <svg class="ti ti-home" viewBox="0 0 16 16" aria-hidden="true"><path class="roof" d="M2.5 7.5 8 3l5.5 4.5" /><path d="M4 6.5V13h3V10h2v3h3V6.5" /></svg>
+            </button>
+            <button type="button" role="tab" data-section="chat" id="tab-chat" aria-label="Chat dengan Zeno" title="Chat dengan Zeno">
+              <svg class="ti ti-chat" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8l-3 2.5V11.5H3A1.5 1.5 0 0 1 1.5 10V5A1.5 1.5 0 0 1 3 3.5z" /><path class="dot" d="M5.5 7.5h.01" /><path class="dot" d="M8 7.5h.01" /><path class="dot" d="M10.5 7.5h.01" /></svg>
             </button>
             <button type="button" role="tab" data-section="music" aria-label="Musik" title="Musik">
               <svg class="ti ti-music" viewBox="0 0 16 16" aria-hidden="true"><g class="note"><path d="M6 12V3.5l7-1.5V10.5" /><circle cx="4.5" cy="12" r="1.6" /><circle cx="11.5" cy="10.5" r="1.6" /></g></svg>
@@ -101,25 +108,54 @@
                 <div class="page-kicker" id="greet-title"></div>
                 <div class="quick-apps" id="quick-apps"></div>
               </div>
-              <div class="page media-main" data-page="music" aria-label="Musik">
-                <div class="track">
+              <!-- Chat: kolom tanya, mikrofon, lampirkan file (bisa juga diseret ke island) -->
+              <div class="page chat-page" data-page="chat" aria-label="Chat dengan Zeno">
+                <div class="chat-last" id="chat-last"></div>
+                <div class="chat-files" id="chat-files" hidden></div>
+                <form class="chat-bar" id="chat-form" autocomplete="off">
+                  <button type="button" class="chat-icon" id="chat-attach" title="Lampirkan file (gambar, PDF, teks)" aria-label="Lampirkan file">
+                    <svg viewBox="0 0 16 16"><path d="M10.5 4.5 5.8 9.2a1.4 1.4 0 0 0 2 2l5-5a2.8 2.8 0 0 0-4-4L3.6 7.4a4.2 4.2 0 0 0 6 6l4.2-4.2" /></svg>
+                  </button>
+                  <input id="chat-input" placeholder="Tanya Zeno…" spellcheck="false" aria-label="Pesan untuk Zeno" />
+                  <button type="button" class="chat-icon" id="chat-mic" title="Bicara (perintah suara)" aria-label="Bicara">
+                    <svg viewBox="0 0 16 16"><rect x="5.5" y="1.8" width="5" height="8" rx="2.5" /><path d="M3.2 7.5a4.8 4.8 0 0 0 9.6 0M8 12.3v2" /></svg>
+                  </button>
+                  <button type="submit" class="chat-send" id="chat-send" title="Kirim" aria-label="Kirim">
+                    <svg viewBox="0 0 16 16"><path d="M8 13V3M3.8 7.2 8 3l4.2 4.2" /></svg>
+                  </button>
+                </form>
+                <input type="file" id="chat-file" multiple hidden accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf,.txt,.md,.csv,.json,.js,.ts,.jsx,.tsx,.py,.java,.go,.rs,.php,.rb,.c,.cpp,.cs,.html,.css,.xml,.yml,.yaml,.sql,.log,.ini,.env" />
+              </div>
+              <!-- Musik: sampul + judul + tombol sejajar, bar progres selebar kartu -->
+              <div class="page media-main np" data-page="music" aria-label="Musik">
+                <div class="np-art">
                   <img class="art" id="art-img" alt="" hidden />
-                  <div class="meta">
-                    <div class="title" id="title">Tidak ada yang diputar</div>
-                    <div class="artist" id="artist">Putar lagu di Spotify atau Chrome</div>
-                  </div>
+                  <svg class="np-art-empty" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 17V6l10-2v11" /><circle cx="6.5" cy="17" r="2.5" /><circle cx="16.5" cy="15" r="2.5" /></svg>
                 </div>
-                <div class="controls">
-                  <button type="button" class="ctl" data-cmd="prev" title="Sebelumnya" aria-label="Sebelumnya">
-                    <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9.5 12z" /></svg>
-                  </button>
-                  <button type="button" class="ctl ctl-main" data-cmd="toggle" title="Putar / jeda" aria-label="Putar / jeda">
-                    <svg viewBox="0 0 24 24" id="icon-play"><path d="M7 4.5v15L19.5 12z" /></svg>
-                    <svg viewBox="0 0 24 24" id="icon-pause" hidden><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z" /></svg>
-                  </button>
-                  <button type="button" class="ctl" data-cmd="next" title="Berikutnya" aria-label="Berikutnya">
-                    <svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z" /></svg>
-                  </button>
+                <div class="np-main">
+                  <div class="np-top">
+                    <div class="meta">
+                      <div class="title" id="title">Tidak ada yang diputar</div>
+                      <div class="artist" id="artist">Putar lagu di Spotify atau Chrome</div>
+                    </div>
+                    <div class="controls">
+                      <button type="button" class="ctl" data-cmd="prev" title="Sebelumnya" aria-label="Sebelumnya">
+                        <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9.5 12z" /></svg>
+                      </button>
+                      <button type="button" class="ctl ctl-main" data-cmd="toggle" title="Putar / jeda" aria-label="Putar / jeda">
+                        <svg viewBox="0 0 24 24" id="icon-play"><path d="M7 4.5v15L19.5 12z" /></svg>
+                        <svg viewBox="0 0 24 24" id="icon-pause" hidden><path d="M6.5 4.5h4v15h-4zM13.5 4.5h4v15h-4z" /></svg>
+                      </button>
+                      <button type="button" class="ctl" data-cmd="next" title="Berikutnya" aria-label="Berikutnya">
+                        <svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l10.5-7z" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="np-progress" id="np-progress" hidden>
+                    <span id="np-elapsed">0:00</span>
+                    <i><b id="np-bar"></b></i>
+                    <span id="np-total">0:00</span>
+                  </div>
                 </div>
               </div>
               <div class="page time-page" data-page="time" aria-label="Waktu">
@@ -174,6 +210,9 @@
                   </button>
                   <input type="range" min="0" max="100" step="1" id="quick-volume" aria-label="Volume" />
                   <span class="quick-value" id="quick-volume-value"></span>
+                  <button type="button" class="quick-toggle mini mic-toggle" id="quick-mic" aria-pressed="false" title="Bisukan mikrofon" aria-label="Bisukan mikrofon">
+                    <svg viewBox="0 0 16 16"><rect x="5.5" y="1.8" width="5" height="8" rx="2.5" /><path d="M3.2 7.5a4.8 4.8 0 0 0 9.6 0M8 12.3v2" /><path class="slash" d="M2.5 2.5l11 11" /></svg>
+                  </button>
                   <button type="button" class="quick-toggle mini" id="quick-wifi" aria-pressed="false" title="Wi-Fi" aria-label="Wi-Fi">
                     <svg viewBox="0 0 16 16"><path d="M1.8 6a9 9 0 0 1 12.4 0M4 8.4a6 6 0 0 1 8 0M6.2 10.8a3 3 0 0 1 3.6 0" /><circle cx="8" cy="13" r="0.8" /></svg>
                   </button>
@@ -211,21 +250,45 @@
                   <input id="app-search" placeholder="Cari aplikasi, hitung, timer…" autocomplete="off" spellcheck="false" aria-label="Cari aplikasi" />
                   <span class="hint" id="shortcut"></span>
                 </div>
-                <div class="pane-head" id="apps-head"><span class="page-kicker">Aplikasi lain</span></div>
+                <div class="pane-head" id="apps-head">
+                  <span class="page-kicker">Aplikasi lain</span>
+                  <button type="button" class="link" id="apps-manage">Atur</button>
+                </div>
                 <div class="apps" id="apps"></div>
                 <div class="search-results" id="search-results" role="listbox" hidden></div>
               </div>
-              <div class="block pet-block">
-                <div class="pane-head"><span class="page-kicker"><span id="pet-level"></span> <span class="dim" id="pet-xp"></span></span></div>
-                <div class="pet-bar"><span>Kenyang</span><i><b id="pet-hunger"></b></i></div>
-                <div class="pet-bar xp"><span>XP</span><i><b id="pet-xpbar"></b></i></div>
-                <div class="pet-actions">
-                  <button type="button" data-food="cookie" title="Kue (+20)">🍪</button>
-                  <button type="button" data-food="apple" title="Apel (+25)">🍎</button>
-                  <button type="button" data-food="rice" title="Nasi (+40)">🍙</button>
-                  <button type="button" class="pet-play" id="pet-play">Main</button>
+              <!-- Zeno peliharaan: level (cincin XP), kenyang, beri makan / main -->
+              <div class="pet-card">
+                <div class="pet-ring" aria-hidden="true">
+                  <svg viewBox="0 0 44 44"><circle class="pet-ring-track" cx="22" cy="22" r="19" /><circle class="pet-ring-bar" id="pet-xpring" cx="22" cy="22" r="19" pathLength="100" transform="rotate(-90 22 22)" /></svg>
+                  <span><small>Lv</small><b id="pet-lv">1</b></span>
+                </div>
+                <div class="pet-info">
+                  <div class="pet-title"><b id="pet-level"></b><span class="dim" id="pet-xp"></span></div>
+                  <div class="pet-meter" title="Kenyang">
+                    <span>Kenyang</span>
+                    <i><b id="pet-hunger"></b></i>
+                    <em id="pet-hunger-text"></em>
+                  </div>
+                  <i class="pet-xp-hidden"><b id="pet-xpbar"></b></i>
+                </div>
+                <div class="pet-buttons">
+                  <div class="pet-feed" role="group" aria-label="Beri makan Zeno">
+                    <button type="button" data-food="cookie" title="Kue, kenyang +20">Kue <small>+20</small></button>
+                    <button type="button" data-food="apple" title="Apel, kenyang +25">Apel <small>+25</small></button>
+                    <button type="button" data-food="rice" title="Nasi, kenyang +40">Nasi <small>+40</small></button>
+                  </div>
+                  <button type="button" class="pet-play" id="pet-play">Ajak main</button>
                 </div>
               </div>
+            </section>
+
+            <section class="pane chat-pane" data-pane="chat" aria-label="Percakapan">
+              <div class="pane-head">
+                <span class="page-kicker" id="chat-head">Obrolan dengan Zeno</span>
+                <button type="button" class="link" id="chat-new">Obrolan baru</button>
+              </div>
+              <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
             </section>
 
             <section class="pane lyrics-pane" data-pane="music" aria-label="Lirik & ringkasan musik">
@@ -298,27 +361,16 @@
 
             <!-- Detail Fokus: ringkasan saja (semua tombol ada di island) -->
             <section class="pane scroll focus-tab" data-pane="focus" id="focus-tab" aria-label="Ringkasan fokus">
-              <div class="focus-view" id="focus-view">
-                <div class="ring" id="focus-ring">
-                  <svg viewBox="0 0 120 120" aria-hidden="true">
-                    <circle class="ring-track" cx="60" cy="60" r="52" />
-                    <circle class="ring-bar" id="ring-bar" cx="60" cy="60" r="52" pathLength="1000" transform="rotate(-90 60 60)" />
-                    <circle class="ring-knob" id="ring-knob" cx="60" cy="8" r="4.5" />
-                  </svg>
-                  <div class="ring-center">
-                    <span class="ring-time" id="focus-time">25:00</span>
-                    <span class="ring-label" id="focus-label"></span>
-                  </div>
-                </div>
-                <div class="focus-info">
-                  <div class="focus-phase"><span class="live-dot" aria-hidden="true"></span><span id="focus-phase">Siap fokus?</span></div>
-                  <div class="focus-sub" id="focus-sub"></div>
-                  <div class="focus-dots" id="focus-dots" aria-hidden="true"></div>
-                  <div class="focus-stats">
-                    <div><b id="focus-stat-sessions">0</b><span>sesi hari ini</span></div>
-                    <div><b id="focus-stat-minutes">0</b><span>menit fokus</span></div>
-                  </div>
-                </div>
+              <!-- Laporan saja: semua tombol & hitung mundur ada di island -->
+              <div class="focus-stats three">
+                <div><b id="focus-stat-sessions">0</b><span>sesi hari ini</span></div>
+                <div><b id="focus-stat-minutes">0</b><span>menit fokus</span></div>
+                <div><b id="focus-stat-week">0</b><span>sesi minggu ini</span></div>
+              </div>
+              <div class="cycle-card">
+                <div class="pane-head"><span class="page-kicker">Siklus Pomodoro</span><span class="page-kicker" id="focus-cycle-text"></span></div>
+                <div class="focus-dots big" id="focus-dots" aria-hidden="true"></div>
+                <div class="focus-sub" id="focus-sub"></div>
               </div>
               <div class="block">
                 <div class="pane-head"><span class="page-kicker">7 hari terakhir</span><span class="page-kicker" id="focus-week-total"></span></div>
@@ -331,22 +383,50 @@
             </section>
 
             <section class="pane scroll" data-pane="device" aria-label="Detail perangkat">
-              <div class="block">
-                <div class="pet-bar"><span>CPU</span><i><b id="system-cpu"></b></i><em id="system-cpu-text"></em></div>
-                <div class="pet-bar"><span>RAM</span><i><b id="system-ram"></b></i><em id="system-ram-text"></em></div>
-                <div class="pet-bar"><span id="system-disk-label">Disk</span><i><b id="system-disk"></b></i><em id="system-disk-text"></em></div>
+              <!-- Sistem: tiga angka utama, meter berwarna sesuai beban -->
+              <div class="sys-card">
+                <div class="sys-tile">
+                  <span class="sys-label">CPU</span>
+                  <b class="sys-value" id="system-cpu-text">–</b>
+                  <i class="sys-meter"><b id="system-cpu"></b></i>
+                </div>
+                <div class="sys-tile">
+                  <span class="sys-label">RAM</span>
+                  <b class="sys-value" id="system-ram-text">–</b>
+                  <i class="sys-meter"><b id="system-ram"></b></i>
+                </div>
+                <div class="sys-tile">
+                  <span class="sys-label" id="system-disk-label">Disk</span>
+                  <b class="sys-value" id="system-disk-text">–</b>
+                  <i class="sys-meter"><b id="system-disk"></b></i>
+                </div>
               </div>
-              <div class="block quick-sheet" id="quick-sheet">
+              <div class="setting-card quick-sheet" id="quick-sheet">
                 <div class="quick-row" id="quick-brightness-row">
-                  <span class="quick-icon static">
-                    <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2.8" /><path d="M8 1.8v1.4M8 12.8v1.4M1.8 8h1.4M12.8 8h1.4M3.6 3.6l1 1M11.4 11.4l1 1M3.6 12.4l1-1M11.4 4.6l1-1" /></svg>
+                  <span class="setting-label">
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.8" /><path d="M8 1.8v1.4M8 12.8v1.4M1.8 8h1.4M12.8 8h1.4M3.6 3.6l1 1M11.4 11.4l1 1M3.6 12.4l1-1M11.4 4.6l1-1" /></svg>
+                    Kecerahan
                   </span>
                   <input type="range" min="0" max="100" step="5" id="quick-brightness" aria-label="Kecerahan" />
                   <span class="quick-value" id="quick-brightness-value"></span>
                 </div>
               </div>
+              <!-- Waktu layar: aplikasi terlama hari ini, 7 hari terakhir, dan ringkasan minggu lalu -->
+              <div class="block" id="screen-block">
+                <div class="pane-head"><span class="page-kicker">Waktu layar hari ini</span><span class="page-kicker" id="screen-total"></span></div>
+                <ol class="music-top screen-top" id="screen-top"></ol>
+              </div>
+              <div class="block" id="screen-week-block">
+                <div class="pane-head"><span class="page-kicker">7 hari terakhir</span><span class="page-kicker" id="screen-week-total"></span></div>
+                <div class="week-chart" id="screen-week"></div>
+                <div class="screen-weekly" id="screen-weekly" hidden>
+                  <div class="screen-weekly-head"><b>Minggu lalu</b><span id="screen-weekly-range"></span></div>
+                  <div class="screen-weekly-stats" id="screen-weekly-stats"></div>
+                  <p id="screen-weekly-change"></p>
+                </div>
+              </div>
               <div class="block">
-                <div class="pane-head"><span class="page-kicker">Tersambung</span></div>
+                <div class="pane-head"><span class="page-kicker">Tersambung</span><span class="page-kicker" id="device-count"></span></div>
                 <div class="device-list" id="device-list"></div>
               </div>
             </section>
@@ -379,6 +459,9 @@
             </section>
           </div>
         </div>
+
+        <!-- Saat file diseret ke island -->
+        <div class="drop-hint" id="drop-hint" hidden><span>Lepas di sini, biar Zeno melahapnya 😋</span></div>
 
         <!-- Gagang: buka / tutup isi bawah (bawaan: hanya kartu atas) -->
         <button type="button" class="detail-handle" id="detail-btn" aria-expanded="false" title="Tampilkan detail" aria-label="Tampilkan detail">

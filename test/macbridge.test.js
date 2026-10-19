@@ -74,8 +74,8 @@ test('perangkat Bluetooth tersambung dari system_profiler', () => {
     ],
   });
   assert.deepEqual(parseBluetooth(out), [
-    { id: 'AA:BB', name: 'AirPods Pro', kind: 'audio' },
-    { id: 'CC:DD', name: 'Magic Mouse', kind: 'input' },
+    { id: 'AA:BB', name: 'AirPods Pro', kind: 'audio', battery: null },
+    { id: 'CC:DD', name: 'Magic Mouse', kind: 'input', battery: null },
   ]);
   assert.deepEqual(parseBluetooth('bukan json'), []);
   assert.deepEqual(parseBluetooth(JSON.stringify({ SPBluetoothDataType: [{}] })), []);
@@ -100,4 +100,26 @@ test('perangkat USB dari system_profiler (tanpa hub & bawaan)', () => {
     [['USB Receiver', 'mouse'], ['SanDisk Ultra', 'storage'], ['iPhone', 'phone']],
   );
   assert.deepEqual(parseUsb(''), []);
+});
+
+test('baterai perangkat Bluetooth dari system_profiler', () => {
+  const out = JSON.stringify({
+    SPBluetoothDataType: [
+      {
+        device_connected: [
+          { 'Magic Mouse': { device_address: 'A1', device_minorType: 'Mouse', device_batteryLevelMain: '64%' } },
+          { AirPods: { device_address: 'A2', device_minorType: 'Headphones', device_batteryLevelLeft: '80%', device_batteryLevelRight: '45%', device_batteryLevelCase: '10%' } },
+          { Speaker: { device_address: 'A3', device_minorType: 'Speaker' } },
+        ],
+      },
+    ],
+  });
+  assert.deepEqual(parseBluetooth(out).map((d) => [d.name, d.battery]), [['Magic Mouse', 64], ['AirPods', 45], ['Speaker', null]]);
+});
+
+test('aplikasi di depan dari lsappinfo', () => {
+  const { parseFrontApp } = require('../lib/macbridge');
+  assert.equal(parseFrontApp('"LSDisplayName"="Safari"\n'), 'Safari');
+  assert.equal(parseFrontApp('"name"="Visual Studio Code"'), 'Visual Studio Code');
+  assert.equal(parseFrontApp(''), null);
 });

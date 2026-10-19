@@ -454,7 +454,17 @@
             <input type="time" id="summary-time" class="time-input" />
             <label class="switch"><input type="checkbox" id="summary-enabled" /><span></span></label>
           </div>
-          <button type="button" class="btn" id="preview-summary">Lihat ringkasan sekarang</button>
+          <div class="card row">
+            <div>
+              <div class="row-title">Laporan mingguan</div>
+              <div class="row-sub">Setiap Senin pagi: waktu layar minggu lalu (dibanding minggu sebelumnya), aplikasi yang paling lama dipakai, fokus, musik, dan tugas selesai.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="weekly-enabled" /><span></span></label>
+          </div>
+          <div class="action-row">
+            <button type="button" class="btn" id="preview-summary">Lihat ringkasan sekarang</button>
+            <button type="button" class="btn" id="preview-weekly">Lihat laporan minggu lalu</button>
+          </div>
         </section>
 
         <!-- Perintah suara -->
@@ -517,18 +527,27 @@
         <section data-panel="chat" hidden>
           <header>
             <h1>Ngobrol dengan Zeno</h1>
-            <p>Pertanyaan yang bukan perintah dijawab Zeno lewat Claude: dari perintah suara, atau ketik pertanyaan berakhiran “?” di kotak cari.</p>
+            <p>Pertanyaan yang bukan perintah dijawab Zeno lewat AI pilihanmu: dari perintah suara, atau ketik pertanyaan berakhiran “?” di kotak cari.</p>
           </header>
           <div class="card row">
             <div>
               <div class="row-title">Ngobrol</div>
-              <div class="row-sub">Pertanyaanmu dikirim ke Claude API (Anthropic) memakai API key-mu sendiri; ada biaya per pemakaian.</div>
+              <div class="row-sub">Pertanyaanmu dikirim ke penyedia AI yang dipilih memakai API key-mu sendiri; ada biaya per pemakaian sesuai penyedianya.</div>
             </div>
             <label class="switch"><input type="checkbox" id="chat-enabled" /><span></span></label>
           </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Zeno boleh beraksi</div>
+              <div class="row-sub">Dari obrolan, Zeno bisa membuat pengingat, menyalakan timer & fokus, membuka aplikasi, mengatur musik, menambah tugas, dan membaca jadwalmu. Setiap aksi tampil di obrolan.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="chat-actions" /><span></span></label>
+          </div>
+          <h2>Penyedia AI</h2>
+          <div class="positions styles providers" id="chat-providers" role="radiogroup" aria-label="Penyedia AI"></div>
           <form class="card" id="chat-key-form">
             <label class="field">
-              <span>API key Claude</span>
+              <span id="chat-key-label">API key</span>
               <input id="chat-key" type="password" placeholder="sk-ant-…" autocomplete="off" spellcheck="false" />
             </label>
             <p class="muted small" id="chat-key-status"></p>
@@ -536,12 +555,16 @@
               <button type="submit" class="btn primary">Simpan key</button>
               <button type="button" class="btn danger" id="chat-key-remove">Hapus key</button>
             </div>
-            <p class="muted small">Buat key di <code>platform.claude.com</code> › API Keys. Key disimpan terenkripsi di laptop ini dan tidak pernah ditampilkan utuh.</p>
+            <p class="muted small" id="chat-key-where"></p>
           </form>
           <div class="card">
             <label class="field">
               <span>Model</span>
               <select id="chat-model"></select>
+            </label>
+            <label class="field" id="chat-custom-field" hidden>
+              <span>Nama model lain</span>
+              <input id="chat-custom-model" placeholder="mis. gpt-5.1 atau gemini-3-pro" autocomplete="off" spellcheck="false" />
             </label>
             <div class="actions-row"><button type="button" class="btn" id="chat-test">Coba tanya Zeno</button></div>
             <p class="small" id="chat-test-result"></p>
@@ -554,6 +577,29 @@
             <h1>Sistem & layar</h1>
             <p>Ambil teks dari layar, dan kabar soal internet, CPU, RAM, serta disk. Semuanya berjalan di laptop ini.</p>
           </header>
+          <h2>Aktivitas live di island</h2>
+          <div class="card row">
+            <div>
+              <div class="row-title">Titik privasi mikrofon & kamera</div>
+              <div class="row-sub">Titik oranye di kapsul saat aplikasi lain memakai mikrofon, hijau saat memakai kamera.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="live-privacy" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Panggilan & rapat</div>
+              <div class="row-sub">Saat Zoom, Teams, Meet, Discord, dll. memakai mikrofon: durasinya tampil di kapsul dan ada tombol bisukan mikrofon.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="live-meetings" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Unduhan</div>
+              <div class="row-sub">Unduhan browser di folder Downloads tampil dengan ukuran & kecepatannya; saat selesai muncul tombol Buka.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="live-downloads" /><span></span></label>
+          </div>
+
           <div class="card row">
             <div>
               <div class="row-title">Ambil teks dari layar</div>
