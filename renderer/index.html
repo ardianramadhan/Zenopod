@@ -229,8 +229,13 @@
             </section>
 
             <section class="pane lyrics-pane" data-pane="music" aria-label="Lirik & ringkasan musik">
+              <!-- Lirik: latar dari warna sampul, baris aktif terisi seperti karaoke -->
               <div class="lyrics-view" id="lyrics-view">
-                <div class="pane-head"><span class="page-kicker" id="lyrics-kicker">Lirik</span></div>
+                <div class="lyrics-head">
+                  <span class="lyrics-kicker" id="lyrics-kicker">Lirik</span>
+                  <span class="lyrics-time" id="lyrics-time"></span>
+                </div>
+                <div class="lyrics-progress" aria-hidden="true"><i id="lyrics-progress"></i></div>
                 <ol class="lyrics-lines" id="lyrics-lines"></ol>
               </div>
               <!-- Tanpa lirik: ringkasan dengar musik hari ini -->

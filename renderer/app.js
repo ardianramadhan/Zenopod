@@ -3024,6 +3024,7 @@ function renderMedia() {
 
   const artImg = $('art-img');
   if (hasTrack && media.art) artImg.src = media.art;
+  applyArtTint(hasTrack ? media.art : null);
   artImg.hidden = !(hasTrack && media.art);
   renderPillText();
   renderBuddy();
@@ -3294,7 +3295,7 @@ function renderLyrics() {
   // Lagu diputar tapi liriknya tidak ada: beri tahu di atas ringkasan.
   const note = media.title ? { missing: 'Lirik lagu ini belum ada', instrumental: 'Lagu instrumental', error: 'Lirik gagal dimuat' }[lyricsNow.status] : null;
   $('music-note').textContent = note ?? '';
-  $('lyrics-kicker').textContent = media.title ? `Lirik · ${media.title}` : 'Lirik';
+  $('lyrics-kicker').textContent = ready && !lyricsNow.synced ? 'Lirik · tidak tersinkron' : 'Lirik';
   box.classList.toggle('synced', ready && lyricsNow.synced);
   const message = {
     loading: 'Mencari lirik…',
@@ -3316,17 +3317,85 @@ function renderLyrics() {
     box.replaceChildren(
       ...lyricsNow.lines.map((line) => {
         const li = document.createElement('li');
-        li.textContent = line.text || '♪';
+        if (line.text) {
+          const text = document.createElement('span');
+          text.textContent = line.text;
+          li.append(text);
+        } else {
+          li.className = 'gap';
+          li.setAttribute('aria-label', 'Jeda musik');
+          li.append(...[0, 1, 2].map(() => document.createElement('i')));
+        }
         return li;
       }),
     );
   }
   if (!lyricsNow.synced) return;
-  // Baris aktif di tengah kotak lirik.
-  for (const [i, li] of [...box.children].entries()) li.classList.toggle('now', i === lyricIndex);
+  // Kedalaman: baris aktif terang, berikutnya cukup jelas, yang lewat/jauh samar & sedikit buram.
+  for (const [i, li] of [...box.children].entries()) {
+    const d = i - lyricIndex;
+    li.classList.toggle('now', d === 0);
+    li.classList.toggle('next', d === 1);
+    li.classList.toggle('past', d < 0);
+    li.classList.toggle('far', Math.abs(d) > 2);
+  }
   const active = box.children[Math.max(0, lyricIndex)];
   const top = active ? active.offsetTop - (box.clientHeight - active.offsetHeight) / 2 : 0;
   box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  tickLyrics();
+}
+
+const mmss = (ms) => {
+  const total = Math.max(0, Math.round(ms / 1000));
+  return `${Math.floor(total / 60)}:${pad2(total % 60)}`;
+};
+
+// Tiap 200 ms: isi karaoke baris aktif + bar progres lagu.
+function tickLyrics() {
+  const ms = trackPosition();
+  const duration = media.duration;
+  $('lyrics-time').textContent = ms != null && duration ? `${mmss(ms)} / ${mmss(duration)}` : '';
+  $('lyrics-progress').style.width = ms != null && duration ? `${Math.min(100, (100 * ms) / duration)}%` : '0%';
+  const lines = lyricsNow.lines;
+  const li = $('lyrics-lines').children[lyricIndex];
+  if (!li || ms == null || !lyricsNow.synced) return;
+  const start = lines[lyricIndex]?.t ?? 0;
+  const end = lines[lyricIndex + 1]?.t ?? start + 4000;
+  li.style.setProperty('--p', `${Math.max(0, Math.min(100, (100 * (ms - start)) / Math.max(1, end - start)))}%`);
+}
+
+// Warna dominan sampul album → latar lirik (dihitung sekali per sampul).
+const tintCache = new Map();
+
+function applyArtTint(src) {
+  const view = $('lyrics-view');
+  if (!src) return view.style.removeProperty('--tint');
+  if (tintCache.has(src)) return view.style.setProperty('--tint', tintCache.get(src));
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 16;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, 16, 16);
+    const data = ctx.getImageData(0, 0, 16, 16).data;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const max = Math.max(data[i], data[i + 1], data[i + 2]);
+      const min = Math.min(data[i], data[i + 1], data[i + 2]);
+      // Lewati piksel yang hampir hitam/putih/abu-abu supaya warnanya tidak kusam.
+      if (max < 40 || min > 225 || max - min < 24) continue;
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+      n++;
+    }
+    const tint = n ? `rgb(${Math.round(r / n)} ${Math.round(g / n)} ${Math.round(b / n)})` : null;
+    if (tintCache.size > 30) tintCache.clear();
+    tintCache.set(src, tint);
+    if (tint) view.style.setProperty('--tint', tint);
+    else view.style.removeProperty('--tint');
+  };
+  img.src = src;
 }
 
 // Baris lirik berganti: perbarui kapsul (kalau sedang menampilkan lagu) dan halaman Lirik.
@@ -3334,10 +3403,14 @@ setInterval(() => {
   if (!lyricsReady() || !lyricsNow.synced) return;
   const ms = trackPosition();
   const next = ms === null ? -1 : lyricLineAt(ms);
-  if (next === lyricIndex) return;
+  const showing = open && detail && PAGES[pageIndex].id === 'music';
+  if (next === lyricIndex) {
+    if (showing) tickLyrics();
+    return;
+  }
   lyricIndex = next;
   if (tickKey === 'music') renderPillText();
-  if (open && PAGES[pageIndex].id === 'music') renderLyrics();
+  if (showing) renderLyrics();
 }, 200);
 
 window.kapsul.onLyrics((state) => {
