@@ -579,9 +579,17 @@ function handleBridge(message) {
 let lyricsState = { key: null, status: 'none', synced: false, lines: [] };
 const trackKey = (m) => (m?.title ? `${m.app}|${m.title}|${m.artist}` : null);
 
+// Gagal (mis. LRCLIB sibuk / 503): coba lagi untuk lagu yang sama setelah 15 dtk, 45 dtk, 2 & 5 mnt.
+const LYRICS_RETRY_MS = [15_000, 45_000, 120_000, 300_000];
+let lyricsRetry = { key: null, tries: 0, timer: null };
+
 async function updateLyrics({ force = false } = {}) {
   const key = config.lyrics.enabled ? trackKey(lastMedia) : null;
   if (!force && key === lyricsState.key) return;
+  if (key !== lyricsRetry.key) {
+    clearTimeout(lyricsRetry.timer);
+    lyricsRetry = { key, tries: 0, timer: null };
+  }
   if (!key) {
     lyricsState = { key: null, status: 'none', synced: false, lines: [] };
     send('kapsul:lyrics', lyricsState);
@@ -603,6 +611,10 @@ async function updateLyrics({ force = false } = {}) {
   if (lyricsState.key !== key) return;
   lyricsState = { key, status, synced: Boolean(found?.synced), lines: found?.lines ?? [] };
   send('kapsul:lyrics', lyricsState);
+  if (status === 'error' && lyricsRetry.tries < LYRICS_RETRY_MS.length) {
+    const wait = LYRICS_RETRY_MS[lyricsRetry.tries++];
+    lyricsRetry.timer = setTimeout(() => lyricsState.key === key && updateLyrics({ force: true }), wait);
+  }
 }
 
 // ---------- Bluetooth: Zeno bereaksi saat perangkat tersambung / terputus ----------
