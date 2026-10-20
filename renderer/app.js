@@ -187,21 +187,101 @@ function updateResting() {
   }
   resting = should;
   shell.classList.toggle('resting', resting);
-  if (resting) renderPillClock();
+  // Masuk mode jam: kedua slot mulai dari isi pertama.
+  if (resting) {
+    for (const slot of Object.values(restSlots)) Object.assign(slot, { index: 0, since: Date.now() });
+    renderPillClock();
+  }
   else wakeUp();
+}
+
+// Mode jam: jam di tengah tetap. Slot kiri & kanan bergantian hanya kalau isinya lebih dari satu:
+//   kiri  = baterai / mic-kamera dipakai / timer / pengingat hari ini
+//   kanan = musik (equalizer) / notifikasi / server dev mati / panggilan / unduhan
+const REST_SLOT_MS = 4000;
+const restSlots = { left: { index: 0, since: 0 }, right: { index: 0, since: 0 } };
+const escapeHtml = (text) => String(text).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+const restText = (icon, text, tone = '') => ({ html: `<span class="rest-chip ${tone}">${icon}<b>${escapeHtml(text)}</b></span>`, sig: text });
+
+function restActivityItems() {
+  const items = [];
+  if (media.playing) items.push({ key: 'music', html: '<span class="rest-eq"><i></i><i></i><i></i></span>', sig: '' });
+  const count = notifs.items.length;
+  if (count) items.push({ key: 'notif', ...restText('<i class="rest-dot notif"></i>', count > 9 ? '9+' : String(count)) });
+  const down = (lastDev?.services ?? []).filter((x) => x.status === 'down').length;
+  if (down) items.push({ key: 'dev', ...restText('<i class="rest-dot dev"></i>', String(down)) });
+  if (live.meeting) items.push({ key: 'meeting', ...restText(PILL_ICONS.mic, clock(Date.now() - live.meeting.since), live.meeting.muted ? 'muted' : 'on-call') });
+  if (live.downloads[0]) items.push({ key: 'download', ...restText(PILL_ICONS.download, sizeLabel(live.downloads[0].bytes)) });
+  return items;
+}
+
+function restStatusItems() {
+  const items = [];
+  if (battery && hasBattery) {
+    // Ikon baterai yang sama dengan kapsul biasa (angka di dalam, petir saat mengisi).
+    const bat = $('pill-battery').cloneNode(true);
+    bat.removeAttribute('id');
+    bat.hidden = false;
+    for (const el of bat.querySelectorAll('[id]')) el.removeAttribute('id');
+    // Elemen langsung (bukan HTML): lebar isi baterai memakai style inline yang diblokir CSP lewat innerHTML.
+    items.push({ key: 'battery', node: bat, sig: `${Math.round(battery.level * 100)}|${battery.charging}` });
+  }
+  const mic = live.privacy.mic.length > 0;
+  const cam = live.privacy.camera.length > 0;
+  if (mic || cam) items.push({ key: 'privacy', html: `<span class="rest-chip">${mic ? '<i class="rest-dot mic"></i>' : ''}${cam ? '<i class="rest-dot cam"></i>' : ''}</span>`, sig: `${mic}|${cam}` });
+  const timer = quickTimers[0];
+  if (timer) items.push({ key: 'timer', ...restText(PILL_ICONS.bell, clock(timer.endsAt - Date.now())) });
+  if (nextReminder && /^Hari ini/.test(nextReminder.when)) items.push({ key: 'reminder', ...restText(PILL_ICONS.calendar, nextReminder.when.replace(/^Hari ini\s*/, '').replace('.', ':')) });
+  return items;
+}
+
+function renderRestSlot(name, items) {
+  const el = $(`rest-${name}`);
+  const slot = restSlots[name];
+  if (!items.length) {
+    if (el.dataset.key) el.replaceChildren();
+    delete el.dataset.key;
+    delete el.dataset.sig;
+    return;
+  }
+  const now = Date.now();
+  if (slot.index >= items.length) slot.index = 0;
+  if (items.length > 1 && now - slot.since >= REST_SLOT_MS) {
+    slot.index = (slot.index + 1) % items.length;
+    slot.since = now;
+  }
+  const item = items[slot.index];
+  const sig = `${item.key}|${item.sig}`;
+  if (el.dataset.sig === sig) return;
+  const changed = el.dataset.key !== item.key;
+  el.dataset.sig = sig;
+  el.dataset.key = item.key;
+  const wrap = document.createElement('span');
+  wrap.className = `rest-slot-item${changed ? ' enter' : ''}`;
+  if (item.node) wrap.append(item.node);
+  else wrap.innerHTML = item.html;
+  el.replaceChildren(wrap);
 }
 
 function renderPillClock() {
   const now = new Date();
   const clockEl = $('pill-clock');
   const text = `${String(now.getHours()).padStart(2, '0')}|${String(now.getMinutes()).padStart(2, '0')}`;
-  if (clockEl.dataset.text === text) return;
-  clockEl.dataset.text = text;
-  const [h, m] = text.split('|');
-  const colon = document.createElement('span');
-  colon.className = 'colon';
-  colon.textContent = ':';
-  clockEl.replaceChildren(h, colon, m);
+  if (clockEl.dataset.text !== text) {
+    clockEl.dataset.text = text;
+    const [h, m] = text.split('|');
+    const colon = document.createElement('span');
+    colon.className = 'colon';
+    colon.textContent = ':';
+    clockEl.replaceChildren(h, colon, m);
+  }
+  renderRestSlots();
+}
+
+// Slot kiri & kanan dipakai di mode jam dan saat Zeno diam di tengah.
+function renderRestSlots() {
+  renderRestSlot('left', restStatusItems());
+  renderRestSlot('right', restActivityItems());
 }
 
 // Bangun tidur: muncul kecil sambil menggeliat, lalu menguap sebentar.
@@ -214,7 +294,44 @@ function wakeUp() {
   react('yawn', 1400);
 }
 
-setInterval(updateResting, 1000);
+// Tanpa aktivitas: Zeno diam di tengah kapsul (teks slide disembunyikan). Ada aktivitas: kembali
+// ke kiri dan teksnya muncul.
+let centered = false;
+
+function hasActivity() {
+  return Boolean(
+    media.playing ||
+      focusState.phase ||
+      claudeState.active.length ||
+      quickTimers.length ||
+      live.meeting ||
+      live.downloads.length ||
+      systemNow?.online === false ||
+      pillOverride(),
+  );
+}
+
+function updateCentered() {
+  const should = !open && !hasActivity();
+  if (should) {
+    // Tengah kapsul dihitung ulang (lebar kapsul bisa berubah): setengah lebar − padding kiri − setengah Zeno.
+    const pill = $('pill');
+    const pad = parseFloat(getComputedStyle(pill).paddingLeft) || 0;
+    shell.style.setProperty('--buddy-center', `${Math.max(0, pill.clientWidth / 2 - pad - 15).toFixed(1)}px`);
+  }
+  if (should !== centered) {
+    centered = should;
+    shell.classList.toggle('centered', centered);
+    if (centered) for (const slot of Object.values(restSlots)) Object.assign(slot, { index: 0, since: Date.now() });
+  }
+  // Mode jam merender slotnya sendiri (renderPillClock).
+  if (centered && !resting) renderRestSlots();
+}
+
+setInterval(() => {
+  updateResting();
+  updateCentered();
+}, 1000);
 
 // ---------- Maskot ----------
 
@@ -762,8 +879,9 @@ function renderNotifications() {
   list.replaceChildren();
   const count = notifs.items.length;
 
+  // Kapsul: titik kecil tanpa angka (jumlahnya ada di tab Kotak masuk).
   $('badge').hidden = count === 0;
-  $('badge').textContent = count > 9 ? '9+' : String(count);
+  $('badge').title = `${count} notifikasi`;
   $('notif-count').hidden = count === 0;
   $('notif-count').textContent = count > 99 ? '99+' : String(count);
   // Notifikasi bertambah: lonceng di tab ikut bergoyang.
@@ -906,14 +1024,19 @@ function renderClaudeCard() {
   if (!session) {
     $('claude-live').classList.remove('waiting');
     $('claude-live').classList.add('off');
-    $('claude-project').textContent = 'Claude Code';
-    $('claude-meta').textContent = 'Sedang tidak bekerja';
+    $('claude-project').textContent = 'Kerja hari ini';
+    const last = claudeState.last;
+    $('claude-meta').textContent = last
+      ? `${last.failed ? 'Berhenti karena error' : 'Claude selesai'} ${hm(last.endedAt)} · ${last.project}${last.steps ? ` · ${last.steps} langkah` : ''}`
+      : 'Claude Code sedang diam';
     $('claude-activity').replaceChildren();
+    renderWorkStats();
     renderClaudeLog(null);
     renderWorkActions();
     return;
   }
   renderWorkActions();
+  $('work-stats').hidden = true;
   $('claude-live').classList.remove('off');
   const waiting = session.state === 'waiting';
   $('claude-live').classList.toggle('waiting', waiting);
@@ -1236,6 +1359,7 @@ function devCell(className, text) {
 function renderDev(state) {
   lastDev = state;
   renderWorkActions();
+  if (!claudeState.active.length) renderClaudeCard();
   const services = state?.services ?? [];
   const projects = state?.projects ?? [];
   const down = services.filter((s) => s.status === 'down').length;
@@ -1894,22 +2018,18 @@ function renderFocusSummary() {
   }
 }
 
-// Lingkaran mini di island: sisa waktu, progres halus, titik di ujung, subjudul jam selesai.
+// Island Fokus: sisa waktu besar, garis progres (terisi seiring waktu berjalan), subjudul jam selesai.
 function tickFocusIsland() {
   const t = statsToday ?? {};
   const { phase, running } = focusState;
   const total = phase ? focusTotal() : pickedMinutes() * 60_000;
   const remaining = phase ? Math.max(0, focusRemaining()) : total;
-  const progress = Math.min(1, remaining / total);
-  $('mini-ring-bar').style.strokeDashoffset = String(1000 * (1 - progress));
-  const angle = progress * 2 * Math.PI;
-  $('mini-ring-knob').setAttribute('cx', (32 + 27 * Math.sin(angle)).toFixed(2));
-  $('mini-ring-knob').setAttribute('cy', (32 - 27 * Math.cos(angle)).toFixed(2));
+  const done = phase ? Math.max(0, Math.min(1, 1 - remaining / total)) : 0;
+  $('focus-line-bar').style.width = `${(done * 100).toFixed(2)}%`;
   $('focus-island').classList.toggle('final', phase === 'focus' && running && remaining < 60_000);
 
-  const time = phase ? clock(remaining) : String(pickedMinutes());
+  const time = phase ? clock(remaining) : `${pickedMinutes()}:00`;
   if ($('focus-sum-time').textContent !== time) $('focus-sum-time').textContent = time;
-  $('focus-sum-unit').textContent = phase ? '' : 'menit';
 
   let sub = !phase ? `${t.focus ?? 0} sesi selesai hari ini` : running ? `selesai ${endTime.format(Date.now() + remaining)}` : 'Tekan ▶ untuk lanjut';
   const timer = quickTimers[0];
@@ -1984,13 +2104,59 @@ function renderInboxSummary() {
   }
 }
 
+// Island Kerja saat Claude diam: tiga angka hari ini. Server & Git kalau diatur (bisa diklik),
+// sisanya diisi fokus dan tugas selesai.
+function renderWorkStats() {
+  const box = $('work-stats');
+  box.replaceChildren();
+  const tiles = [];
+  const tile = (value, label, { tone = '', title = '', onClick = null } = {}) => tiles.push({ value, label, tone, title, onClick });
+  const claudeMs = statsToday?.claudeMs ?? 0;
+  tile(claudeMs >= 60_000 ? minutesText(claudeMs) : '0 m', 'Claude bekerja');
+  const services = devEnabled ? (lastDev?.services ?? []) : [];
+  if (services.length) {
+    const up = services.filter((s) => s.status === 'up').length;
+    tile(`${up}/${services.length}`, 'server hidup', { tone: up < services.length ? 'bad' : 'good', title: 'Periksa ulang server', onClick: () => window.kapsul.devRefresh() });
+  }
+  const projects = devEnabled ? (lastDev?.projects ?? []).filter((p) => p.ok) : [];
+  if (projects.length) {
+    const changed = projects.reduce((n, p) => n + (p.changed ?? 0) + (p.untracked ?? 0), 0);
+    const ahead = projects.reduce((n, p) => n + (p.ahead ?? 0), 0);
+    tile(changed ? String(changed) : ahead ? `↑${ahead}` : 'Bersih', changed ? 'file berubah' : ahead ? 'belum di-push' : `${projects.length} project Git`, {
+      title: 'Lihat server & project',
+      onClick: () => setDetail(true),
+    });
+  }
+  if (tiles.length < 3) tile((statsToday?.focusMs ?? 0) >= 60_000 ? minutesText(statsToday.focusMs) : '0 m', 'fokus');
+  if (tiles.length < 3) tile(String(statsToday?.todos ?? 0), 'tugas selesai');
+  for (const t of tiles) {
+    const cell = document.createElement(t.onClick ? 'button' : 'div');
+    if (t.onClick) {
+      cell.type = 'button';
+      cell.title = t.title;
+      cell.addEventListener('click', t.onClick);
+    }
+    if (t.tone) cell.classList.add(t.tone);
+    const b = document.createElement('b');
+    b.textContent = t.value;
+    const span = document.createElement('span');
+    span.textContent = t.label;
+    cell.append(b, span);
+    box.append(cell);
+  }
+  box.hidden = false;
+}
+
 // Island Kerja: tombol periksa server (+ jumlah yang mati) dan buka detail.
 function renderWorkActions() {
   const box = $('work-card-actions');
   box.replaceChildren();
   const down = (lastDev?.services ?? []).filter((x) => x.status === 'down').length;
+  // Claude diam: angka-angka di kartu sudah jadi tombol, jadi baris tombol tidak perlu.
+  box.hidden = !claudeState.active.length;
+  if (!claudeState.active.length) return;
   if (devEnabled) box.append(actionChip(down ? `Periksa · ${down} mati` : 'Periksa server', () => window.kapsul.devRefresh(), { primary: down > 0 }));
-  if (claudeState.active.length) box.append(actionChip('Aktivitas', () => setDetail(true)));
+  box.append(actionChip('Aktivitas', () => setDetail(true)));
 }
 
 // Detail Kerja: aktivitas Claude terakhir.
@@ -2116,6 +2282,8 @@ function renderBattery() {
   if (battery) {
     const percent = Math.round(battery.level * 100);
     $('bat-fill').style.width = `${Math.max(6, percent)}%`;
+    // Batas warna angka mengikuti ujung isi (padding 1,5px dari lebar 24px): gelap di atas isi, terang di bagian kosong.
+    $('bat-fill').parentElement.style.setProperty('--fill', `${(((1.5 + (21 * Math.max(6, percent)) / 100) / 24) * 100).toFixed(1)}%`);
     $('bat-text').textContent = String(percent);
     badge.classList.toggle('charging', battery.charging);
     badge.classList.toggle('low', lowBattery());
@@ -3210,6 +3378,7 @@ window.kapsul.onStats((data) => {
   statsMusic = data?.music ?? null;
   renderFocusReport();
   renderMusicReport();
+  if (!claudeState.active.length) renderWorkStats();
   if (['home', 'focus'].includes(PAGES[pageIndex].id)) renderPage();
 });
 
@@ -3749,11 +3918,15 @@ function pillSlides() {
   const slides = [
     {
       key: 'clock',
+      // Jam jadi fokus (tebal, di depan); tanggal kecil & redup di belakangnya.
       render: (el) => {
+        const time = document.createElement('b');
+        time.className = 'slide-time';
+        time.textContent = timeFormat.format(now).replace('.', ':');
         const date = document.createElement('span');
-        date.className = 'dim';
-        date.textContent = `${clockFormat.format(now)}  `;
-        el.append(date, timeFormat.format(now).replace('.', ':'));
+        date.className = 'dim slide-date';
+        date.textContent = clockFormat.format(now);
+        el.append(time, date);
       },
     },
   ];
@@ -3803,6 +3976,7 @@ function pillSlides() {
 }
 
 function renderPillText(animate = false) {
+  updateCentered();
   const text = $('pill-text');
   const override = pillOverride();
   let slide = override;

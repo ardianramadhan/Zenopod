@@ -920,6 +920,11 @@ select {
   .habit-form-grid {
     grid-template-columns: 64px 1fr;
   }
+
+  /* Kolom jam pengingat turun ke baris sendiri */
+  .habit-form-grid > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ---------- Panduan ---------- */
@@ -1095,4 +1100,91 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+/* ---------- Tabel Statistik: selalu muat di kartu ---------- */
+/* Lebar kolom tetap; lagu mengisi sisanya (terpotong "…"). Kartu sempit: kolom kecil disembunyikan. */
+.stats-card {
+  container-type: inline-size;
+}
+
+.stats-table {
+  table-layout: fixed;
+}
+
+.stats-table .c-day {
+  width: 96px;
+}
+
+/* Kolom angka: 62px (selector sengaja ringan supaya lebar per kolom di bawah bisa menimpanya) */
+.stats-table th {
+  width: 62px;
+}
+
+.stats-table th.c-habits,
+.stats-table th.c-reminders {
+  width: 76px;
+}
+
+.stats-table td.song {
+  max-width: none;
+}
+
+.stats-table th,
+.stats-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@container (max-width: 640px) {
+  .stats-table .c-apps,
+  .stats-table .c-reminders {
+    display: none;
+  }
+}
+
+@container (max-width: 470px) {
+  .stats-table .c-habits {
+    display: none;
+  }
+}
+
+.stats-table th.c-claude {
+  width: 82px;
+}
+
+.stats-table th.c-habits {
+  width: 86px;
+}
+
+.stats-table th.c-song {
+  text-align: left;
+  padding-left: 16px;
+}
+
+.stats-table td.c-song {
+  padding-left: 16px;
+}
+
+/* Lagu mengambil semua sisa lebar */
+.stats-table th.c-song {
+  width: auto;
+}
+
+@container (max-width: 470px) {
+  .stats-table th {
+    width: 50px;
+  }
+
+  .stats-table th.c-claude {
+    width: 74px;
+  }
+
+  .stats-table .c-day {
+    width: 92px;
+  }
+
+  .stats-table th.c-song {
+    width: auto;
+  }
 }

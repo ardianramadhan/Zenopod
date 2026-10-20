@@ -228,7 +228,17 @@
 .buddy[data-costume="merahputih"] .cos-merahputih-knot,
 .buddy[data-costume="party"] .cos-party,
 .buddy[data-costume="umbrella"] .cos-umbrella,
-.buddy[data-costume="sunglasses"] .cos-sunglasses {
+.buddy[data-costume="sunglasses"] .cos-sunglasses,
+.buddy[data-costume="ninja"] .cos-ninja,
+.buddy[data-costume="tentara"] .cos-tentara,
+.buddy[data-costume="natal"] .cos-natal,
+.buddy[data-costume="koki"] .cos-koki,
+.buddy[data-costume="wisuda"] .cos-wisuda,
+.buddy[data-costume="proyek"] .cos-proyek,
+.buddy[data-costume="polisi"] .cos-cap,
+.buddy[data-costume="pilot"] .cos-cap,
+.buddy[data-costume="dokter"] .cos-dokter,
+.buddy[data-costume="pemadam"] .cos-pemadam {
   display: inline;
 }
 
@@ -1282,4 +1292,243 @@
   .buddy[data-mood="music"] .phones .cup-r {
     animation: none;
   }
+}
+
+/* ---------- Kostum profesi & lainnya ---------- */
+
+/* Ninja: kain biru tua, pelat logam polos */
+.buddy .cos-ninja .cloth {
+  fill: #1e3a8a;
+}
+
+.buddy .cos-ninja .plate {
+  fill: #cbd5e1;
+  stroke: #64748b;
+  stroke-width: 0.45;
+}
+
+.buddy .cos-ninja .etch {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+
+.buddy .cos-ninja .rivet {
+  fill: #64748b;
+}
+
+.buddy .cos-ninja .tails {
+  transform-box: view-box;
+  transform-origin: 34px 14px;
+  animation: costume-flutter 1.6s ease-in-out infinite;
+}
+
+@keyframes costume-flutter {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+/* Tentara: hijau zaitun loreng */
+.buddy .cos-tentara .dome {
+  fill: #556b2f;
+}
+
+.buddy .cos-tentara .spot.a {
+  fill: #3b4a1f;
+}
+
+.buddy .cos-tentara .spot.b {
+  fill: #7a8a45;
+}
+
+.buddy .cos-tentara .brim {
+  fill: #3f4f22;
+}
+
+/* Natal */
+.buddy .cos-natal .body {
+  fill: #dc2626;
+}
+
+.buddy .cos-natal .trim,
+.buddy .cos-natal .pom {
+  fill: #fafafa;
+  stroke: #e4e4e7;
+  stroke-width: 0.4;
+}
+
+/* Koki */
+.buddy .cos-koki .puff,
+.buddy .cos-koki .band {
+  fill: #ffffff;
+  stroke: #d4d4d8;
+  stroke-width: 0.45;
+}
+
+.buddy .cos-koki .fold {
+  fill: none;
+  stroke: #d4d4d8;
+  stroke-width: 0.45;
+  stroke-linecap: round;
+}
+
+/* Wisuda */
+.buddy .cos-wisuda .cap {
+  fill: #18181b;
+}
+
+.buddy .cos-wisuda .board {
+  fill: #27272a;
+  stroke: #3f3f46;
+  stroke-width: 0.45;
+}
+
+.buddy .cos-wisuda .button,
+.buddy .cos-wisuda .end {
+  fill: #facc15;
+}
+
+.buddy .cos-wisuda .cord {
+  fill: none;
+  stroke: #facc15;
+  stroke-width: 0.7;
+  stroke-linecap: round;
+}
+
+.buddy .cos-wisuda .tassel {
+  transform-box: view-box;
+  transform-origin: 31.6px 8.4px;
+  animation: buddy-swing 2.4s ease-in-out infinite;
+}
+
+/* Helm proyek */
+.buddy .cos-proyek .dome {
+  fill: #facc15;
+}
+
+.buddy .cos-proyek .ridge {
+  fill: none;
+  stroke: #ca8a04;
+  stroke-width: 0.8;
+  stroke-linecap: round;
+}
+
+.buddy .cos-proyek .brim {
+  fill: #eab308;
+}
+
+/* Polisi (biru tua, lencana bintang) & pilot (putih, lencana sayap) */
+.buddy .cos-cap .crown {
+  fill: #1e293b;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 0.4;
+}
+
+.buddy .cos-cap .cap-band {
+  fill: #0f172a;
+}
+
+.buddy .cos-cap .visor {
+  fill: #09090b;
+}
+
+.buddy .cos-cap .badge-star,
+.buddy .cos-cap .badge-wings {
+  fill: #facc15;
+}
+
+.buddy .cos-cap .badge-wings {
+  display: none;
+}
+
+.buddy[data-costume="pilot"] .cos-cap .crown {
+  fill: #fafafa;
+  stroke: #d4d4d8;
+}
+
+.buddy[data-costume="pilot"] .cos-cap .cap-band {
+  fill: #18181b;
+}
+
+.buddy[data-costume="pilot"] .cos-cap .badge-star {
+  display: none;
+}
+
+.buddy[data-costume="pilot"] .cos-cap .badge-wings {
+  display: inline;
+}
+
+/* Dokter */
+.buddy .cos-dokter .strap {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 1.3;
+}
+
+.buddy .cos-dokter .mirror {
+  fill: #e2e8f0;
+  stroke: #94a3b8;
+  stroke-width: 0.6;
+}
+
+.buddy .cos-dokter .hole {
+  fill: #475569;
+}
+
+.buddy .cos-dokter .shine {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+
+/* Pemadam */
+.buddy .cos-pemadam .dome {
+  fill: #dc2626;
+}
+
+.buddy .cos-pemadam .ridge {
+  fill: none;
+  stroke: #991b1b;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.buddy .cos-pemadam .brim {
+  fill: #b91c1c;
+}
+
+.buddy .cos-pemadam .shield {
+  fill: #facc15;
+  stroke: #a16207;
+  stroke-width: 0.4;
+}
+
+.buddy .cos-pemadam .shield-line {
+  stroke: #a16207;
+  stroke-width: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy .cos-ninja .tails,
+  .buddy .cos-wisuda .tassel {
+    animation: none;
+  }
+}
+
+/* Headphone dipakai (musik): bagian kostum yang menjuntai di samping kepala disembunyikan
+   supaya tidak menabrak earcup. */
+.buddy[data-mood="music"] .cos-ninja .tails,
+.buddy[data-mood="listen"] .cos-ninja .tails,
+.buddy[data-mood="music"] .cos-wisuda .tassel,
+.buddy[data-mood="listen"] .cos-wisuda .tassel,
+.buddy[data-mood="music"] .cos-merahputih-knot,
+.buddy[data-mood="listen"] .cos-merahputih-knot {
+  display: none;
 }

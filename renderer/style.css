@@ -4609,110 +4609,6 @@ body[data-island="notch"] .notch-cap::after {
   --phase: #71717a;
 }
 
-.mini-ring {
-  position: relative;
-  flex: none;
-  width: 68px;
-  height: 68px;
-}
-
-/* Cahaya lembut di belakang lingkaran saat berjalan */
-.mini-ring::before {
-  content: "";
-  position: absolute;
-  inset: 10px;
-  border-radius: 50%;
-  background: var(--phase);
-  opacity: 0;
-  filter: blur(14px);
-  transition: background 0.4s;
-}
-
-.focus-island.running .mini-ring::before {
-  animation: ring-glow 3.2s ease-in-out infinite;
-}
-
-.focus-island.final .mini-ring::before {
-  animation-duration: 1s;
-}
-
-.focus-island.paused .mini-ring {
-  animation: ring-breathe 2.4s ease-in-out infinite;
-}
-
-.mini-ring svg {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.mini-ring circle {
-  fill: none;
-  stroke-width: 5;
-}
-
-.mini-track {
-  stroke: var(--surface-hover);
-}
-
-.mini-bar {
-  stroke: var(--phase);
-  stroke-linecap: round;
-  stroke-dasharray: 1000;
-  transition: stroke 0.4s;
-}
-
-.mini-knob {
-  fill: var(--text) !important;
-  stroke: var(--phase);
-  stroke-width: 2 !important;
-  filter: drop-shadow(0 0 3px var(--phase));
-  transition: stroke 0.4s;
-}
-
-.focus-island.idle .mini-knob {
-  opacity: 0;
-}
-
-/* Belum mulai: lingkaran putus-putus, menunggu ditekan ▶ */
-.focus-island.idle .mini-bar {
-  stroke-dasharray: 6 9;
-  stroke-linecap: butt;
-  opacity: 0.55;
-}
-
-.mini-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-.mini-center b {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.focus-island.idle .mini-center b {
-  font-size: 20px;
-}
-
-.mini-center span {
-  margin-top: 2px;
-  font-size: 9px;
-  color: var(--muted);
-}
-
-.mini-center span:empty {
-  display: none;
-}
-
 .focus-island-info {
   display: flex;
   flex-direction: column;
@@ -6516,4 +6412,493 @@ body[data-island="notch"] .notch-cap::after {
 /* Bar aplikasi: biru seperti grafik 7 hari (hijau milik musik) */
 .screen-top li i {
   background: #5ba8f5;
+}
+
+/* ---------- Mode jam: hanya waktu, bersih seperti jam layar kunci ---------- */
+/* Baterai, notifikasi, musik & alert dev memudar; kembali saat Zeno bangun. Titik privasi
+   (mic/kamera) tetap tampil karena menandai keadaan nyata yang perlu diketahui. */
+.pill .pill-battery,
+.pill .badge,
+.pill .eq,
+.pill .dev-alert {
+  transition:
+    opacity 0.3s,
+    scale 0.3s var(--ease);
+}
+
+.shell.resting .pill .pill-battery,
+.shell.resting .pill .badge,
+.shell.resting .pill .eq,
+.shell.resting .pill .dev-alert {
+  opacity: 0;
+  scale: 0.6;
+  pointer-events: none;
+}
+
+.shell.resting .pill-clock {
+  font-family: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Titik dua diam (tidak berkedip) dan sedikit dinaikkan supaya sejajar dengan angka */
+.shell.resting .pill-clock .colon {
+  animation: none;
+  position: relative;
+  top: -1px;
+}
+
+/* ---------- Kapsul sederhana ---------- */
+/* Notifikasi: titik kecil, bukan gelembung merah berangka. */
+.pill .badge {
+  min-width: 0;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border-radius: 50%;
+  background: #5ba8f5;
+  font-size: 0;
+  line-height: 0;
+}
+
+/* Teks panjang memudar di ujung, bukan terpotong keras. */
+.pill .pill-text {
+  text-overflow: clip;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  font-weight: 500;
+}
+
+/* ---------- Island Kerja saat Claude diam: ringkasan hari ini ---------- */
+
+.work-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-auto-flow: column;
+  gap: 6px;
+  margin: 8px 0 2px;
+}
+
+.work-stats > * {
+  display: grid;
+  justify-items: start;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  border: 0;
+  gap: 1px;
+  min-width: 0;
+  padding: 6px 9px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.work-stats b {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.work-stats span {
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.work-stats .good b {
+  color: #4ade80;
+}
+
+.work-stats .bad b {
+  color: #f87171;
+}
+
+.work-stats button {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.work-stats button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.work-stats button:focus-visible {
+  outline: 2px solid #5ba8f5;
+  outline-offset: 1px;
+}
+
+/* Kartu Kerja cuma ±84px: keterangan tidak boleh terjepit, kotak angka dibuat ramping. */
+.claude-page .claude-meta,
+.work-stats {
+  flex: none;
+}
+
+.work-stats {
+  margin: 5px 0 0;
+}
+
+.work-stats > * {
+  padding: 4px 9px 5px;
+  gap: 0;
+}
+
+.work-stats b {
+  font-size: 13px;
+  line-height: 17px;
+}
+
+.work-stats span {
+  line-height: 13px;
+}
+
+/* Titik navigasi section ada di pojok kanan bawah kartu: isi Kerja dirapatkan ke atas
+   supaya kotak angka berakhir di atas titik-titik itu. */
+.claude-page:has(.work-stats:not([hidden])) {
+  justify-content: flex-start;
+}
+
+.work-stats > * {
+  padding: 3px 9px 4px;
+}
+
+.work-stats b {
+  font-size: 12.5px;
+  line-height: 16px;
+}
+
+.work-stats span {
+  font-size: 10px;
+  line-height: 12px;
+}
+
+/* ---------- Island Fokus: angka besar + garis progres ---------- */
+
+.focus-clock {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 104px;
+}
+
+.focus-clock b {
+  font-family: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  transition: color 0.4s;
+}
+
+/* Belum mulai / dijeda: angka sedikit redup */
+.focus-island.idle .focus-clock b,
+.focus-island.paused .focus-clock b {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.focus-island.final .focus-clock b {
+  color: var(--phase);
+}
+
+.focus-line {
+  position: relative;
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.focus-line span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: inherit;
+  background: var(--phase);
+  transition:
+    width 1s linear,
+    background 0.4s;
+}
+
+.focus-island.paused .focus-line span {
+  animation: ring-breathe 2.4s ease-in-out infinite;
+}
+
+
+/* ---------- Mode jam: jam tetap di tengah, slot kiri & kanan bergantian ---------- */
+
+.rest-slot {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.rest-slot.left {
+  left: 16px;
+}
+
+.rest-slot.right {
+  right: 14px;
+}
+
+.shell.resting .rest-slot {
+  opacity: 1;
+}
+
+/* Mode jam: titik privasi pindah ke slot kanan */
+.shell.resting .pill .privacy-dots {
+  opacity: 0;
+}
+
+.rest-slot-item {
+  display: flex;
+  align-items: center;
+}
+
+.rest-slot-item.enter {
+  animation: rest-enter 0.45s var(--ease) both;
+}
+
+@keyframes rest-enter {
+  from {
+    opacity: 0;
+    translate: 0 7px;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    filter: none;
+  }
+}
+
+.rest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+
+.rest-chip svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rest-chip.on-call svg {
+  stroke: #f87171;
+}
+
+.rest-chip.muted svg {
+  stroke: var(--muted);
+}
+
+.rest-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.rest-dot.notif {
+  background: #5ba8f5;
+}
+
+.rest-dot.dev {
+  background: #ef4444;
+}
+
+.rest-dot.mic {
+  background: #f59e0b;
+}
+
+.rest-dot.cam {
+  background: #22c55e;
+}
+
+/* Equalizer musik (sama dengan kapsul biasa) */
+.rest-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.rest-eq i {
+  width: 3px;
+  height: 100%;
+  transform-origin: bottom;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: eq 0.9s ease-in-out infinite;
+}
+
+.rest-eq i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.rest-eq i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Baterai di slot kanan memakai ikon kapsul biasa; aturan "sembunyikan di mode jam" tidak berlaku */
+.shell.resting .pill .rest-slot .pill-battery {
+  opacity: 1;
+  scale: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rest-slot-item.enter,
+  .rest-eq i {
+    animation: none;
+  }
+}
+
+/* Kapsul: slide jam — jam tebal di depan, tanggal kecil redup */
+.pill-text .slide-time {
+  font-family: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill-text .slide-date {
+  margin-left: 7px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+/* ---------- Zeno di tengah saat tidak ada aktivitas ---------- */
+.shell.centered:not(.resting) .pill .buddy {
+  margin-left: var(--buddy-center, 0px);
+}
+
+.shell.centered:not(.resting) .pill .pill-text,
+.shell.centered:not(.resting) .pill .typing {
+  opacity: 0;
+}
+
+.pill .buddy {
+  transition:
+    opacity 0.35s,
+    scale 0.35s var(--ease),
+    width 0.35s var(--ease),
+    margin 0.5s var(--ease);
+}
+
+/* ---------- Baterai gaya Apple ---------- */
+/* Garis luar tipis netral, isi putih (hijau saat mengisi, merah saat lemah), angka di dalam,
+   petir kecil diam di samping. Tanpa kilau, kedip, atau bayangan. */
+.pill-battery {
+  --bat: #ffffff;
+  gap: 2px;
+}
+
+.pill-battery.charging {
+  --bat: #34c759;
+}
+
+.pill-battery.low {
+  --bat: #ff3b30;
+}
+
+.bat {
+  width: 24px;
+  height: 12px;
+  padding: 1.5px;
+  border-radius: 3.6px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+}
+
+.bat::after {
+  top: 3.8px;
+  right: -2.6px;
+  width: 1.6px;
+  height: 4.4px;
+  background: rgba(255, 255, 255, 0.38);
+}
+
+.bat i,
+.pill-battery.charging .bat i {
+  border-radius: 2px;
+  background: var(--bat);
+  animation: none;
+}
+
+.bat b {
+  font-family: "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #000;
+  text-shadow: none;
+}
+
+/* Isi tinggal sedikit: angka putih supaya tetap terbaca di atas bagian kosong */
+.pill-battery.thin .bat b {
+  color: #fff;
+  text-shadow: none;
+}
+
+.pill-battery.low .bat,
+.pill-battery.charging .bat-bolt {
+  animation: none;
+}
+
+.bat-bolt {
+  width: 6px;
+  height: 10px;
+  margin-left: 1px;
+  fill: var(--bat);
+}
+
+/* Angka "knockout" seperti iOS: hitam di atas isi, putih di atas bagian kosong */
+.pill-battery .bat b,
+.pill-battery.thin .bat b {
+  color: transparent;
+  background: linear-gradient(90deg, #000 var(--fill, 100%), #fff var(--fill, 100%));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+/* ---------- Zeno di tengah: tata letak sama dengan mode jam ---------- */
+/* Kiri baterai dkk., kanan notifikasi/dev dkk., Zeno menggantikan jam di tengah. */
+.shell.centered .rest-slot {
+  opacity: 1;
+}
+
+.shell.centered .pill .pill-battery,
+.shell.centered .pill .badge,
+.shell.centered .pill .eq,
+.shell.centered .pill .dev-alert,
+.shell.centered .pill .privacy-dots {
+  opacity: 0;
+  scale: 0.6;
+  pointer-events: none;
+}
+
+.shell.centered .pill .rest-slot .pill-battery {
+  opacity: 1;
+  scale: 1;
 }

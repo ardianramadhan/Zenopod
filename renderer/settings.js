@@ -1025,22 +1025,26 @@ function renderStats() {
   const table = $('stats-table');
   table.replaceChildren();
   const head = el('tr');
-  for (const label of ['Hari', 'Claude', 'Fokus', 'Tugas', 'Kebiasaan', 'Pengingat', 'Aplikasi', 'Lagu favorit']) head.append(el('th', '', label));
+  // Kelas kolom: lebar tetap & kolom kecil disembunyikan saat kartunya sempit (settings.css).
+  const COLS = ['day', 'claude', 'focus', 'todos', 'habits', 'reminders', 'apps', 'song'];
+  ['Hari', 'Claude', 'Fokus', 'Tugas', 'Kebiasaan', 'Pengingat', 'Aplikasi', 'Lagu favorit'].forEach((label, i) => head.append(el('th', `c-${COLS[i]}`, label)));
   table.append(head);
   const dayFormat = new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
   const week = [...(state.statsWeek ?? [])].reverse();
   week.forEach((d, i) => {
     const row = el('tr', i === 0 ? 'today' : '');
     const [y, m, dd] = d.key.split('-').map(Number);
+    const song = el('td', 'song c-song', d.top ? d.top[0] : '–');
+    if (d.top) song.title = d.top[0];
     row.append(
-      el('td', '', i === 0 ? 'Hari ini' : dayFormat.format(new Date(y, m - 1, dd))),
-      el('td', '', fmtDuration(d.claudeMs)),
-      el('td', '', String(d.focus || '–')),
-      el('td', '', String(d.todos || '–')),
-      el('td', '', String(d.habits || '–')),
-      el('td', '', String(d.reminders || '–')),
-      el('td', '', String(d.apps || '–')),
-      el('td', 'song', d.top ? d.top[0] : '–'),
+      el('td', 'c-day', i === 0 ? 'Hari ini' : dayFormat.format(new Date(y, m - 1, dd))),
+      el('td', 'c-claude', fmtDuration(d.claudeMs)),
+      el('td', 'c-focus', String(d.focus || '–')),
+      el('td', 'c-todos', String(d.todos || '–')),
+      el('td', 'c-habits', String(d.habits || '–')),
+      el('td', 'c-reminders', String(d.reminders || '–')),
+      el('td', 'c-apps', String(d.apps || '–')),
+      song,
     );
     table.append(row);
   });

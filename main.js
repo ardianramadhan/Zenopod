@@ -1103,6 +1103,7 @@ function openNotification(id) {
 // ---------- Claude Code ----------
 
 const sessions = new Map(); // session_id → { project, state: thinking|working|waiting|idle, label, updated }
+let lastSession = null; // sesi terakhir yang selesai: { project, endedAt, steps, ms, failed } (kartu Kerja saat diam)
 
 function sendClaude() {
   const now = Date.now();
@@ -1110,7 +1111,7 @@ function sendClaude() {
     // Sesi yang 10 menit tanpa kabar dianggap diam.
     .filter((s) => s.state !== 'idle' && now - s.updated < 10 * 60_000)
     .sort((a, b) => b.updated - a.updated);
-  send('kapsul:claude', { active });
+  send('kapsul:claude', { active, last: lastSession });
 }
 
 function onClaudeEvent(event, data) {
@@ -1156,6 +1157,7 @@ function onClaudeEvent(event, data) {
       }
       break;
     case 'Stop':
+      lastSession = { project, endedAt: Date.now(), steps: session.steps ?? 0, ms: session.started ? Date.now() - session.started : 0, failed: false };
       Object.assign(session, { state: 'idle', label: '' });
       if (config.claude.peek) {
         showPeek({
@@ -1170,6 +1172,7 @@ function onClaudeEvent(event, data) {
       }
       break;
     case 'StopFailure':
+      lastSession = { project, endedAt: Date.now(), steps: session.steps ?? 0, ms: session.started ? Date.now() - session.started : 0, failed: true };
       Object.assign(session, { state: 'idle', label: '' });
       if (config.claude.peek) {
         showPeek({

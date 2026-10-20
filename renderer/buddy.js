@@ -102,6 +102,13 @@
       </defs>
 
       <g class="b-body">
+        <!-- Bando headphone: melengkung di luar kepala (di belakang bola), tidak menutupi wajah atau
+             ubun-ubun. Topi tetap di atasnya; earcup ada di lapisan depan (grup .phones di bawah). -->
+        <g data-part="x-phones" class="phones phones-band">
+          <path class="band-shadow" d="M5.2 21 C4.2 6.6 11.6 3 20 3 C28.4 3 35.8 6.6 34.8 21" />
+          <path class="band" d="M5.2 21 C4.2 6.6 11.6 3 20 3 C28.4 3 35.8 6.6 34.8 21" />
+          <path class="band-shine" d="M6.4 13.4 C7.4 7.6 12.4 4.6 18.2 4.1" />
+        </g>
         <circle class="sphere" cx="${CX}" cy="${CY}" r="15" fill="url(#${id}-ball)" />
 
         <g clip-path="url(#${id}-clip)">
@@ -182,6 +189,9 @@
             <path class="red" d="M4 11.5 C12 8 28 8 36 11.5 V14 C28 10.6 12 10.6 4 14 Z" />
             <path class="white" d="M4 14 C12 10.6 28 10.6 36 14 V16.4 C28 13 12 13 4 16.4 Z" />
           </g>
+          <!-- Kain ikat kepala ninja & tali cermin dokter: ikut terpotong bentuk bola -->
+          <g class="cos cos-ninja"><path class="cloth" d="M4 12.8 C12 9.4 28 9.4 36 12.8 V16.8 C28 13.4 12 13.4 4 16.8 Z" /></g>
+          <g class="cos cos-dokter"><path class="strap" d="M4 14.4 C12 11 28 11 36 14.4" /></g>
         </g>
 
         <!-- Kilau cahaya: tetap di tempat walau wajah berputar -->
@@ -200,6 +210,74 @@
           <path class="stripe" d="M16.2 5.6 L24.8 8.1 M18.8 1.8 L23.1 3.4" />
           <circle class="pom" cx="21.5" cy="-2.6" r="1.7" />
         </g>
+        <!-- Ikat kepala ninja: pelat logam polos + dua ujung kain yang berkibar -->
+        <g class="cos cos-ninja">
+          <g class="tails">
+            <path class="cloth" d="M34 13 q3.6 0.2 5.6 3.4 l-1.5 0.8 q-1.6 -2.2 -4.2 -2.4 z" />
+            <path class="cloth" d="M33.8 15 q3 1.2 4 4.8 l-1.6 0.4 q-0.8 -2.6 -2.8 -3.6 z" />
+          </g>
+          <rect class="plate" x="14.4" y="9.6" width="11.2" height="5" rx="1.1" />
+          <path class="etch" d="M17.4 12.1 h5.2 M20 10.6 v3" />
+          <circle class="rivet" cx="15.6" cy="12.1" r="0.45" />
+          <circle class="rivet" cx="24.4" cy="12.1" r="0.45" />
+        </g>
+        <!-- Helm tentara: kubah loreng + pinggiran -->
+        <g class="cos cos-tentara">
+          <path class="dome" d="M7.6 12.4 C7.4 2.6 32.6 2.6 32.4 12.4 Z" />
+          <path class="spot a" d="M11.4 9.2 q2 -2.4 4.4 -1 q-0.6 2.2 -4.4 1 z M23.4 5.4 q2.8 -1 4 1.4 q-2.4 1 -4 -1.4 z" />
+          <path class="spot b" d="M17 5.2 q2.6 -1.6 4.6 0.2 q-2 1.6 -4.6 -0.2 z M26.4 9.8 q2 -1.2 3.4 0.8 q-1.8 1 -3.4 -0.8 z M14.6 11.2 q1.6 -1 3 0.4 q-1.6 0.8 -3 -0.4 z" />
+          <path class="brim" d="M5.4 12.4 Q20 10 34.6 12.4 Q35 13.8 33.6 14 Q20 11.8 6.4 14 Q5 13.8 5.4 12.4 Z" />
+        </g>
+        <!-- Topi Natal: kerucut merah terkulai ke kanan, pinggiran & pompom putih -->
+        <g class="cos cos-natal">
+          <path class="body" d="M9.6 11.2 Q11.6 2 20.6 0.8 Q30 0 35.2 8 L31.4 11.2 Z" />
+          <path class="trim" d="M7.8 10 C14 7.2 26 7.2 32.2 10 Q33.4 11 32.6 12.4 C26 9.8 14 9.8 7.4 12.4 Q6.6 11 7.8 10 Z" />
+          <circle class="pom" cx="35.6" cy="8.6" r="2.3" />
+        </g>
+        <!-- Topi koki: awan putih di atas pita -->
+        <g class="cos cos-koki">
+          <path class="puff" d="M11.4 9.2 C7.6 8.6 7.8 2.6 12 2.8 C12.4 -1.2 17.6 -1.8 20 0.6 C22.4 -1.8 27.6 -1.2 28 2.8 C32.2 2.6 32.4 8.6 28.6 9.2 Z" />
+          <path class="fold" d="M15.4 9 Q15 5.6 16.4 3.6 M24.6 9 Q25 5.6 23.6 3.6" />
+          <path class="band" d="M10.6 12.2 C15 10 25 10 29.4 12.2 L29 8.8 C25 7.4 15 7.4 11 8.8 Z" />
+        </g>
+        <!-- Topi wisuda: papan + jumbai emas yang berayun -->
+        <g class="cos cos-wisuda">
+          <path class="cap" d="M12.6 12 Q20 9.6 27.4 12 L27.4 7.4 L12.6 7.4 Z" />
+          <path class="board" d="M20 2 L35.4 6.2 L20 10.4 L4.6 6.2 Z" />
+          <g class="tassel">
+            <path class="cord" d="M20 6.2 Q29 6.4 31.6 8.4 V13.2" />
+            <rect class="end" x="30.8" y="12.8" width="1.6" height="3.4" rx="0.6" />
+          </g>
+          <circle class="button" cx="20" cy="6.2" r="0.95" />
+        </g>
+        <!-- Helm proyek: kuning dengan rusuk -->
+        <g class="cos cos-proyek">
+          <path class="dome" d="M8 12.2 C8 2.2 32 2.2 32 12.2 Z" />
+          <path class="ridge" d="M20 3.2 V11.4 M15.2 4.6 Q14.2 8 14.4 11.6 M24.8 4.6 Q25.8 8 25.6 11.6" />
+          <path class="brim" d="M5 12.2 Q20 10 35 12.2 Q35.4 13.6 34 13.8 Q20 11.8 6 13.8 Q4.6 13.6 5 12.2 Z" />
+        </g>
+        <!-- Topi polisi & pilot: bentuk sama, warna & lencana beda (buddy.css) -->
+        <g class="cos cos-cap">
+          <path class="crown" d="M6.6 6.8 Q20 0.4 33.4 6.8 Q34 8.8 31.4 9.4 H8.6 Q6 8.8 6.6 6.8 Z" />
+          <path class="cap-band" d="M8.6 9.4 H31.4 V11.8 Q20 10.4 8.6 11.8 Z" />
+          <path class="visor" d="M9.6 11.6 Q20 10 30.4 11.6 Q27.4 14.6 20 14.2 Q12.6 14.6 9.6 11.6 Z" />
+          <path class="badge-star" d="${star(20, 6.6, 1.9, 0.8)}" />
+          <path class="badge-wings" d="M20 5.4 l0.9 1.3 l-0.9 1.3 l-0.9 -1.3 z M18.8 6.7 q-2.6 -1.2 -5 -0.6 q2.4 1.4 5 0.6 z M21.2 6.7 q2.6 -1.2 5 -0.6 q-2.4 1.4 -5 0.6 z" />
+        </g>
+        <!-- Dokter: cermin kepala di dahi -->
+        <g class="cos cos-dokter">
+          <circle class="mirror" cx="20" cy="9.4" r="3.7" />
+          <circle class="hole" cx="20" cy="9.4" r="0.9" />
+          <path class="shine" d="M17.8 8.2 q0.8 -1.4 2.4 -1.6" />
+        </g>
+        <!-- Helm pemadam: merah, lencana depan, pinggiran belakang panjang -->
+        <g class="cos cos-pemadam">
+          <path class="dome" d="M8 12.2 C8 2.4 32 2.4 32 12.2 Z" />
+          <path class="ridge" d="M20 2.6 Q27 3 31.4 9" />
+          <path class="brim" d="M4 12.2 Q20 10 36 12.2 L38 14.6 Q20 12 5 13.8 Q3.6 13.4 4 12.2 Z" />
+          <path class="shield" d="M17.4 4.6 H22.6 V9 L20 10.8 L17.4 9 Z" />
+          <path class="shield-line" d="M20 5.6 V9.4" />
+        </g>
         <g class="cos cos-umbrella">
           <path class="stick" d="M33 5 V21 q0 2 -1.8 2" />
           <path class="canopy" d="M21 6.5 Q33 -6.5 45 6.5 Q42 4.4 39 6.5 Q36 4.4 33 6.5 Q30 4.4 27 6.5 Q24 4.4 21 6.5 Z" />
@@ -207,9 +285,6 @@
 
         <!-- Headphone: bando berlapis + earcup dengan bantalan & lampu yang berdenyut mengikuti ketukan -->
         <g data-part="x-phones" class="phones">
-          <path class="band-shadow" d="M5.6 20.5 Q20 -1.8 34.4 20.5" />
-          <path class="band" d="M5.6 20.5 Q20 -1.8 34.4 20.5" />
-          <path class="band-shine" d="M10.6 11.6 Q20 3.6 29.4 11.6" />
           <g class="cup-l">
             <rect class="cup" x="1.8" y="16.4" width="6.4" height="11" rx="2.8" />
             <rect class="cushion" x="6.4" y="17.6" width="2.4" height="8.6" rx="1.2" />

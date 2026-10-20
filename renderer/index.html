@@ -15,6 +15,9 @@
         <span class="pill-text" id="pill-text"></span>
         <!-- Mode jam: tanpa aktivitas 30 dtk, Zeno tidur & kapsul hanya menampilkan jam -->
         <span class="pill-clock" id="pill-clock" aria-hidden="true"></span>
+        <!-- Mode jam: slot kiri & kanan bergantian (jam di tengah tetap) -->
+        <span class="rest-slot left" id="rest-left" aria-hidden="true"></span>
+        <span class="rest-slot right" id="rest-right" aria-hidden="true"></span>
         <span class="typing" id="typing" hidden><i></i><i></i><i></i></span>
         <span class="eq" id="eq" hidden><i></i><i></i><i></i></span>
         <span class="dev-alert" id="pill-dev-alert" title="Ada server lokal yang mati" hidden></span>
@@ -181,13 +184,10 @@
               </div>
               <div class="page focus-page" data-page="focus" aria-label="Fokus">
                 <div class="focus-island idle" id="focus-island">
-                  <div class="mini-ring">
-                    <svg viewBox="0 0 64 64" aria-hidden="true">
-                      <circle class="mini-track" cx="32" cy="32" r="27" />
-                      <circle class="mini-bar" id="mini-ring-bar" cx="32" cy="32" r="27" pathLength="1000" transform="rotate(-90 32 32)" />
-                      <circle class="mini-knob" id="mini-ring-knob" cx="32" cy="5" r="3.2" />
-                    </svg>
-                    <div class="mini-center"><b id="focus-sum-time"></b><span id="focus-sum-unit"></span></div>
+                  <!-- Angka besar seperti jam + garis progres tipis yang terisi selama sesi berjalan -->
+                  <div class="focus-clock">
+                    <b id="focus-sum-time"></b>
+                    <i class="focus-line" aria-hidden="true"><span id="focus-line-bar"></span></i>
                   </div>
                   <div class="focus-island-info">
                     <div class="focus-top-title"><span class="live-dot" aria-hidden="true"></span><span id="focus-sum-title"></span></div>
@@ -233,6 +233,8 @@
                 </div>
                 <div class="claude-meta" id="claude-meta"></div>
                 <ul class="claude-activity" id="claude-activity"></ul>
+                <!-- Saat Claude diam: ringkasan kerja hari ini -->
+                <div class="work-stats" id="work-stats" hidden></div>
                 <div class="action-row" id="work-card-actions"></div>
               </div>
             </div>
