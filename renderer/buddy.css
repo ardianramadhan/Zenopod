@@ -1532,3 +1532,86 @@
 .buddy[data-mood="listen"] .cos-merahputih-knot {
   display: none;
 }
+
+/* ---------- Zeno bekerja (laptop) ---------- */
+
+.buddy .laptop .lid {
+  fill: #2a2a31;
+  stroke: #45454f;
+  stroke-width: 0.5;
+}
+
+.buddy .laptop .lid-edge {
+  fill: #52525b;
+}
+
+.buddy .laptop .logo {
+  fill: rgba(255, 255, 255, 0.4);
+}
+
+/* Cahaya layar memantul di wajah, sedikit berkedip seperti layar yang berganti isi */
+.buddy .laptop .glow {
+  fill: #7dd3fc;
+  opacity: 0.32;
+}
+
+.buddy .laptop .keys rect {
+  fill: #e0f2fe;
+  opacity: 0;
+}
+
+.buddy[data-mood="work"] .laptop .glow {
+  animation: laptop-glow 2.4s ease-in-out infinite;
+}
+
+.buddy[data-mood="work"] .laptop .keys .k1 {
+  animation: laptop-key 0.9s steps(1) infinite;
+}
+
+.buddy[data-mood="work"] .laptop .keys .k2 {
+  animation: laptop-key 0.9s steps(1) 0.3s infinite;
+}
+
+.buddy[data-mood="work"] .laptop .keys .k3 {
+  animation: laptop-key 0.9s steps(1) 0.6s infinite;
+}
+
+/* Getaran kecil seperti sedang mengetik */
+.buddy[data-mood="work"] .b-body {
+  animation: buddy-type 0.36s steps(2) infinite;
+}
+
+@keyframes laptop-glow {
+  0%,
+  100% {
+    opacity: 0.32;
+  }
+  50% {
+    opacity: 0.18;
+  }
+}
+
+@keyframes laptop-key {
+  0% {
+    opacity: 0.9;
+  }
+  34% {
+    opacity: 0;
+  }
+}
+
+@keyframes buddy-type {
+  0% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 0.35px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy[data-mood="work"] .b-body,
+  .buddy[data-mood="work"] .laptop * {
+    animation: none;
+  }
+}

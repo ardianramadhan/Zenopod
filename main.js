@@ -158,7 +158,11 @@ let drag = null; // { bounds, align, valign, snapped } saat mulai digeser
 function dragStart() {
   if (!win) return;
   clearTimeout(shrinkTimer);
-  drag = { bounds: win.getBounds(), align: align(), valign: valign(), snapped: null };
+  drag = { bounds: win.getBounds(), align: align(), valign: valign(), snapped: null, raisedAt: 0 };
+  // Selama digeser: naik ke level tertinggi supaya tidak tenggelam di balik jendela lain
+  // (Windows mengaktifkan jendela di bawah kursor / taskbar saat tombol mouse ditekan).
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.moveTop();
 }
 
 // Titik kiri-atas kapsul kecil dari posisi jendela sekarang.
@@ -180,7 +184,14 @@ function dragMove(dx, dy) {
   const display = screen.getDisplayNearestPoint({ x: Math.round(px), y: Math.round(py) });
   const snapped = config.island !== 'pill' && nearTop(py, display.workArea);
   if (snapped) next.y = display.workArea.y;
+  // setBounds (bukan setPosition): di Windows dengan skala layar 125–150%, setPosition menambah
+  // lebar jendela 1px tiap panggilan sehingga kapsul terus bergeser ke kanan.
   win.setBounds(next);
+  // Tegaskan ulang posisi paling atas sesekali selama digeser (murah, tidak tiap piksel).
+  if (Date.now() - drag.raisedAt > 200) {
+    drag.raisedAt = Date.now();
+    win.moveTop();
+  }
   if (snapped !== drag.snapped) {
     drag.snapped = snapped;
     send('kapsul:island-preview', snapped ? 'notch' : 'pill');
@@ -193,6 +204,9 @@ function dragEnd() {
   if (!drag) return;
   const { px, py } = pillPoint(win.getBounds());
   drag = null;
+  applyWindowLevel();
+  win.moveTop();
+  if (peekQueue.length) setTimeout(nextPeek, 300);
 
   const { workArea: wa } = screen.getDisplayNearestPoint({ x: Math.round(px), y: Math.round(py) });
   const primary = screen.getPrimaryDisplay().workArea;
@@ -250,7 +264,10 @@ function createWindow() {
   applyWindowLevel();
   win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-  win.once('ready-to-show', () => win.showInactive());
+  win.once('ready-to-show', () => {
+    win.showInactive();
+    guardTopmost();
+  });
 
   // Klik di luar widget = tutup panel.
   win.on('blur', () => setExpanded(false));
@@ -264,10 +281,22 @@ function applyWindowLevel() {
   win?.setAlwaysOnTop(true, IS_MAC && isNotch() ? 'status' : 'floating');
 }
 
+// Aplikasi lain (video layar penuh, aplikasi rapat, jendela "selalu di atas") bisa merebut posisi
+// paling atas: tiap 4 detik Zenopod ditaruh di atas lagi (tanpa mengambil fokus).
+function guardTopmost() {
+  setInterval(() => {
+    if (!win || win.isDestroyed() || drag || snipWin || !win.isVisible()) return;
+    if (!win.isAlwaysOnTop()) applyWindowLevel();
+    win.moveTop();
+  }, 4000);
+}
+
 let shrinkTimer = null;
 let cursorTimer = null;
 
 function resize() {
+  // Sedang digeser: posisi dipegang dragMove; ukuran dirapikan lagi setelah dilepas.
+  if (drag) return;
   clearTimeout(shrinkTimer);
   const next = boundsFor(currentState());
   const now = win.getBounds();
@@ -295,6 +324,8 @@ function watchCursor() {
 }
 
 function setExpanded(next, { focus = false } = {}) {
+  // Hover/klik selama digeser diabaikan (panel akan melompat ke posisi lama).
+  if (drag) return;
   if (!win || next === expanded) {
     if (next && focus) win.focus();
     return;
@@ -353,7 +384,8 @@ function showPeek(peek) {
 }
 
 function nextPeek() {
-  if (!win || expanded || currentPeek) return;
+  // Kartu yang datang selama digeser menunggu sampai dilepas (dragEnd memanggil nextPeek).
+  if (!win || expanded || currentPeek || drag) return;
   currentPeek = peekQueue.shift() ?? null;
   if (!currentPeek) return;
   send('kapsul:peek', currentPeek);
@@ -393,6 +425,7 @@ function peekAction(id, action) {
       app.isQuitting = true;
       setImmediate(() => updater.quitAndInstall());
     }
+    if (action === 'download') shell.openExternal(RELEASES_URL);
   } else if (peek.kind === 'timer') {
     if (action === 'again') startTimer(peek.ref.total, peek.ref.label);
   } else if (peek.kind === 'weekly') {
@@ -1781,7 +1814,67 @@ let updater = null;
 // macOS tanpa tanda tangan Apple tidak bisa memperbarui diri: arahkan ke halaman Releases.
 let updateStatus = { state: !paths.packaged ? 'dev' : IS_MAC ? 'manual' : 'idle', version: null };
 
+// Catatan rilis (GitHub, bisa HTML/markdown) → satu kalimat pendek untuk kartu.
+function releaseSummary(notes) {
+  const text = (Array.isArray(notes) ? notes.map((n) => n.note ?? '').join(' ') : String(notes ?? ''))
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[#*_`>-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text.length > 140 ? `${text.slice(0, 137).trimEnd()}…` : text;
+}
+
+// "0.4.10" > "0.4.9"
+const newerVersion = (a, b) => {
+  const pa = String(a).replace(/^v/, '').split('.').map(Number);
+  const pb = String(b).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  return false;
+};
+
+// macOS (tanpa pembaruan otomatis): cek rilis terbaru di GitHub, kabari sekali per versi.
+function setupMacUpdates() {
+  if (!paths.packaged || !IS_MAC) return;
+  const check = async () => {
+    try {
+      const res = await fetch('https://api.github.com/repos/ardianramadhan/Zenopod/releases/latest', {
+        headers: { accept: 'application/vnd.github+json', 'user-agent': 'Zenopod' },
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!res.ok) return;
+      const release = await res.json();
+      const version = String(release.tag_name ?? '').replace(/^v/, '');
+      if (!newerVersion(version, app.getVersion())) {
+        updateStatus = { state: 'manual', version: null };
+        return;
+      }
+      updateStatus = { state: 'manual', version };
+      if (stats.data.updateSeen === version) return;
+      stats.data.updateSeen = version;
+      stats.save();
+      showPeek({
+        kind: 'update',
+        mood: 'laugh',
+        sound: 'levelup',
+        app: 'Zenopod',
+        title: `Versi ${version} tersedia`,
+        body: releaseSummary(release.body) || 'Unduh versi baru dari halaman rilis Zenopod.',
+        sticky: true,
+        actions: [
+          { id: 'later', label: 'Nanti' },
+          { id: 'download', label: 'Unduh', primary: true },
+        ],
+      });
+    } catch (error) {
+      debugLog('cek rilis gagal: ' + error.message);
+    }
+  };
+  setTimeout(check, 20_000);
+  setInterval(check, 6 * 3_600_000);
+}
+
 function setupUpdates() {
+  setupMacUpdates();
   if (!paths.packaged || IS_MAC) return;
   const { autoUpdater } = require('electron-updater');
   updater = autoUpdater;
@@ -1802,7 +1895,8 @@ function setupUpdates() {
       sound: 'levelup',
       app: 'Zenopod',
       title: `Versi ${info.version} siap dipasang`,
-      body: 'Mulai ulang Zenopod untuk memakai versi baru.',
+      // Isi pembaruan dari catatan rilis GitHub kalau ada.
+      body: releaseSummary(info.releaseNotes) || 'Mulai ulang Zenopod untuk memakai versi baru.',
       sticky: true,
       actions: [
         { id: 'later', label: 'Nanti' },
@@ -3122,6 +3216,70 @@ ipcMain.on('kapsul:dev-refresh', () => {
   pollGit();
 });
 ipcMain.on('kapsul:clip', (_event, action, id) => clipCommand(String(action), id ? String(id) : null));
+
+// ---------- Studio foto (kamera) ----------
+// Foto disusun di tampilan (canvas) lalu disimpan sebagai PNG di Gambar/Zenopod.
+
+const photosDir = () => path.join(app.getPath('pictures'), 'Zenopod');
+const PHOTO_EXT = /\.(png|jpe?g)$/i;
+
+function listPhotos() {
+  let names = [];
+  try {
+    names = fs.readdirSync(photosDir()).filter((n) => PHOTO_EXT.test(n));
+  } catch {
+    return [];
+  }
+  return names
+    .map((name) => {
+      const full = path.join(photosDir(), name);
+      try {
+        return { name, at: fs.statSync(full).mtimeMs, full };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 12)
+    .map(({ name, at, full }) => {
+      const image = nativeImage.createFromPath(full);
+      const thumb = image.isEmpty() ? '' : image.resize({ height: 220, quality: 'good' }).toDataURL();
+      return { name, at, thumb };
+    });
+}
+
+// Hanya file di folder foto (nama dari tampilan tidak dipercaya begitu saja).
+const photoPath = (name) => path.join(photosDir(), path.basename(String(name)));
+
+ipcMain.handle('kapsul:photos', () => listPhotos());
+ipcMain.handle('kapsul:photo-save', (_event, dataUrl) => {
+  const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl ?? ''));
+  if (!match || match[1].length > 40 * 1024 * 1024) return { ok: false };
+  const pad = (n) => String(n).padStart(2, '0');
+  const d = new Date();
+  const name = `Studio ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}.png`;
+  try {
+    fs.mkdirSync(photosDir(), { recursive: true });
+    fs.writeFileSync(path.join(photosDir(), name), Buffer.from(match[1], 'base64'));
+  } catch (error) {
+    return { ok: false, error: error.message };
+  }
+  statsAdd('photos');
+  return { ok: true, name, photos: listPhotos() };
+});
+ipcMain.on('kapsul:photo', (_event, action, name) => {
+  if (action === 'folder-root') {
+    fs.mkdirSync(photosDir(), { recursive: true });
+    shell.openPath(photosDir());
+    return;
+  }
+  const full = photoPath(name);
+  if (!fs.existsSync(full)) return;
+  if (action === 'open') shell.openPath(full);
+  if (action === 'folder') shell.showItemInFolder(full);
+  if (action === 'copy') clipboard.writeImage(nativeImage.createFromPath(full));
+});
 ipcMain.on('kapsul:todo', (_event, action, payload) => todoCommand(String(action), payload ?? {}));
 ipcMain.on('kapsul:position', (_event, position) => setPosition(String(position)));
 ipcMain.on('kapsul:drag-start', () => dragStart());

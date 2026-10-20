@@ -186,6 +186,11 @@
       tone(o, t, 1568, 0.05, { gain: 0.14 });
       tone(o, t + 0.06, 2093, 0.08, { gain: 0.12 });
     },
+    // Rana kamera: dua klik pendek
+    shutter: (o, t) => {
+      tone(o, t, 2600, 0.025, { type: 'square', gain: 0.07, filter: 3200 });
+      tone(o, t + 0.07, 1700, 0.035, { type: 'square', gain: 0.06, filter: 2400 });
+    },
   };
 
   function play(name, volume = 0.6) {
@@ -221,6 +226,7 @@
     cry: 'buddy',
     blip: 'buddy',
     tick: 'buddy',
+    shutter: 'buddy',
     boop: 'buddy',
     boing: 'buddy',
     pat: 'buddy',

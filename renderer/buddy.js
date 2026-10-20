@@ -33,6 +33,8 @@
     think: ['e-up', 'm-hmm', 'b-raised', 'x-thought'],
     alarm: ['e-wide', 'm-open', 'b-raised', 'x-bang', 'blush'],
     focus: ['e-open', 'm-flat', 'x-glasses'],
+    // Claude sedang bekerja: berkacamata, menatap laptop, mengetik.
+    work: ['e-down', 'm-flat', 'x-glasses', 'x-laptop'],
     listen: ['e-open', 'm-smile', 'blush', 'x-phones'],
     greet: ['e-happy', 'm-open', 'blush', 'x-sparkle'],
     clock: ['e-up', 'm-smile', 'blush', 'x-clock'],
@@ -298,6 +300,18 @@
         </g>
       </g>
 
+      <!-- Laptop di depan Zeno (kita melihat punggung layarnya): cahaya layar di wajah, percikan ketikan -->
+      <g data-part="x-laptop" class="laptop">
+        <ellipse class="glow" cx="20" cy="24.6" rx="10.5" ry="3.2" />
+        <g class="keys">
+          <rect class="k1" x="11.2" y="23.2" width="1.6" height="0.9" rx="0.4" />
+          <rect class="k2" x="27.2" y="23" width="1.6" height="0.9" rx="0.4" />
+          <rect class="k3" x="15" y="22.4" width="1.2" height="0.8" rx="0.4" />
+        </g>
+        <rect class="lid" x="8.4" y="25.4" width="23.2" height="12.4" rx="2.2" />
+        <rect class="lid-edge" x="8.4" y="25.4" width="23.2" height="1.2" rx="0.6" />
+        <circle class="logo" cx="20" cy="31.6" r="1.7" />
+      </g>
       <g data-part="x-notes" class="notes">
         <g class="note n1">
           <path d="M33 8.5v-5.2l3.2-0.9v4.8" />

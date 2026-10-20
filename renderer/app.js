@@ -3,6 +3,51 @@
 const $ = (id) => document.getElementById(id);
 // Aktivitas live (privasi, rapat, unduhan) — diisi lewat onLive.
 let live = { privacy: { mic: [], camera: [] }, meeting: null, downloads: [] };
+
+// Studio foto: pilihan grid/filter/bingkai & status kamera (logika di bagian Studio foto).
+const CAM_LAYOUTS = {
+  single: { label: 'Tunggal', shots: 1, cols: 1 },
+  duo: { label: 'Duo', shots: 2, cols: 2 },
+  grid: { label: '2×2', shots: 4, cols: 2 },
+  strip3: { label: 'Strip 3', shots: 3, cols: 1 },
+  strip4: { label: 'Strip 4', shots: 4, cols: 1 },
+};
+const CAM_FILTERS = {
+  normal: { label: 'Normal', css: 'none' },
+  bw: { label: 'Hitam putih', css: 'grayscale(1) contrast(1.1)' },
+  warm: { label: 'Hangat', css: 'sepia(0.22) saturate(1.25) hue-rotate(-6deg)' },
+  cool: { label: 'Dingin', css: 'saturate(1.05) hue-rotate(10deg) brightness(1.04)' },
+  vintage: { label: 'Vintage', css: 'sepia(0.45) contrast(0.92) brightness(1.06) saturate(0.85)' },
+};
+const CAM_FRAMES = {
+  white: { label: 'Putih', bg: '#ffffff', ink: '#18181b' },
+  black: { label: 'Hitam', bg: '#111114', ink: '#f4f4f5' },
+  cream: { label: 'Krem', bg: '#f3ece0', ink: '#3f3a33' },
+  pink: { label: 'Merah muda', bg: '#f9d5e5', ink: '#5b2140' },
+  blue: { label: 'Biru', bg: '#cfe3fb', ink: '#18324f' },
+};
+
+const camPref = (key, fallback, valid) => {
+  try {
+    const value = localStorage.getItem(`kapsul.cam.${key}`);
+    return value in valid ? value : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const camera = {
+  stream: null,
+  starting: false,
+  busy: false,
+  error: '',
+  layout: camPref('layout', 'strip4', CAM_LAYOUTS),
+  filter: camPref('filter', 'normal', CAM_FILTERS),
+  frame: camPref('frame', 'white', CAM_FRAMES),
+  zeno: camPref('zeno', 'on', { on: 1, off: 1 }),
+  poses: [], // pose Zeno per foto (diacak saat menjepret)
+  photos: [],
+};
+
 const shell = $('shell');
 const appsEl = $('apps');
 
@@ -30,7 +75,8 @@ let hoverTimer = null;
 let afterDrag = false;
 
 shell.addEventListener('mouseenter', () => {
-  if (open || peekState || afterDrag) return;
+  // Selama digeser jendela bergerak di bawah kursor: mouseenter bisa terpicu lagi, jangan buka panel.
+  if (open || peekState || afterDrag || shell.classList.contains('dragging')) return;
   clearTimeout(hoverTimer);
   hoverTimer = setTimeout(() => window.kapsul.expand(true), 300);
 });
@@ -57,6 +103,7 @@ function makeDraggable(handle, { clickToOpen = false } = {}) {
     last = { dx: event.screenX - start.x, dy: event.screenY - start.y };
     if (!dragging && Math.hypot(last.dx, last.dy) > 5) {
       dragging = true;
+      clearTimeout(hoverTimer);
       shell.classList.add('dragging');
       window.kapsul.dragStart();
     }
@@ -131,6 +178,7 @@ window.kapsul.onExpanded((value) => {
     renderSearch();
   }
   if (value) renderPage();
+  syncCamera();
   renderBuddy();
   if (value) window.kapsul.media('refresh');
 });
@@ -279,9 +327,30 @@ function renderPillClock() {
 }
 
 // Slot kiri & kanan dipakai di mode jam dan saat Zeno diam di tengah.
+// Kiri & kanan selalu terisi supaya seimbang: kalau kosong, kanan diisi cuaca (atau jam saat Zeno
+// di tengah / tanggal di mode jam), kiri diisi tanggal (PC tanpa baterai).
+const restDate = new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numeric' });
+
+function restFallback(side) {
+  if (side === 'right' && weatherNow) {
+    const icon = weatherNow.look?.costume === 'umbrella' ? 'rain' : weatherNow.kind === 'clear' ? 'sun' : 'cloud';
+    return { key: 'weather', ...restText(PILL_ICONS[icon], `${weatherNow.temperature}°`) };
+  }
+  if (side === 'right' && !resting) return { key: 'time', ...restText('', timeFormat.format(new Date()).replace('.', ':')) };
+  // Mode jam tanpa cuaca: status internet (jam sudah di tengah, tanggal di kiri).
+  if (side === 'right') return { key: 'net', ...(systemNow?.online === false ? restText(PILL_ICONS.offline, 'Offline', 'muted') : restText(WIFI_ICON, '')) };
+  return { key: 'date', ...restText('', restDate.format(new Date()).replace(',', '')) };
+}
+
+const WIFI_ICON = '<svg viewBox="0 0 16 16"><path d="M1.8 6a9 9 0 0 1 12.4 0M4 8.4a6 6 0 0 1 8 0M6.2 10.8a3 3 0 0 1 3.6 0" /><circle cx="8" cy="13" r="0.6" /></svg>';
+
 function renderRestSlots() {
-  renderRestSlot('left', restStatusItems());
-  renderRestSlot('right', restActivityItems());
+  const left = restStatusItems();
+  const right = restActivityItems();
+  if (!right.length) right.push(restFallback('right'));
+  if (!left.length) left.push(restFallback('left'));
+  renderRestSlot('left', left);
+  renderRestSlot('right', right);
 }
 
 // Bangun tidur: muncul kecil sambil menggeliat, lalu menguap sebentar.
@@ -368,7 +437,8 @@ function renderBuddy() {
   const tired = lowBattery() && !busy;
   const resting = (focusState.phase === 'break' || focusState.phase === 'long') && focusState.running;
   const focused = focusState.phase === 'focus' && focusState.running;
-  const work = busy ? 'think' : focused ? 'focus' : resting ? 'stretch' : null;
+  const thinking = claudeState.active[0]?.state === 'thinking';
+  const work = busy ? (thinking ? 'think' : 'work') : focused ? 'focus' : resting ? 'stretch' : null;
   if (voiceState) {
     const mood = voiceState === 'listening' ? 'hear' : 'think';
     buddy.setMood(mood);
@@ -1425,6 +1495,7 @@ window.kapsul.onDev(renderDev);
 const PAGES = [
   { id: 'home', label: 'Beranda', sound: 'hello' },
   { id: 'chat', label: 'Chat', sound: 'pop' },
+  { id: 'camera', label: 'Studio foto', sound: 'shutter' },
   { id: 'music', label: 'Musik', sound: 'note' },
   { id: 'time', label: 'Waktu & jadwal', sound: 'ticktock' },
   { id: 'weather', label: 'Cuaca', sound: 'today' },
@@ -1453,13 +1524,14 @@ function pageMood() {
   const page = PAGES[pageIndex].id;
   if (page === 'home') return (petState?.hunger ?? 100) < 25 ? 'hungry' : 'greet';
   if (page === 'chat') return chatState.busy ? 'think' : pendingFiles.length ? 'hungry' : 'happy';
+  if (page === 'camera') return camera.busy ? 'surprised' : 'wink';
   if (page === 'music') return media.playing ? 'music' : 'listen';
   if (page === 'time') return 'clock';
   if (page === 'weather') return weatherNow?.look?.mood ?? 'idle';
   if (page === 'focus') return focusState.running && focusState.phase !== 'focus' ? 'stretch' : 'focus';
   if (page === 'device') return systemNow?.online === false ? 'cry' : battery?.charging ? 'charging' : lowBattery() ? 'lowbat' : 'smug';
   if (page === 'inbox') return notifs.items.length ? 'surprised' : 'happy';
-  if (page === 'work') return claudeWaiting() ? 'surprised' : claudeBusy() ? 'think' : 'focus';
+  if (page === 'work') return claudeWaiting() ? 'surprised' : claudeBusy() ? (claudeState.active[0]?.state === 'thinking' ? 'think' : 'work') : 'focus';
   return 'idle';
 }
 
@@ -1499,6 +1571,7 @@ function goToPage(index, { sound = true } = {}) {
   for (const [i, page] of [...$('hero-track').children].entries()) page.inert = i !== next;
   applyCostume();
   renderPage();
+  syncCamera();
   if (changed) {
     bigBuddy.morph();
     if (sound) {
@@ -2183,6 +2256,7 @@ function renderPage() {
   const now = new Date();
   if (page === 'home') renderHome(now);
   else if (page === 'chat') renderChat();
+  else if (page === 'camera') renderCamera();
   else if (page === 'music') renderLyrics();
   else if (page === 'time') {
     renderClock(now);
@@ -2204,6 +2278,388 @@ setInterval(() => {
   }
   if (open && PAGES[pageIndex].id === 'focus' && !focusState.running) renderFocusSummary();
 }, 1000);
+
+// ---------- Studio foto (kamera) ----------
+// Kamera hanya menyala selama panel terbuka di section Studio. Jepret = hitung mundur 3-2-1,
+// beberapa foto berturut-turut sesuai grid, lalu disusun di canvas (bingkai + tanggal) dan disimpan.
+
+function saveCamPref(key, value) {
+  camera[key] = value;
+  try {
+    localStorage.setItem(`kapsul.cam.${key}`, value);
+  } catch {
+    // tanpa penyimpanan
+  }
+  renderCamera();
+}
+
+const cameraWanted = () => open && PAGES[pageIndex]?.id === 'camera';
+
+async function syncCamera() {
+  if (cameraWanted()) {
+    if (camera.stream || camera.starting) return;
+    camera.starting = true;
+    camera.error = '';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      // Section sudah ditinggal selagi kamera menyala: langsung matikan lagi.
+      if (!cameraWanted()) stream.getTracks().forEach((t) => t.stop());
+      else {
+        camera.stream = stream;
+        $('cam-video').srcObject = stream;
+        await $('cam-video').play().catch(() => {});
+      }
+    } catch (error) {
+      camera.error = /NotFound|DevicesNotFound/i.test(error?.name) ? 'Kamera tidak ditemukan' : /NotAllowed|Permission/i.test(error?.name) ? 'Akses kamera ditolak' : 'Kamera sedang dipakai aplikasi lain';
+    } finally {
+      camera.starting = false;
+      renderCamera();
+    }
+    if (!camera.photos.length) loadPhotos();
+  } else if (camera.stream) {
+    camera.stream.getTracks().forEach((t) => t.stop());
+    camera.stream = null;
+    $('cam-video').srcObject = null;
+  }
+}
+
+async function loadPhotos() {
+  camera.photos = (await window.kapsul.photos().catch(() => [])) ?? [];
+  renderCameraGallery();
+}
+
+// Ikon grid: kotak-kotak kecil sesuai susunan foto.
+function layoutIcon(id) {
+  const { shots, cols } = CAM_LAYOUTS[id];
+  const rows = Math.ceil(shots / cols);
+  // Tunggal: lebar 4:3; strip: sempit memanjang; duo & 2×2: persegi.
+  const w = shots === 1 ? 14 : cols === 1 ? 8 : 14;
+  const h = shots === 1 ? 10.5 : 14;
+  const gap = 1.2;
+  const cw = (w - gap * (cols - 1)) / cols;
+  const ch = (h - gap * (rows - 1)) / rows;
+  let rects = '';
+  for (let i = 0; i < shots; i++) {
+    const x = (16 - w) / 2 + (i % cols) * (cw + gap);
+    const y = (16 - h) / 2 + Math.floor(i / cols) * (ch + gap);
+    rects += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" rx="0.8" />`;
+  }
+  return `<svg viewBox="0 0 16 16" aria-hidden="true">${rects}</svg>`;
+}
+
+function renderCamera() {
+  const layout = CAM_LAYOUTS[camera.layout];
+  $('cam-title').textContent = `Studio · ${layout.label}`;
+  $('cam-video').style.filter = CAM_FILTERS[camera.filter].css;
+  const msg = camera.error || (camera.starting ? 'Menyalakan kamera…' : '');
+  $('cam-msg').hidden = !msg;
+  $('cam-msg').textContent = msg;
+  $('cam-shutter').disabled = camera.busy || !camera.stream;
+  const withZeno = camera.zeno === 'on';
+  $('cam-zeno').setAttribute('aria-pressed', String(withZeno));
+  $('cam-zeno').title = withZeno ? 'Foto bareng Zeno: nyala' : 'Foto bareng Zeno: mati';
+  $('cam-buddy').hidden = !withZeno || !camera.stream;
+
+  const box = $('cam-layouts');
+  if (box.childElementCount !== Object.keys(CAM_LAYOUTS).length) {
+    box.replaceChildren(
+      ...Object.entries(CAM_LAYOUTS).map(([id, l]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.layout = id;
+        b.setAttribute('role', 'radio');
+        b.title = `${l.label} · ${l.shots} foto`;
+        b.setAttribute('aria-label', b.title);
+        b.innerHTML = layoutIcon(id);
+        b.addEventListener('click', () => !camera.busy && saveCamPref('layout', id));
+        return b;
+      }),
+    );
+  }
+  for (const b of box.children) b.setAttribute('aria-checked', String(b.dataset.layout === camera.layout));
+
+  const chips = (el, list, key) => {
+    if (el.childElementCount !== Object.keys(list).length) {
+      el.replaceChildren(
+        ...Object.entries(list).map(([id, item]) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.dataset.id = id;
+          b.setAttribute('role', 'radio');
+          b.title = item.label;
+          if (key === 'frame') {
+            b.className = 'cam-swatch';
+            b.style.background = item.bg;
+            b.setAttribute('aria-label', item.label);
+          } else {
+            b.className = 'cam-chip';
+            b.textContent = item.label;
+          }
+          b.addEventListener('click', () => saveCamPref(key, id));
+          return b;
+        }),
+      );
+    }
+    for (const b of el.children) b.setAttribute('aria-checked', String(b.dataset.id === camera[key]));
+  };
+  chips($('cam-filters'), CAM_FILTERS, 'filter');
+  chips($('cam-frames'), CAM_FRAMES, 'frame');
+}
+
+function renderCameraGallery() {
+  const box = $('cam-gallery');
+  box.replaceChildren();
+  if (!camera.photos.length) {
+    const empty = document.createElement('p');
+    empty.className = 'cam-empty';
+    empty.textContent = 'Belum ada foto. Pilih grid, lalu tekan tombol jepret. Hasilnya disimpan di Gambar › Zenopod.';
+    box.append(empty);
+    return;
+  }
+  for (const photo of camera.photos) {
+    const item = document.createElement('div');
+    item.className = 'cam-thumb';
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'cam-thumb-open';
+    open.title = `Buka ${photo.name}`;
+    const img = document.createElement('img');
+    img.src = photo.thumb;
+    img.alt = photo.name;
+    open.append(img);
+    open.addEventListener('click', () => window.kapsul.photo('open', photo.name));
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'cam-thumb-copy';
+    copy.title = 'Salin gambar';
+    copy.setAttribute('aria-label', 'Salin gambar');
+    copy.innerHTML = '<svg viewBox="0 0 16 16"><rect x="5" y="5" width="8.5" height="8.5" rx="1.6" /><path d="M10.5 5V3.6A1.1 1.1 0 0 0 9.4 2.5H3.6A1.1 1.1 0 0 0 2.5 3.6v5.8a1.1 1.1 0 0 0 1.1 1.1H5" /></svg>';
+    copy.addEventListener('click', () => {
+      window.kapsul.photo('copy', photo.name);
+      say(['Gambar disalin!'], 1600);
+      sfx('tick');
+    });
+    item.append(open, copy);
+    box.append(item);
+  }
+}
+
+// ---------- Foto bareng Zeno ----------
+// Pose diacak per foto; pratinjau menampilkan pose berikutnya supaya bisa ikut bergaya.
+const CAM_POSES = ['happy', 'wink', 'laugh', 'starstruck', 'love', 'smug', 'greet', 'surprised', 'kiss'];
+const camBuddy = window.createBuddy();
+$('cam-buddy').append(camBuddy.el);
+camBuddy.setMood('happy');
+
+function pickPoses(count) {
+  const pool = [...CAM_POSES].sort(() => Math.random() - 0.5);
+  return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
+}
+
+function showPose(mood) {
+  camBuddy.setCostume(seasonalCostume);
+  camBuddy.setMood(mood);
+  camBuddy.jump?.();
+}
+
+// SVG Zeno → gambar untuk canvas. Gaya dari buddy.css disalin jadi atribut (gambar SVG tidak membaca
+// CSS halaman); bagian yang tersembunyi dibuang.
+const SVG_PROPS = ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'fill-opacity', 'stroke-opacity', 'font-size', 'font-weight', 'font-family'];
+
+function buddyImage(mood, size = 520) {
+  const holder = document.createElement('div');
+  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:120px;height:120px;pointer-events:none';
+  const zeno = window.createBuddy();
+  zeno.setCostume(seasonalCostume);
+  zeno.setMood(mood);
+  zeno.el.style.width = '120px';
+  zeno.el.style.height = '120px';
+  holder.append(zeno.el);
+  document.body.append(holder);
+  const clone = zeno.el.cloneNode(true);
+  const source = [zeno.el, ...zeno.el.querySelectorAll('*')];
+  const target = [clone, ...clone.querySelectorAll('*')];
+  const drop = [];
+  source.forEach((el, i) => {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') {
+      if (i) drop.push(target[i]);
+      return;
+    }
+    if (el.tagName === 'defs' || el.closest('defs')) return;
+    for (const prop of SVG_PROPS) {
+      const value = cs.getPropertyValue(prop);
+      if (value) target[i].setAttribute(prop, value);
+    }
+    target[i].removeAttribute('class');
+  });
+  drop.forEach((el) => el.remove());
+  holder.remove();
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  clone.setAttribute('width', String(size));
+  clone.setAttribute('height', String(size));
+  clone.removeAttribute('style');
+  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(clone))}`;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+// Tempel Zeno di pojok bawah foto (kiri/kanan bergantian), sedikit miring, dengan bayangan lembut.
+async function addZeno(canvas, mood, index) {
+  const img = await buddyImage(mood);
+  if (!img) return;
+  const ctx = canvas.getContext('2d');
+  const size = canvas.height * 0.46;
+  const right = index % 2 === 0;
+  const x = right ? canvas.width - size * 0.92 : -size * 0.08;
+  const y = canvas.height - size * 0.86;
+  ctx.save();
+  ctx.translate(x + size / 2, y + size / 2);
+  ctx.rotate(((right ? -1 : 1) * 7 * Math.PI) / 180);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+  ctx.shadowBlur = size * 0.08;
+  ctx.shadowOffsetY = size * 0.03;
+  ctx.drawImage(img, -size / 2, -size / 2, size, size);
+  ctx.restore();
+}
+
+const camWait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Satu bingkai 4:3 dari video, dicerminkan seperti pratinjau (selfie).
+function grabFrame() {
+  const video = $('cam-video');
+  const W = 960;
+  const H = 720;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const vw = video.videoWidth || W;
+  const vh = video.videoHeight || H;
+  const scale = Math.max(W / vw, H / vh);
+  const sw = W / scale;
+  const sh = H / scale;
+  ctx.translate(W, 0);
+  ctx.scale(-1, 1);
+  ctx.filter = CAM_FILTERS[camera.filter].css;
+  ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, W, H);
+  return canvas;
+}
+
+// Susun foto dalam bingkai: padding, jarak antar foto, dan tanggal di bawah.
+function composePhotos(frames) {
+  const { cols } = CAM_LAYOUTS[camera.layout];
+  const frame = CAM_FRAMES[camera.frame];
+  const rows = Math.ceil(frames.length / cols);
+  const fw = frames[0].width;
+  const fh = frames[0].height;
+  const pad = 48;
+  const gap = 24;
+  const footer = 96;
+  const canvas = document.createElement('canvas');
+  canvas.width = pad * 2 + cols * fw + (cols - 1) * gap;
+  canvas.height = pad * 2 + rows * fh + (rows - 1) * gap + footer;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = frame.bg;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  frames.forEach((f, i) => {
+    const x = pad + (i % cols) * (fw + gap);
+    const y = pad + Math.floor(i / cols) * (fh + gap);
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(x, y, fw, fh, 14);
+    ctx.clip();
+    ctx.drawImage(f, x, y);
+    ctx.restore();
+  });
+  ctx.fillStyle = frame.ink;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const date = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+  ctx.font = '600 34px "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif';
+  ctx.fillText(`${profile.buddyName || 'Zeno'} Studio`, canvas.width / 2, canvas.height - pad - footer / 2 + 14);
+  ctx.globalAlpha = 0.6;
+  ctx.font = '500 22px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif';
+  ctx.fillText(date, canvas.width / 2, canvas.height - pad - footer / 2 + 52);
+  ctx.globalAlpha = 1;
+  return canvas;
+}
+
+function flash() {
+  const el = $('cam-flash');
+  el.classList.remove('on');
+  void el.offsetWidth;
+  el.classList.add('on');
+}
+
+async function shoot() {
+  if (camera.busy || !camera.stream) return;
+  camera.busy = true;
+  renderCamera();
+  renderBuddy();
+  const { shots } = CAM_LAYOUTS[camera.layout];
+  const frames = [];
+  const withZeno = camera.zeno === 'on';
+  camera.poses = pickPoses(shots);
+  const count = $('cam-count');
+  const progress = $('cam-progress');
+  try {
+    for (let i = 0; i < shots; i++) {
+      progress.hidden = shots === 1;
+      progress.textContent = `${i + 1}/${shots}`;
+      if (withZeno) showPose(camera.poses[i]);
+      // Foto pertama 3 detik, berikutnya 2 detik (waktu ganti gaya).
+      for (let n = i === 0 ? 3 : 2; n > 0; n--) {
+        if (!camera.stream) throw new Error('stopped');
+        count.hidden = false;
+        count.textContent = String(n);
+        count.classList.remove('pop');
+        void count.offsetWidth;
+        count.classList.add('pop');
+        sfx('tick');
+        await camWait(1000);
+      }
+      count.hidden = true;
+      if (!camera.stream) throw new Error('stopped');
+      const frame = grabFrame();
+      if (withZeno) await addZeno(frame, camera.poses[i], i);
+      frames.push(frame);
+      flash();
+      sfx('shutter');
+      await camWait(350);
+    }
+    const result = await window.kapsul.savePhoto(composePhotos(frames).toDataURL('image/png'));
+    if (result?.ok) {
+      camera.photos = result.photos ?? camera.photos;
+      renderCameraGallery();
+      react('starstruck', 2200);
+      say([`Cekrek! ${shots > 1 ? `${shots} foto` : 'Fotonya'} tersimpan`, 'Keren! Tersimpan di Gambar › Zenopod'], 2600);
+      sfx('success');
+    } else {
+      say(['Gagal menyimpan fotonya'], 2400);
+    }
+  } catch {
+    // dibatalkan (section ditinggal / panel ditutup)
+  } finally {
+    count.hidden = true;
+    progress.hidden = true;
+    camera.busy = false;
+    showPose('happy');
+    renderCamera();
+    renderBuddy();
+  }
+}
+
+$('cam-shutter').addEventListener('click', shoot);
+$('cam-zeno').addEventListener('click', () => {
+  saveCamPref('zeno', camera.zeno === 'on' ? 'off' : 'on');
+  sfx(camera.zeno === 'on' ? 'pop' : 'blip');
+});
+$('cam-folder').addEventListener('click', () => window.kapsul.photo('folder-root'));
 
 // ---------- Kostum, cuaca & baterai ----------
 
@@ -3569,7 +4025,7 @@ renderTimers();
 setInterval(() => {
   if (!quickTimers.length) return;
   renderTimers();
-  if (tickKey === 'timer') renderPillText();
+  if (tickKey === 'timer' || tickKey === 'claude') renderPillText();
 }, 1000);
 
 // ---------- Zeno peliharaan ----------
@@ -3908,7 +4364,23 @@ function pinnedSlides() {
     });
   }
   const session = claudeState.active[0];
-  if (session) pinned.push({ key: 'claude', render: slideContent(null, session.label || 'Berpikir', session.project), typing: true });
+  if (session) {
+    pinned.push({
+      key: 'claude',
+      render: (el) => {
+        const label = document.createElement('span');
+        label.className = 'claude-shimmer';
+        label.textContent = session.label || 'Berpikir';
+        el.append(label);
+        if (session.started) {
+          const time = document.createElement('span');
+          time.className = 'dim claude-elapsed';
+          time.textContent = clock(Date.now() - session.started).replace(/^0(?=\d:)/, '');
+          el.append(time);
+        }
+      },
+    });
+  }
   return pinned;
 }
 

@@ -224,6 +224,16 @@ Halaman **Hari ini** menampilkan waktu fokus, tugas selesai, dan lagu yang palin
 - **Unduhan:** unduhan browser di folder Downloads tampil di kapsul beserta ukuran dan kecepatannya. Saat selesai muncul kartu dengan tombol **Buka** dan **Tampilkan di folder**.
 - Ketiganya bisa dimatikan di Pengaturan › **Sistem & layar**. Di macOS, titik privasi dan deteksi rapat belum tersedia.
 
+### Studio foto
+
+Section **Studio foto** (ikon kamera di panel) adalah photobooth kecil memakai webcam:
+
+1. Pilih grid: **Tunggal**, **Duo**, **2×2**, **Strip 3**, atau **Strip 4** (gaya photobooth).
+2. Tekan tombol jepret bulat. Hitung mundur 3-2-1, lalu Zeno memotret satu per satu (jeda 2 detik untuk ganti gaya) dengan kilat.
+3. Hasilnya disusun dalam bingkai beserta tanggal dan disimpan sebagai PNG di **Gambar › Zenopod**.
+
+Buka bagian bawahnya untuk memilih **filter** (Normal, Hitam putih, Hangat, Dingin, Vintage) dan **warna bingkai**, serta melihat hasil terakhir: klik untuk membuka, atau tombol salin untuk menyalin gambarnya. Kamera hanya menyala selama section Studio foto terbuka dan langsung mati saat pindah section atau panel ditutup. Foto tidak dikirim ke mana pun.
+
 ### Ambil teks dari layar
 
 1. Tekan `Ctrl` + `Alt` + `O`, klik ikon pindai di pojok kanan bawah panel, atau bilang "Zeno, ambil teks".
@@ -402,10 +412,11 @@ Hook ditambahkan ke `%USERPROFILE%\.claude\settings.json` tanpa mengubah hook la
 ## 7. Privasi
 
 - **Lokal:** semua data tersimpan di laptopmu: pengaturan di `config.json` (versi installer: `%APPDATA%\kapsul`, versi kode sumber: folder Zenopod), statistik dan peliharaan di `%APPDATA%\kapsul\stats.json`. Tidak ada akun dan tidak ada server Zenopod.
+- **Studio foto:** kamera hanya menyala di section Studio foto; foto disimpan di folder Gambar › Zenopod dan tidak dikirim ke mana pun.
 - **Waktu layar:** nama aplikasi dan lamanya disimpan di `stats.json` (30 hari terakhir), tidak pernah dikirim ke mana pun. Judul jendela tidak disimpan, kecuali untuk aplikasi Store yang hanya bisa dikenali dari judulnya (mis. "Kalkulator").
 - **Ngobrol:** hanya pertanyaan yang kamu kirim ke Zeno (dan percakapan 10 menit terakhir) yang dikirim, dan hanya ke penyedia yang kamu pilih (Anthropic, OpenAI, atau Google). Mati kalau tidak ada API key. Saat Zeno boleh beraksi dan kamu menanyakan jadwal, agenda, pengingat, dan tugas hari itu ikut dikirim ke penyedia tersebut.
 - **Lirik:** yang dikirim ke [LRCLIB](https://lrclib.net/) hanya judul, artis, dan durasi lagu yang sedang diputar. Bisa dimatikan di Pengaturan › Tampilan.
-- **Pembaruan:** versi installer mengecek GitHub Releases tiap 6 jam.
+- **Pembaruan:** versi installer (Windows & macOS) mengecek GitHub Releases tiap 6 jam. Tidak ada data pribadi yang dikirim.
 - **Kalender:** Zenopod hanya mengunduh file kalender dari Google/Outlook. Alamatnya disimpan terenkripsi oleh Windows.
 - **Ambil teks:** gambar potongan layar diproses OCR Windows di laptop ini lalu langsung dihapus. Teksnya hanya masuk clipboard.
 - **Internet:** dicek ke alamat uji koneksi Microsoft (`msftconnecttest.com`), yang juga dipakai Windows untuk ikon jaringan.
@@ -441,7 +452,9 @@ Hook ditambahkan ke `%USERPROFILE%\.claude\settings.json` tanpa mengubah hook la
 
 ### Memperbarui
 
-**Versi installer:** otomatis. Zenopod mengecek versi baru tiap 6 jam, mengunduhnya diam-diam, lalu Zeno menawarkan **Mulai ulang**. Kalau dilewati, versi baru dipasang saat Zenopod ditutup. Cek manual: Pengaturan › Tampilan › **Cek pembaruan**.
+**Versi installer:** otomatis. Zenopod mengecek versi baru tiap 6 jam, mengunduhnya diam-diam, lalu Zeno menampilkan kartu berisi ringkasan isi pembaruan dan tombol **Mulai ulang**. Kalau dilewati, versi baru dipasang saat Zenopod ditutup. Cek manual: Pengaturan › Tampilan › **Cek pembaruan**.
+
+**macOS:** Zenopod juga mengecek rilis baru tiap 6 jam dan Zeno mengabari sekali per versi dengan tombol **Unduh** (membuka halaman rilis), karena versi Mac belum bisa memperbarui dirinya sendiri.
 
 **Versi kode sumber:**
 

@@ -6902,3 +6902,462 @@ body[data-island="notch"] .notch-cap::after {
   opacity: 1;
   scale: 1;
 }
+
+/* ---------- Studio foto (kamera) ---------- */
+
+.camera-page {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+/* Pratinjau 4:3, dicerminkan seperti kamera selfie */
+.cam-preview {
+  position: relative;
+  flex: none;
+  width: 112px;
+  height: 84px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #18181b;
+}
+
+.cam-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.cam-count {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 40px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+.cam-count.pop {
+  animation: cam-pop 0.9s var(--ease) both;
+}
+
+@keyframes cam-pop {
+  0% {
+    opacity: 0;
+    scale: 1.6;
+  }
+  25% {
+    opacity: 1;
+    scale: 1;
+  }
+  100% {
+    opacity: 0.85;
+    scale: 0.92;
+  }
+}
+
+.cam-msg {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 8px;
+  font-size: 10.5px;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--muted);
+}
+
+.cam-progress {
+  position: absolute;
+  top: 5px;
+  right: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+
+.cam-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.cam-layouts {
+  display: flex;
+  gap: 4px;
+}
+
+.cam-layouts button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.cam-layouts button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cam-layouts button[aria-checked="true"] {
+  background: rgba(91, 168, 245, 0.22);
+  color: #8cc2f8;
+}
+
+.cam-layouts svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+/* Tombol jepret: lingkaran putih bercincin seperti kamera iPhone */
+.cam-shutter {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: inset 0 0 0 3px #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.cam-shutter i {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fff;
+  transition: scale 0.15s var(--ease);
+}
+
+.cam-shutter:hover i {
+  scale: 0.94;
+}
+
+.cam-shutter:active i {
+  scale: 0.85;
+}
+
+.cam-shutter:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.cam-shutter:focus-visible {
+  outline: 2px solid #5ba8f5;
+  outline-offset: 2px;
+}
+
+/* Kilat saat jepret */
+.cam-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  border-radius: inherit;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cam-flash.on {
+  animation: cam-flash 0.45s ease-out;
+}
+
+@keyframes cam-flash {
+  0% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Detail: filter, bingkai, galeri */
+.cam-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cam-chip {
+  padding: 5px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.cam-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.cam-chip[aria-checked="true"] {
+  background: #5ba8f5;
+  color: #08111f;
+  font-weight: 600;
+}
+
+.cam-frames {
+  display: flex;
+  gap: 8px;
+}
+
+.cam-swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.cam-swatch[aria-checked="true"] {
+  outline: 2px solid #5ba8f5;
+  outline-offset: 2px;
+}
+
+.cam-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cam-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.cam-thumb {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cam-thumb-open {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.cam-thumb-open img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.cam-thumb-copy {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.cam-thumb:hover .cam-thumb-copy,
+.cam-thumb-copy:focus-visible {
+  opacity: 1;
+}
+
+.cam-thumb-copy svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-count.pop,
+  .cam-flash.on {
+    animation: none;
+  }
+}
+
+.tab-list button:hover .ti-camera .lens,
+.tab-list button[aria-selected="true"] .ti-camera .lens {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ti-lens 0.6s ease-in-out;
+}
+
+@keyframes ti-lens {
+  40% {
+    scale: 0.6;
+  }
+}
+
+/* Bulatan bingkai selalu bercincin tipis (bingkai hitam tetap terlihat di latar gelap) */
+.cam-swatch {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+}
+
+/* Galeri: kotak persegi, foto utuh di tengah (strip tegak maupun grid lebar) */
+.cam-thumb {
+  aspect-ratio: 1;
+}
+
+/* ---------- Kapsul saat Claude bekerja ---------- */
+/* Label berkilau berjalan (sedang dikerjakan) + durasi kecil di belakangnya */
+.pill-text .claude-shimmer {
+  font-weight: 600;
+  color: transparent;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.55) 35%, #ffffff 50%, rgba(255, 255, 255, 0.55) 65%, rgba(255, 255, 255, 0.55) 100%) 0 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: claude-shimmer 2.2s linear infinite;
+}
+
+.pill-text .claude-elapsed {
+  margin-left: 7px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes claude-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -150% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pill-text .claude-shimmer {
+    animation: none;
+    color: var(--text);
+  }
+}
+
+/* ---------- Foto bareng Zeno ---------- */
+
+.cam-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cam-zeno {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.cam-zeno svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.cam-zeno svg .eye {
+  fill: currentColor;
+  stroke: none;
+}
+
+.cam-zeno[aria-pressed="true"] {
+  background: rgba(91, 168, 245, 0.22);
+  color: #8cc2f8;
+}
+
+.cam-zeno:focus-visible {
+  outline: 2px solid #5ba8f5;
+  outline-offset: 1px;
+}
+
+/* Mini Zeno di pojok pratinjau */
+.cam-buddy {
+  position: absolute;
+  right: -4px;
+  bottom: -6px;
+  width: 40px;
+  height: 40px;
+  rotate: -7deg;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+}
+
+.cam-buddy .buddy {
+  width: 100%;
+  height: 100%;
+}
+
+/* Judul + tombol "Foto bareng Zeno" sebaris; grid foto di baris sendiri */
+.cam-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cam-zeno {
+  width: 24px;
+  height: 24px;
+  border-left: 0;
+}
+
+.cam-layouts {
+  gap: 3px;
+}
+
+.cam-layouts button {
+  width: 25px;
+  height: 25px;
+}
