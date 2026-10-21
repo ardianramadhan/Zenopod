@@ -1,0 +1,1617 @@
+/* Maskot Zenopod (lihat buddy.js) */
+
+.buddy {
+  --ink: #2b1a12;
+  --mouth: #5a2618;
+  --tongue: #ff7d8f;
+  overflow: visible;
+  display: block;
+}
+
+.buddy * {
+  transform-box: fill-box;
+}
+
+.buddy [data-part] {
+  display: none;
+}
+
+.buddy [data-part].on {
+  display: inline;
+}
+
+/* ---------- Warna ---------- */
+
+.buddy .ink {
+  fill: var(--ink);
+}
+
+.buddy .shine {
+  fill: #fff;
+}
+
+.buddy .line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.buddy .mouth {
+  fill: var(--mouth);
+}
+
+.buddy .tongue {
+  fill: var(--tongue);
+}
+
+.buddy .blush {
+  fill: #ff8fab;
+  opacity: 0.5;
+}
+
+.buddy .heart {
+  fill: #ef4444;
+}
+
+.buddy .tear {
+  fill: #7cc4ff;
+  opacity: 0.85;
+}
+
+.buddy .gloss {
+  fill: #fff;
+  opacity: 0.6;
+}
+
+.buddy .gloss-dot {
+  fill: #fff;
+  opacity: 0.55;
+}
+
+.buddy .band {
+  fill: none;
+  stroke: #d4d4d8;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.buddy .cup {
+  fill: #2a2a31;
+}
+
+.buddy .notes {
+  fill: var(--accent, #5ba8f5);
+  stroke: var(--accent, #5ba8f5);
+  stroke-width: 1;
+}
+
+.buddy .notes circle {
+  stroke: none;
+}
+
+.buddy .zzz text,
+.buddy .qmark text {
+  fill: #a1a1aa;
+  font: 700 6.5px "Segoe UI", sans-serif;
+}
+
+.buddy .qmark text {
+  fill: #fbbf24;
+}
+
+.buddy .vein {
+  fill: none;
+  stroke: #ef4444;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.buddy .hearts {
+  fill: #f43f5e;
+}
+
+.buddy .thought {
+  fill: #f4f4f5;
+}
+
+.buddy .thought .dot {
+  fill: #52525b;
+}
+
+.buddy .thought.on .dot {
+  animation: buddy-dots 1.2s ease-in-out infinite;
+}
+
+.buddy .thought.on .dot:nth-of-type(4) {
+  animation-delay: 0.2s;
+}
+
+.buddy .thought.on .dot:nth-of-type(5) {
+  animation-delay: 0.4s;
+}
+
+.buddy .bang text {
+  fill: #f59e0b;
+  font: 800 8px "Segoe UI", sans-serif;
+}
+
+.buddy .bang.on text {
+  animation: buddy-pulse 0.4s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+.buddy .glasses {
+  fill: rgba(255, 255, 255, 0.18);
+  stroke: #27272a;
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.buddy .glasses path {
+  fill: none;
+}
+
+.buddy .clockprop circle:first-child {
+  fill: #fafafa;
+  stroke: #3f3f46;
+  stroke-width: 0.9;
+}
+
+.buddy .clockprop .hand {
+  stroke: #27272a;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+  transform-box: view-box;
+  transform-origin: 35px 7.5px;
+}
+
+.buddy .clockprop.on .minute {
+  animation: buddy-spin 4s linear infinite;
+}
+
+.buddy .clockprop.on .hour {
+  animation: buddy-spin 48s linear infinite;
+}
+
+.buddy .clockprop .pin {
+  fill: #f59e0b;
+}
+
+.buddy .sparkle {
+  fill: #fde047;
+}
+
+.buddy .sparkle.on {
+  transform-origin: center;
+  animation: buddy-pulse 0.7s ease-in-out infinite alternate;
+}
+
+/* Mendengarkan perintah suara */
+.buddy .waves {
+  fill: none;
+  stroke: var(--accent, #5ba8f5);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+.buddy .waves.on path {
+  animation: buddy-wave 1s ease-out infinite;
+}
+
+.buddy .waves.on path:nth-child(even) {
+  animation-delay: 0.25s;
+}
+
+@keyframes buddy-wave {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---------- Kostum ---------- */
+
+.buddy .cos {
+  display: none;
+}
+
+.buddy[data-costume="peci"] .cos-peci,
+.buddy[data-costume="lebaran"] .cos-lebaran,
+.buddy[data-costume="merahputih"] .cos-merahputih,
+.buddy[data-costume="merahputih"] .cos-merahputih-knot,
+.buddy[data-costume="party"] .cos-party,
+.buddy[data-costume="umbrella"] .cos-umbrella,
+.buddy[data-costume="sunglasses"] .cos-sunglasses,
+.buddy[data-costume="ninja"] .cos-ninja,
+.buddy[data-costume="tentara"] .cos-tentara,
+.buddy[data-costume="natal"] .cos-natal,
+.buddy[data-costume="koki"] .cos-koki,
+.buddy[data-costume="wisuda"] .cos-wisuda,
+.buddy[data-costume="proyek"] .cos-proyek,
+.buddy[data-costume="polisi"] .cos-cap,
+.buddy[data-costume="pilot"] .cos-cap,
+.buddy[data-costume="dokter"] .cos-dokter,
+.buddy[data-costume="pemadam"] .cos-pemadam {
+  display: inline;
+}
+
+.buddy .peci {
+  fill: #1f1f26;
+  stroke: rgba(255, 255, 255, 0.28);
+  stroke-width: 0.5;
+}
+
+.buddy .peci-line {
+  fill: none;
+  stroke: #3f3f46;
+  stroke-width: 0.6;
+}
+
+.buddy .cos-merahputih .red,
+.buddy .cos-merahputih-knot .red {
+  fill: #dc2626;
+}
+
+.buddy .cos-merahputih .white {
+  fill: #fafafa;
+}
+
+.buddy .cone {
+  fill: #a855f7;
+}
+
+.buddy .stripe {
+  fill: none;
+  stroke: #fde047;
+  stroke-width: 1.1;
+  stroke-linecap: round;
+}
+
+.buddy .pom {
+  fill: #fde047;
+}
+
+.buddy .confetti rect:nth-child(1) {
+  fill: #f43f5e;
+}
+
+.buddy .confetti rect:nth-child(2) {
+  fill: #22d3ee;
+}
+
+.buddy .confetti rect:nth-child(3) {
+  fill: #facc15;
+}
+
+.buddy .confetti rect:nth-child(4) {
+  fill: #4ade80;
+}
+
+.buddy[data-costume="party"] .confetti rect {
+  animation: buddy-float 1.8s ease-in infinite;
+}
+
+.buddy[data-costume="party"] .confetti rect:nth-child(even) {
+  animation-delay: 0.9s;
+}
+
+.buddy .canopy {
+  fill: #3b82f6;
+}
+
+.buddy .stick {
+  fill: none;
+  stroke: #52525b;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.buddy .rain path {
+  fill: none;
+  stroke: #7cc4ff;
+  stroke-width: 0.7;
+  stroke-linecap: round;
+}
+
+.buddy[data-costume="umbrella"] .rain {
+  animation: buddy-rain 0.8s linear infinite;
+}
+
+.buddy .ketupat-body {
+  fill: #84cc16;
+  stroke: #3f6212;
+  stroke-width: 0.5;
+}
+
+.buddy .ketupat-weave,
+.buddy .ketupat-tail {
+  fill: none;
+  stroke: #3f6212;
+  stroke-width: 0.5;
+}
+
+.buddy[data-costume="lebaran"] .ketupat {
+  transform-origin: 34.5px 1px;
+  transform-box: view-box;
+  animation: buddy-swing 2s ease-in-out infinite;
+}
+
+.buddy .cos-sunglasses path {
+  fill: #111114;
+}
+
+.buddy .cos-sunglasses .bridge {
+  fill: none;
+  stroke: #111114;
+  stroke-width: 0.9;
+}
+
+.buddy .cos-sunglasses .glint {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.7);
+  stroke-width: 0.5;
+  stroke-linecap: round;
+}
+
+/* Charger dicolok: petir berkedip */
+.buddy .bolt path {
+  fill: #facc15;
+  stroke: #a16207;
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+}
+
+.buddy .bolt.on {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: buddy-zap 0.9s ease-in-out infinite;
+}
+
+@keyframes buddy-zap {
+  0%,
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+  20% {
+    scale: 1.25;
+  }
+  35% {
+    opacity: 0.35;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+
+.buddy[data-mood="charging"] .b-body {
+  animation: buddy-jolt 0.9s ease-in-out infinite;
+}
+
+@keyframes buddy-jolt {
+  15% {
+    translate: 0 -1.2px;
+  }
+  30% {
+    translate: 0 0;
+  }
+}
+
+/* Charger dicabut: steker bergoyang */
+.buddy .plug .head {
+  fill: #e4e4e7;
+}
+
+.buddy .plug .prong,
+.buddy .plug .cord {
+  fill: none;
+  stroke: #a1a1aa;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.buddy .plug.on {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: buddy-shake 0.5s ease-in-out infinite;
+}
+
+@keyframes buddy-shake {
+  25% {
+    rotate: -14deg;
+  }
+  75% {
+    rotate: 14deg;
+  }
+}
+
+/* Bluetooth tersambung */
+.buddy .bt circle {
+  fill: #2563eb;
+}
+
+.buddy .bt path {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.buddy .bt.on {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: buddy-pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes buddy-pop-in {
+  from {
+    scale: 0;
+  }
+}
+
+/* Baterai lemah */
+.buddy .battery .case {
+  fill: none;
+  stroke: #f87171;
+  stroke-width: 0.9;
+}
+
+.buddy .battery .tip,
+.buddy .battery .level {
+  fill: #ef4444;
+}
+
+.buddy .battery.on {
+  animation: buddy-pulse 0.8s ease-in-out infinite alternate;
+  transform-origin: center;
+}
+
+.buddy[data-mood="lowbat"] .b-body {
+  animation: buddy-droop 3s ease-in-out infinite;
+}
+
+.buddy .food .bubble {
+  fill: #f4f4f5;
+}
+
+.buddy .food .cookie {
+  fill: #d6a35c;
+}
+
+.buddy .food .chip {
+  fill: #5b3a1a;
+}
+
+.buddy .food.on .cookie {
+  transform-origin: center;
+  animation: buddy-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.buddy .chew {
+  transform-origin: center;
+  animation: buddy-chew 0.32s ease-in-out infinite alternate;
+}
+
+.buddy .crumbs {
+  fill: #d6a35c;
+}
+
+.buddy .crumbs.on circle {
+  animation: buddy-drip 0.9s ease-in infinite;
+}
+
+.buddy .crumbs.on circle:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.buddy .crumbs.on circle:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+.buddy[data-mood="eat"] .b-body {
+  animation: buddy-giggle 0.32s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="hungry"] .b-body {
+  animation: buddy-droop 2.6s ease-in-out infinite;
+}
+
+.buddy .sweat {
+  fill: #9fd3ff;
+}
+
+/* ---------- Gerak wajah (diisi JS lewat style.transform) ---------- */
+
+.buddy .b-face {
+  transform-box: view-box;
+  transform-origin: 20px 22px;
+  transition: transform 0.18s ease-out;
+}
+
+.buddy .pupil {
+  transition: transform 0.12s ease-out;
+}
+
+.buddy .blink {
+  transform-origin: center;
+  animation: buddy-blink 4.4s infinite;
+}
+
+.buddy .b-body {
+  transform-origin: 50% 100%;
+  animation: buddy-breathe 3.2s ease-in-out infinite;
+}
+
+/* ---------- Gerak per ekspresi ---------- */
+
+.buddy[data-mood="music"] .b-body {
+  animation: buddy-bob 0.52s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="happy"] .b-body,
+.buddy[data-mood="love"] .b-body {
+  animation: buddy-hop 0.9s ease-in-out infinite;
+}
+
+.buddy[data-mood="laugh"] .b-body {
+  animation: buddy-giggle 0.22s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="surprised"] .b-body {
+  animation: buddy-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
+}
+
+.buddy[data-mood="confused"] .b-body {
+  animation: buddy-tilt 1.4s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="annoyed"] .b-body {
+  animation: buddy-huff 1.2s ease-in-out infinite;
+}
+
+.buddy[data-mood="angry"] .b-body {
+  animation: buddy-shake 0.14s linear infinite;
+}
+
+.buddy[data-mood="cry"] .b-body {
+  animation: buddy-sob 0.5s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="think"] .b-body {
+  animation: buddy-ponder 2.4s ease-in-out infinite;
+}
+
+.buddy[data-mood="alarm"] .b-body {
+  animation: buddy-ring 0.5s ease-in-out infinite;
+}
+
+.buddy[data-mood="focus"] .b-body {
+  animation: buddy-breathe 4s ease-in-out infinite;
+}
+
+.buddy[data-mood="stretch"] .b-body {
+  animation: buddy-stretch 2.2s ease-in-out infinite;
+}
+
+.buddy[data-mood="greet"] .b-body {
+  animation: buddy-hop 0.9s ease-in-out infinite;
+}
+
+.buddy[data-mood="clock"] .b-body {
+  animation: buddy-ponder 2.4s ease-in-out infinite;
+}
+
+.buddy[data-mood="listen"] .b-body {
+  animation: buddy-breathe 2.6s ease-in-out infinite;
+}
+
+/* Berganti wujud saat halaman kartu di-swipe. */
+.buddy.morph .b-body {
+  animation: buddy-morph 0.45s cubic-bezier(0.3, 1.5, 0.5, 1) 1;
+}
+
+.buddy[data-mood="sleep"] .b-body {
+  animation: buddy-breathe 4.8s ease-in-out infinite;
+}
+
+.buddy[data-mood="angry"] .blink,
+.buddy[data-mood="surprised"] .blink {
+  animation: none;
+}
+
+.buddy.jump .b-body {
+  animation: buddy-jump 0.6s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
+}
+
+.buddy .hearts.on {
+  transform-origin: center;
+  animation: buddy-float 1.6s ease-out infinite;
+}
+
+.buddy .zzz.on text,
+.buddy .qmark.on text {
+  animation: buddy-float 2.2s ease-out infinite;
+}
+
+.buddy .zzz.on text:nth-child(2),
+.buddy .qmark.on text:nth-child(2) {
+  animation-delay: 1.1s;
+}
+
+.buddy .vein.on {
+  transform-origin: center;
+  animation: buddy-pulse 0.5s ease-in-out infinite alternate;
+}
+
+.buddy .tear {
+  transform-origin: 50% 0;
+  animation: buddy-tear 0.9s ease-in-out infinite alternate;
+}
+
+.buddy .sweat.on {
+  animation: buddy-drip 1.4s ease-in infinite;
+}
+
+@keyframes buddy-dots {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-0.6px);
+  }
+}
+
+@keyframes buddy-ponder {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(4deg) translateY(-0.4px);
+  }
+}
+
+@keyframes buddy-ring {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  20% {
+    transform: rotate(-7deg) translateY(-1px);
+  }
+  40% {
+    transform: rotate(7deg);
+  }
+  60% {
+    transform: rotate(-4deg) translateY(-0.5px);
+  }
+  80% {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes buddy-stretch {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  35% {
+    transform: scale(0.9, 1.14) translateY(-1.5px);
+  }
+  55% {
+    transform: scale(0.92, 1.12) translateY(-1.5px) rotate(4deg);
+  }
+  75% {
+    transform: scale(1.06, 0.94);
+  }
+}
+
+@keyframes buddy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes buddy-morph {
+  0% {
+    transform: scale(1, 1);
+  }
+  30% {
+    transform: scale(0.72, 0.72) rotate(-12deg);
+  }
+  65% {
+    transform: scale(1.12, 0.92) rotate(6deg);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes buddy-rain {
+  from {
+    transform: translate(0, -2px);
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  to {
+    transform: translate(-0.8px, 2.5px);
+    opacity: 0.2;
+  }
+}
+
+@keyframes buddy-swing {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes buddy-droop {
+  0%,
+  100% {
+    transform: translateY(0.6px) scale(1.04, 0.95);
+  }
+  50% {
+    transform: translateY(1px) scale(1.06, 0.93);
+  }
+}
+
+@keyframes buddy-chew {
+  from {
+    transform: scaleY(0.25);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes buddy-blink {
+  0%,
+  93%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.1);
+  }
+}
+
+@keyframes buddy-breathe {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  50% {
+    transform: translateY(-0.4px) scale(1.02, 0.98);
+  }
+}
+
+@keyframes buddy-bob {
+  from {
+    transform: translateY(0) rotate(-6deg);
+  }
+  to {
+    transform: translateY(-1.5px) rotate(6deg);
+  }
+}
+
+@keyframes buddy-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  15% {
+    transform: translateY(0) scale(1.08, 0.9);
+  }
+  45% {
+    transform: translateY(-3px) scale(0.96, 1.05);
+  }
+  70% {
+    transform: translateY(0) scale(1.04, 0.96);
+  }
+}
+
+@keyframes buddy-giggle {
+  from {
+    transform: translateY(0) rotate(-3deg);
+  }
+  to {
+    transform: translateY(-1px) rotate(3deg);
+  }
+}
+
+@keyframes buddy-pop {
+  0% {
+    transform: scale(0.9);
+  }
+  60% {
+    transform: scale(1.12) translateY(-1px);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes buddy-tilt {
+  from {
+    transform: rotate(-8deg);
+  }
+  to {
+    transform: rotate(4deg);
+  }
+}
+
+@keyframes buddy-huff {
+  0%,
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  20% {
+    transform: translateY(0.4px) scale(1.06, 0.94);
+  }
+  35% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+@keyframes buddy-shake {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0);
+  }
+  25% {
+    transform: translateX(-0.8px) rotate(-2deg);
+  }
+  75% {
+    transform: translateX(0.8px) rotate(2deg);
+  }
+}
+
+@keyframes buddy-sob {
+  from {
+    transform: translateY(0) scale(1, 1);
+  }
+  to {
+    transform: translateY(0.6px) scale(1.03, 0.97);
+  }
+}
+
+@keyframes buddy-jump {
+  0% {
+    transform: translateY(0) scale(1.1, 0.85);
+  }
+  40% {
+    transform: translateY(-6px) scale(0.92, 1.1) rotate(-8deg);
+  }
+  100% {
+    transform: translateY(0) scale(1, 1);
+  }
+}
+
+@keyframes buddy-float {
+  0% {
+    opacity: 0;
+    transform: translate(-1px, 3px) scale(0.7);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(2px, -3px) scale(1);
+  }
+}
+
+@keyframes buddy-pulse {
+  from {
+    transform: scale(0.85);
+  }
+  to {
+    transform: scale(1.15);
+  }
+}
+
+@keyframes buddy-tear {
+  from {
+    transform: scaleY(0.75);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes buddy-drip {
+  0% {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
+/* ---------- Reaksi interaksi (klik, elus, tahan) ---------- */
+
+.buddy .line.thin {
+  stroke-width: 0.9;
+}
+
+.buddy .star,
+.buddy .stars {
+  fill: #fbbf24;
+}
+
+.buddy .teeth {
+  fill: #fff;
+}
+
+.buddy .blush.strong {
+  opacity: 0.75;
+}
+
+.buddy[data-mood="starstruck"] .star {
+  transform-origin: center;
+  animation: buddy-pulse 0.45s ease-in-out infinite alternate;
+}
+
+.buddy .stars.on {
+  transform-origin: center;
+  animation: buddy-orbit 1.6s linear infinite;
+}
+
+/* Ngambek: wajah dipalingkan (menimpa arah lirikan dari JS). */
+.buddy[data-mood="sulk"] .b-face {
+  transform: translate(-3.4px, 1.2px) rotate(-10deg) scale(0.92, 1) !important;
+}
+
+.buddy[data-mood="dizzy"] .b-body {
+  animation: buddy-wobble 0.9s ease-in-out infinite;
+}
+
+.buddy[data-mood="starstruck"] .b-body {
+  animation: buddy-hop 0.7s ease-in-out infinite;
+}
+
+.buddy[data-mood="shy"] .b-body {
+  animation: buddy-sway 1.6s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="pout"] .b-body {
+  animation: buddy-puff 0.9s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="yawn"] .b-body {
+  animation: buddy-yawn 1.8s ease-in-out 1;
+}
+
+.buddy[data-mood="purr"] .b-body {
+  animation: buddy-purr 0.12s linear infinite alternate;
+}
+
+.buddy[data-mood="tickle"] .b-body {
+  animation: buddy-wiggle 0.18s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="sulk"] .b-body {
+  animation: buddy-droop 3s ease-in-out infinite;
+}
+
+.buddy[data-mood="mischief"] .b-body {
+  animation: buddy-tilt 0.8s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="boop"] .b-body {
+  animation: buddy-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
+}
+
+/* Gerak sekali jalan (buddy.play) & ditahan (buddy.hold) */
+.buddy.spin .b-body {
+  transform-origin: 50% 55%;
+  animation: buddy-flip 0.75s cubic-bezier(0.4, 1.4, 0.5, 1) 1;
+}
+
+.buddy.boing .b-body {
+  animation: buddy-boing 0.55s cubic-bezier(0.3, 1.6, 0.5, 1) 1;
+}
+
+.buddy.pat .b-body {
+  animation: buddy-pat 0.7s ease-in-out 1;
+}
+
+.buddy.held .b-body {
+  animation: none;
+  transform: scale(1.2, 0.76);
+  transition: transform 0.18s ease-out;
+}
+
+@keyframes buddy-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes buddy-wobble {
+  0%,
+  100% {
+    transform: rotate(-9deg) translateX(-0.6px);
+  }
+  50% {
+    transform: rotate(9deg) translateX(0.6px);
+  }
+}
+
+@keyframes buddy-sway {
+  from {
+    transform: rotate(-4deg) scale(0.97);
+  }
+  to {
+    transform: rotate(3deg) scale(0.97);
+  }
+}
+
+@keyframes buddy-puff {
+  from {
+    transform: scale(1.02, 0.99);
+  }
+  to {
+    transform: scale(1.09, 0.95);
+  }
+}
+
+@keyframes buddy-yawn {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  45% {
+    transform: scale(0.93, 1.12) translateY(-1px);
+  }
+}
+
+@keyframes buddy-purr {
+  from {
+    transform: translateX(-0.25px) rotate(-1deg);
+  }
+  to {
+    transform: translateX(0.25px) rotate(1deg);
+  }
+}
+
+@keyframes buddy-wiggle {
+  from {
+    transform: rotate(-8deg) scale(1.03, 0.97);
+  }
+  to {
+    transform: rotate(8deg) scale(0.97, 1.03);
+  }
+}
+
+@keyframes buddy-flip {
+  0% {
+    transform: rotate(0) scale(1);
+  }
+  60% {
+    transform: rotate(380deg) scale(0.85);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes buddy-boing {
+  0% {
+    transform: scale(1, 1);
+  }
+  25% {
+    transform: scale(0.78, 1.12);
+  }
+  55% {
+    transform: scale(1.12, 0.9);
+  }
+  80% {
+    transform: scale(0.96, 1.04);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes buddy-pat {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  25% {
+    transform: scale(1.08, 0.88);
+  }
+  50% {
+    transform: scale(0.98, 1.02);
+  }
+  75% {
+    transform: scale(1.05, 0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy *,
+  .buddy[data-mood] .b-body {
+    animation: none !important;
+  }
+}
+
+/* Hemat CPU: bagian wajah yang sedang tidak dipakai (mata, mulut, air mata lain) tidak dianimasikan. */
+.buddy [data-part]:not(.on),
+.buddy [data-part]:not(.on) * {
+  animation-play-state: paused !important;
+}
+
+/* ---------- Headphone & joget saat musik ---------- */
+
+.buddy .phones .band-shadow {
+  fill: none;
+  stroke: #18181b;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+}
+
+.buddy .phones .band {
+  fill: none;
+  stroke: #3f3f46;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.buddy .phones .band-shine {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+
+.buddy .phones .cup {
+  fill: #2a2a31;
+  stroke: #18181b;
+  stroke-width: 0.5;
+}
+
+.buddy .phones .cushion {
+  fill: #52525b;
+}
+
+.buddy .phones .led {
+  fill: var(--accent, #5ba8f5);
+  opacity: 0.55;
+}
+
+.buddy .phones .cup-l,
+.buddy .phones .cup-r {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Lagu diputar: meloncat mengikuti ketukan (±115 BPM), memipih saat mendarat, kepala mengangguk
+   kiri-kanan; earcup & lampunya ikut berdenyut. Satu siklus = dua ketukan. */
+.buddy[data-mood="music"] .b-body {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: buddy-groove 1.04s ease-in-out infinite;
+}
+
+.buddy[data-mood="music"] .phones .led {
+  animation: buddy-led 0.52s ease-out infinite;
+}
+
+.buddy[data-mood="music"] .phones .cup-l,
+.buddy[data-mood="music"] .phones .cup-r {
+  animation: buddy-cup 0.52s ease-out infinite;
+}
+
+@keyframes buddy-groove {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg) scale(1.08, 0.92);
+  }
+  8%,
+  58% {
+    transform: translateY(-0.6px) rotate(-2deg) scale(1, 1);
+  }
+  25% {
+    transform: translateY(-3.6px) rotate(0deg) scale(0.95, 1.06);
+  }
+  50% {
+    transform: translateY(0) rotate(6deg) scale(1.08, 0.92);
+  }
+  75% {
+    transform: translateY(-3.6px) rotate(0deg) scale(0.95, 1.06);
+  }
+}
+
+@keyframes buddy-led {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes buddy-cup {
+  0% {
+    scale: 1.08;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* Dua not musik melayang bergantian dari kanan & kiri */
+.buddy .notes .flag {
+  fill: none;
+}
+
+.buddy .notes.on .note {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: buddy-float 1.6s ease-out infinite;
+}
+
+.buddy .notes.on .note.n2 {
+  animation-delay: 0.8s;
+}
+
+/* Lagu dijeda (headphone tetap terpasang): bernapas pelan, lampu redup */
+.buddy[data-mood="listen"] .phones .led {
+  opacity: 0.3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy[data-mood="music"] .b-body,
+  .buddy[data-mood="music"] .phones .led,
+  .buddy[data-mood="music"] .phones .cup-l,
+  .buddy[data-mood="music"] .phones .cup-r {
+    animation: none;
+  }
+}
+
+/* ---------- Kostum profesi & lainnya ---------- */
+
+/* Ninja: kain biru tua, pelat logam polos */
+.buddy .cos-ninja .cloth {
+  fill: #1e3a8a;
+}
+
+.buddy .cos-ninja .plate {
+  fill: #cbd5e1;
+  stroke: #64748b;
+  stroke-width: 0.45;
+}
+
+.buddy .cos-ninja .etch {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+
+.buddy .cos-ninja .rivet {
+  fill: #64748b;
+}
+
+.buddy .cos-ninja .tails {
+  transform-box: view-box;
+  transform-origin: 34px 14px;
+  animation: costume-flutter 1.6s ease-in-out infinite;
+}
+
+@keyframes costume-flutter {
+  0%,
+  100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(8deg);
+  }
+}
+
+/* Tentara: hijau zaitun loreng */
+.buddy .cos-tentara .dome {
+  fill: #556b2f;
+}
+
+.buddy .cos-tentara .spot.a {
+  fill: #3b4a1f;
+}
+
+.buddy .cos-tentara .spot.b {
+  fill: #7a8a45;
+}
+
+.buddy .cos-tentara .brim {
+  fill: #3f4f22;
+}
+
+/* Natal */
+.buddy .cos-natal .body {
+  fill: #dc2626;
+}
+
+.buddy .cos-natal .trim,
+.buddy .cos-natal .pom {
+  fill: #fafafa;
+  stroke: #e4e4e7;
+  stroke-width: 0.4;
+}
+
+/* Koki */
+.buddy .cos-koki .puff,
+.buddy .cos-koki .band {
+  fill: #ffffff;
+  stroke: #d4d4d8;
+  stroke-width: 0.45;
+}
+
+.buddy .cos-koki .fold {
+  fill: none;
+  stroke: #d4d4d8;
+  stroke-width: 0.45;
+  stroke-linecap: round;
+}
+
+/* Wisuda */
+.buddy .cos-wisuda .cap {
+  fill: #18181b;
+}
+
+.buddy .cos-wisuda .board {
+  fill: #27272a;
+  stroke: #3f3f46;
+  stroke-width: 0.45;
+}
+
+.buddy .cos-wisuda .button,
+.buddy .cos-wisuda .end {
+  fill: #facc15;
+}
+
+.buddy .cos-wisuda .cord {
+  fill: none;
+  stroke: #facc15;
+  stroke-width: 0.7;
+  stroke-linecap: round;
+}
+
+.buddy .cos-wisuda .tassel {
+  transform-box: view-box;
+  transform-origin: 31.6px 8.4px;
+  animation: buddy-swing 2.4s ease-in-out infinite;
+}
+
+/* Helm proyek */
+.buddy .cos-proyek .dome {
+  fill: #facc15;
+}
+
+.buddy .cos-proyek .ridge {
+  fill: none;
+  stroke: #ca8a04;
+  stroke-width: 0.8;
+  stroke-linecap: round;
+}
+
+.buddy .cos-proyek .brim {
+  fill: #eab308;
+}
+
+/* Polisi (biru tua, lencana bintang) & pilot (putih, lencana sayap) */
+.buddy .cos-cap .crown {
+  fill: #1e293b;
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-width: 0.4;
+}
+
+.buddy .cos-cap .cap-band {
+  fill: #0f172a;
+}
+
+.buddy .cos-cap .visor {
+  fill: #09090b;
+}
+
+.buddy .cos-cap .badge-star,
+.buddy .cos-cap .badge-wings {
+  fill: #facc15;
+}
+
+.buddy .cos-cap .badge-wings {
+  display: none;
+}
+
+.buddy[data-costume="pilot"] .cos-cap .crown {
+  fill: #fafafa;
+  stroke: #d4d4d8;
+}
+
+.buddy[data-costume="pilot"] .cos-cap .cap-band {
+  fill: #18181b;
+}
+
+.buddy[data-costume="pilot"] .cos-cap .badge-star {
+  display: none;
+}
+
+.buddy[data-costume="pilot"] .cos-cap .badge-wings {
+  display: inline;
+}
+
+/* Dokter */
+.buddy .cos-dokter .strap {
+  fill: none;
+  stroke: #64748b;
+  stroke-width: 1.3;
+}
+
+.buddy .cos-dokter .mirror {
+  fill: #e2e8f0;
+  stroke: #94a3b8;
+  stroke-width: 0.6;
+}
+
+.buddy .cos-dokter .hole {
+  fill: #475569;
+}
+
+.buddy .cos-dokter .shine {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+
+/* Pemadam */
+.buddy .cos-pemadam .dome {
+  fill: #dc2626;
+}
+
+.buddy .cos-pemadam .ridge {
+  fill: none;
+  stroke: #991b1b;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.buddy .cos-pemadam .brim {
+  fill: #b91c1c;
+}
+
+.buddy .cos-pemadam .shield {
+  fill: #facc15;
+  stroke: #a16207;
+  stroke-width: 0.4;
+}
+
+.buddy .cos-pemadam .shield-line {
+  stroke: #a16207;
+  stroke-width: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy .cos-ninja .tails,
+  .buddy .cos-wisuda .tassel {
+    animation: none;
+  }
+}
+
+/* Headphone dipakai (musik): bagian kostum yang menjuntai di samping kepala disembunyikan
+   supaya tidak menabrak earcup. */
+.buddy[data-mood="music"] .cos-ninja .tails,
+.buddy[data-mood="listen"] .cos-ninja .tails,
+.buddy[data-mood="music"] .cos-wisuda .tassel,
+.buddy[data-mood="listen"] .cos-wisuda .tassel,
+.buddy[data-mood="music"] .cos-merahputih-knot,
+.buddy[data-mood="listen"] .cos-merahputih-knot {
+  display: none;
+}
+
+/* ---------- Zeno bekerja (laptop) ---------- */
+
+.buddy .laptop .lid {
+  fill: #2a2a31;
+  stroke: #45454f;
+  stroke-width: 0.5;
+}
+
+.buddy .laptop .lid-edge {
+  fill: #52525b;
+}
+
+.buddy .laptop .logo {
+  fill: rgba(255, 255, 255, 0.4);
+}
+
+/* Cahaya layar memantul di wajah, sedikit berkedip seperti layar yang berganti isi */
+.buddy .laptop .glow {
+  fill: #7dd3fc;
+  opacity: 0.32;
+}
+
+.buddy .laptop .keys rect {
+  fill: #e0f2fe;
+  opacity: 0;
+}
+
+.buddy[data-mood="work"] .laptop .glow {
+  animation: laptop-glow 2.4s ease-in-out infinite;
+}
+
+.buddy[data-mood="work"] .laptop .keys .k1 {
+  animation: laptop-key 0.9s steps(1) infinite;
+}
+
+.buddy[data-mood="work"] .laptop .keys .k2 {
+  animation: laptop-key 0.9s steps(1) 0.3s infinite;
+}
+
+.buddy[data-mood="work"] .laptop .keys .k3 {
+  animation: laptop-key 0.9s steps(1) 0.6s infinite;
+}
+
+/* Getaran kecil seperti sedang mengetik */
+.buddy[data-mood="work"] .b-body {
+  animation: buddy-type 0.36s steps(2) infinite;
+}
+
+@keyframes laptop-glow {
+  0%,
+  100% {
+    opacity: 0.32;
+  }
+  50% {
+    opacity: 0.18;
+  }
+}
+
+@keyframes laptop-key {
+  0% {
+    opacity: 0.9;
+  }
+  34% {
+    opacity: 0;
+  }
+}
+
+@keyframes buddy-type {
+  0% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 0.35px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy[data-mood="work"] .b-body,
+  .buddy[data-mood="work"] .laptop * {
+    animation: none;
+  }
+}

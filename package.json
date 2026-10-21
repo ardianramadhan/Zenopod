@@ -9,7 +9,8 @@
     "test": "node --test",
     "dist": "electron-builder --win nsis --publish never",
     "dist:mac": "electron-builder --mac dmg --publish never",
-    "release": "electron-builder --win nsis --publish always"
+    "release": "electron-builder --win nsis --publish always",
+    "docs:sync": "node scripts/sync-docs.js"
   },
   "devDependencies": {
     "electron": "^38.0.0",

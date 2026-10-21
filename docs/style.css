@@ -3,12 +3,16 @@
 :root {
   --bg: #0c0c10;
   --surface: #16161c;
+  --surface-2: #1e1e26;
   --line: rgba(255, 255, 255, 0.08);
   --text: #f4f4f5;
   --muted: #a1a1aa;
   --accent: #5ba8f5;
+  --accent-hover: #79b9f7;
   --ink-on-accent: #08111f;
-  --radius: 20px;
+  --wallpaper: linear-gradient(180deg, #1f2937 0%, #3b2a26 55%, #7c2d12 100%);
+  --radius: 22px;
+  --ease: cubic-bezier(0.2, 0.9, 0.3, 1);
   color-scheme: dark;
 }
 
@@ -18,6 +22,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 72px;
 }
 
 body {
@@ -27,6 +32,7 @@ body {
   font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-size: 17px;
   line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
 }
 
 a {
@@ -42,13 +48,13 @@ h1,
 h2,
 h3 {
   font-family: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
-  line-height: 1.12;
+  line-height: 1.1;
   letter-spacing: -0.02em;
 }
 
 h2 {
-  margin: 0 0 36px;
-  font-size: clamp(30px, 4vw, 44px);
+  margin: 0 0 40px;
+  font-size: clamp(30px, 4.2vw, 46px);
 }
 
 h3 {
@@ -59,13 +65,38 @@ h3 {
 code {
   padding: 1px 6px;
   border-radius: 6px;
-  background: var(--surface);
+  background: var(--surface-2);
   font-size: 0.9em;
 }
 
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.skip {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 20;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--ink-on-accent);
+  font-weight: 600;
+}
+
+.skip:focus {
+  top: 12px;
 }
 
 /* ---------- Header ---------- */
@@ -78,8 +109,10 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px clamp(16px, 5vw, 64px);
-  background: rgba(12, 12, 16, 0.88);
+  padding: 12px clamp(16px, 5vw, 64px);
+  background: rgba(12, 12, 16, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
 }
 
@@ -95,17 +128,32 @@ code {
 
 .top nav {
   display: flex;
-  gap: clamp(12px, 3vw, 28px);
+  align-items: center;
+  gap: clamp(14px, 3vw, 30px);
 }
 
 .top nav a {
   color: var(--muted);
-  text-decoration: none;
   font-size: 15px;
+  text-decoration: none;
+  transition: color 0.15s;
 }
 
 .top nav a:hover {
   color: var(--text);
+}
+
+.top nav .nav-cta {
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ink-on-accent);
+  font-weight: 600;
+}
+
+.top nav .nav-cta:hover {
+  color: var(--ink-on-accent);
+  background: var(--accent-hover);
 }
 
 main {
@@ -114,25 +162,31 @@ main {
   padding: 0 clamp(16px, 5vw, 48px);
 }
 
-/* ---------- Tombol ---------- */
+/* ---------- Tombol & label ---------- */
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  padding: 0 24px;
+  min-height: 50px;
+  padding: 0 26px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
   font-weight: 600;
   text-decoration: none;
-  transition: background 0.15s;
+  transition:
+    background 0.15s,
+    transform 0.15s var(--ease);
 }
 
 .btn:hover {
-  background: #202028;
+  background: var(--surface-2);
+}
+
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn.primary {
@@ -142,7 +196,7 @@ main {
 }
 
 .btn.primary:hover {
-  background: #79b9f7;
+  background: var(--accent-hover);
 }
 
 .tag {
@@ -159,37 +213,8 @@ main {
 }
 
 .tag.muted {
-  background: var(--surface);
+  background: var(--surface-2);
   color: var(--muted);
-}
-
-/* ---------- Layar contoh: wallpaper hangat seperti desktop, tempat island ditampilkan ---------- */
-
-.screen {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  align-content: start;
-  gap: 14px;
-  padding: 18px 18px 28px;
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: linear-gradient(180deg, #1f2937 0%, #3b2a26 55%, #7c2d12 100%);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-
-.screen img {
-  position: relative;
-  display: block;
-}
-
-.screen > img[width="472"] {
-  width: min(472px, 100%);
-}
-
-.screen > img[width="936"],
-.screen > img[width="776"] {
-  width: min(560px, 100%);
 }
 
 /* ---------- Hero ---------- */
@@ -198,18 +223,18 @@ main {
   display: grid;
   grid-template-columns: 1.05fr 1fr;
   align-items: center;
-  gap: clamp(28px, 5vw, 72px);
-  padding: clamp(48px, 8vw, 110px) 0 clamp(36px, 6vw, 72px);
+  gap: clamp(32px, 5vw, 72px);
+  padding: clamp(48px, 8vw, 112px) 0 clamp(40px, 6vw, 72px);
 }
 
 .hero h1 {
   margin: 0;
-  font-size: clamp(42px, 6.4vw, 76px);
-  letter-spacing: -0.035em;
+  font-size: clamp(44px, 6.6vw, 80px);
+  letter-spacing: -0.04em;
 }
 
 .lead {
-  margin: 22px 0 0;
+  margin: 24px 0 0;
   max-width: 560px;
   font-size: clamp(18px, 2vw, 21px);
   color: var(--muted);
@@ -223,7 +248,7 @@ main {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-top: 32px;
+  margin-top: 34px;
 }
 
 .note {
@@ -232,18 +257,100 @@ main {
   color: var(--muted);
 }
 
-.hero-visual .screen {
-  min-height: 420px;
-  padding-top: 0;
+/* Layar contoh: wallpaper hangat seperti desktop, island menempel di atas, Zeno di tengah */
+.hero-stage {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  min-height: 460px;
+  padding: 0 18px 22px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--wallpaper);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
-.hero-visual .island {
+.island {
+  position: relative;
   width: min(472px, 100%);
+  aspect-ratio: 472 / 64;
 }
 
-.hero-visual .zeno {
-  width: min(280px, 70%);
-  margin-top: 36px;
+.island img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  transform: scale(0.96);
+  transition:
+    opacity 0.45s ease,
+    transform 0.55s var(--ease);
+}
+
+.island img.on {
+  opacity: 1;
+  transform: none;
+}
+
+.zeno-big {
+  width: min(280px, 72%);
+  aspect-ratio: 1;
+  margin-top: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.35));
+}
+
+.zeno-big .buddy {
+  width: 100%;
+  height: 100%;
+}
+
+.zeno-big:focus-visible {
+  outline-offset: 8px;
+  border-radius: 50%;
+}
+
+.stage-hint {
+  margin: 8px 0 0;
+  min-height: 1.6em;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+/* ---------- Fakta ---------- */
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 clamp(48px, 7vw, 80px);
+  padding: 0;
+  list-style: none;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--line);
+}
+
+.facts li {
+  display: grid;
+  gap: 2px;
+  padding: 22px 24px;
+  background: var(--surface);
+}
+
+.facts b {
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 30px;
+  letter-spacing: -0.02em;
+}
+
+.facts span {
+  font-size: 14px;
+  color: var(--muted);
 }
 
 /* ---------- Video ---------- */
@@ -251,16 +358,42 @@ main {
 .video video {
   display: block;
   width: 100%;
+  height: auto;
   aspect-ratio: 16 / 9;
   border-radius: var(--radius);
   background: #000;
+}
+
+/* ---------- Layar contoh di fitur ---------- */
+
+.screen {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 14px;
+  padding: 18px 18px 28px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--wallpaper);
   box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.screen img {
+  display: block;
+}
+
+.screen > img[width="472"] {
+  width: min(472px, 100%);
+}
+
+.screen > img[width="936"] {
+  width: min(560px, 100%);
 }
 
 /* ---------- Fitur ---------- */
 
 .features {
-  padding: clamp(64px, 9vw, 120px) 0 0;
+  padding: clamp(72px, 10vw, 128px) 0 0;
 }
 
 .feature {
@@ -268,7 +401,7 @@ main {
   grid-template-columns: 1fr 1.15fr;
   align-items: center;
   gap: clamp(24px, 5vw, 64px);
-  margin-bottom: clamp(56px, 8vw, 96px);
+  margin-bottom: clamp(56px, 8vw, 104px);
 }
 
 .feature.flip .feature-text {
@@ -276,7 +409,8 @@ main {
 }
 
 .feature p,
-.card p {
+.card p,
+.meet p {
   margin: 0;
   color: var(--muted);
 }
@@ -288,22 +422,27 @@ main {
 }
 
 .card {
-  padding: 18px 18px 24px;
+  padding: 18px 18px 26px;
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--line);
+  transition: transform 0.25s var(--ease);
+}
+
+.card:hover {
+  transform: translateY(-3px);
 }
 
 .card img {
   display: block;
   width: 100%;
-  max-height: 300px;
+  height: 300px;
   object-fit: contain;
   object-position: top center;
-  margin-bottom: 18px;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #1f2937 0%, #3b2a26 70%, #5b2410 100%);
+  margin-bottom: 20px;
   padding: 12px;
+  border-radius: 14px;
+  background: var(--wallpaper);
 }
 
 .card h3 {
@@ -311,42 +450,121 @@ main {
 }
 
 .also {
-  margin: 36px 0 0;
+  margin: 40px 0 0;
   color: var(--muted);
+}
+
+/* ---------- Kenalan dengan Zeno ---------- */
+
+.meet {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  align-items: center;
+  gap: clamp(28px, 5vw, 72px);
+  padding: clamp(72px, 10vw, 128px) 0 0;
+}
+
+.meet h2 {
+  margin-bottom: 16px;
+}
+
+.meet-stage {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(60% 60% at 50% 45%, rgba(91, 168, 245, 0.16), transparent 70%),
+    var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.zeno-play {
+  width: 62%;
+  aspect-ratio: 1;
+}
+
+.zeno-play .buddy {
+  width: 100%;
+  height: 100%;
+}
+
+.chips {
+  margin: 26px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.chips legend {
+  margin-bottom: 10px;
+  font-weight: 650;
+}
+
+.chips div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.chip:hover {
+  background: var(--surface-2);
+}
+
+.chip[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--ink-on-accent);
+  font-weight: 600;
 }
 
 /* ---------- Privasi ---------- */
 
 .privacy {
-  padding: clamp(64px, 9vw, 120px) 0 0;
+  padding: clamp(72px, 10vw, 128px) 0 0;
 }
 
 .privacy ul {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 32px;
+  gap: 16px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .privacy li {
-  padding: 18px 20px;
-  border-radius: 16px;
+  padding: 22px 24px;
+  border-radius: 18px;
   background: var(--surface);
   color: var(--muted);
 }
 
 .privacy li strong {
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   color: var(--text);
+  font-size: 18px;
 }
 
 /* ---------- Unduh ---------- */
 
 .download {
-  padding: clamp(64px, 9vw, 120px) 0 clamp(48px, 7vw, 96px);
+  padding: clamp(72px, 10vw, 128px) 0 0;
 }
 
 .install {
@@ -359,14 +577,14 @@ main {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding: 24px;
+  padding: 26px;
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: inset 0 0 0 1px var(--line);
 }
 
 .step-card ol {
-  margin: 0 0 22px;
+  margin: 0 0 24px;
   padding-left: 22px;
   color: var(--muted);
 }
@@ -381,7 +599,7 @@ main {
 
 .specs {
   width: 100%;
-  margin-top: 28px;
+  margin-top: 32px;
   border-collapse: collapse;
 }
 
@@ -408,6 +626,54 @@ main {
   color: var(--muted);
 }
 
+/* ---------- FAQ ---------- */
+
+.faq {
+  max-width: 820px;
+  padding: clamp(72px, 10vw, 128px) 0 clamp(56px, 8vw, 104px);
+}
+
+.faq details {
+  border-top: 1px solid var(--line);
+}
+
+.faq details:last-of-type {
+  border-bottom: 1px solid var(--line);
+}
+
+.faq summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq summary::after {
+  content: "+";
+  flex: none;
+  color: var(--muted);
+  font-size: 24px;
+  line-height: 1;
+  transition: transform 0.2s var(--ease);
+}
+
+.faq details[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.faq details p {
+  margin: -6px 0 22px;
+  color: var(--muted);
+}
+
 /* ---------- Footer ---------- */
 
 .foot {
@@ -415,22 +681,48 @@ main {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  padding: 32px 16px 48px;
+  padding: 28px 16px 44px;
   border-top: 1px solid var(--line);
   color: var(--muted);
   font-size: 15px;
-  text-align: left;
 }
 
 .foot p {
   margin: 0;
 }
 
+.foot-zeno {
+  width: 56px;
+  height: 56px;
+  flex: none;
+}
+
+.foot-zeno .buddy {
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- Muncul saat di-scroll (hanya kalau JavaScript aktif) ---------- */
+
+.js [data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 0.6s ease,
+    transform 0.7s var(--ease);
+}
+
+.js [data-reveal].in {
+  opacity: 1;
+  transform: none;
+}
+
 /* ---------- Layar kecil (HP) ---------- */
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .hero,
-  .feature {
+  .feature,
+  .meet {
     grid-template-columns: 1fr;
   }
 
@@ -438,19 +730,29 @@ main {
     order: 0;
   }
 
-  .hero-visual .screen {
+  .hero-stage {
     min-height: 0;
   }
 
+  .facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meet-stage {
+    max-width: 420px;
+    width: 100%;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
   .more,
   .privacy ul,
   .install {
     grid-template-columns: 1fr;
   }
-}
 
-@media (max-width: 520px) {
-  .top nav a:not(:last-child) {
+  .top nav a:not(.nav-cta) {
     display: none;
   }
 
@@ -458,13 +760,28 @@ main {
     flex: 1 1 100%;
   }
 
+  .card img {
+    height: 240px;
+  }
+
   .specs th {
     width: 96px;
+  }
+
+  .foot {
+    flex-direction: column;
+    text-align: center;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .js [data-reveal],
+  .island img,
+  .card {
+    transition: none;
   }
 }
