@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Zenopod — Dynamic Island untuk Windows &amp; macOS</title>
+  <meta name="description" content="Zenopod adalah Dynamic Island untuk desktop Windows dan macOS, ditemani maskot Zeno: musik dan lirik, Claude Code, notifikasi, fokus Pomodoro, Studio foto, dan chat AI yang bisa beraksi." />
+  <meta name="keywords" content="Zenopod, Dynamic Island Windows, Dynamic Island desktop, widget Windows, Claude Code, lirik Spotify, Pomodoro, maskot desktop" />
+  <link rel="canonical" href="https://ardianramadhan.github.io/Zenopod/" />
+  <meta name="theme-color" content="#0c0c10" />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+
+  <!-- Pratinjau link (WhatsApp, Instagram, X, LinkedIn) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Zenopod" />
+  <meta property="og:title" content="Zenopod — Dynamic Island untuk Windows &amp; macOS" />
+  <meta property="og:description" content="Kapsul kecil di atas layar untuk musik, Claude Code, notifikasi, dan fokus, ditemani maskot Zeno." />
+  <meta property="og:url" content="https://ardianramadhan.github.io/Zenopod/" />
+  <meta property="og:image" content="https://ardianramadhan.github.io/Zenopod/assets/og-image.png" />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="640" />
+  <meta property="og:locale" content="id_ID" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Zenopod — Dynamic Island untuk Windows &amp; macOS" />
+  <meta name="twitter:description" content="Kapsul kecil di atas layar untuk musik, Claude Code, notifikasi, dan fokus, ditemani maskot Zeno." />
+  <meta name="twitter:image" content="https://ardianramadhan.github.io/Zenopod/assets/og-image.png" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Zenopod",
+    "description": "Dynamic Island untuk desktop Windows dan macOS dengan maskot Zeno.",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Windows 10, Windows 11, macOS 12+",
+    "url": "https://ardianramadhan.github.io/Zenopod/",
+    "downloadUrl": "https://github.com/ardianramadhan/Zenopod/releases/latest",
+    "image": "https://ardianramadhan.github.io/Zenopod/assets/og-image.png",
+    "inLanguage": "id",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
+    "author": { "@type": "Person", "name": "Ardian Ramadhan", "url": "https://github.com/ardianramadhan" }
+  }
+  </script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="#" aria-label="Zenopod, ke atas"><img src="assets/favicon.png" alt="" width="28" height="28" />Zenopod</a>
+    <nav aria-label="Navigasi">
+      <a href="#fitur">Fitur</a>
+      <a href="#privasi">Privasi</a>
+      <a href="#unduh">Unduh</a>
+      <a href="https://github.com/ardianramadhan/Zenopod">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-text">
+        <h1>Dynamic Island untuk desktopmu.</h1>
+        <p class="lead">Zenopod menaruh jam, musik, notifikasi, dan Claude Code di kapsul kecil di atas layar, ditemani <strong>Zeno</strong>, maskot yang ikut bereaksi saat kamu bekerja.</p>
+        <div class="cta">
+          <a class="btn primary" href="https://github.com/ardianramadhan/Zenopod/releases/latest">Unduh untuk Windows</a>
+          <a class="btn" href="https://github.com/ardianramadhan/Zenopod/releases/latest">macOS (beta)</a>
+        </div>
+        <p class="note">Windows 10 &amp; 11 (64-bit) · macOS 12+ · Memperbarui dirinya sendiri di Windows</p>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="screen">
+          <img class="island" src="assets/pill-music.png" alt="" width="472" height="64" />
+          <img class="zeno" src="assets/zeno-hero.png" alt="" width="480" height="480" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Video -->
+    <section class="video" aria-label="Video Zenopod">
+      <video controls preload="metadata" poster="assets/promo-poster.jpg" playsinline>
+        <source src="assets/zenopod-promo.mp4" type="video/mp4" />
+        Browser-mu tidak bisa memutar video ini. <a href="assets/zenopod-promo.mp4">Unduh videonya</a>.
+      </video>
+    </section>
+
+    <!-- Fitur utama: bergantian kiri-kanan -->
+    <section id="fitur" class="features">
+      <h2>Yang dikerjakan Zenopod</h2>
+
+      <article class="feature">
+        <div class="feature-text">
+          <h3>Kapsul yang tenang</h3>
+          <p>Saat tidak ada apa-apa, Zeno diam di tengah dengan baterai, cuaca, dan notifikasi di kiri-kanan. Diam 30 detik, kapsul berubah jadi jam. Ada musik atau pekerjaan, Zeno pindah ke kiri dan statusnya muncul.</p>
+        </div>
+        <div class="screen stack">
+          <img src="assets/pill-idle.png" alt="Kapsul diam: baterai di kiri, Zeno di tengah, titik notifikasi di kanan" width="472" height="64" loading="lazy" />
+          <img src="assets/pill-clock.png" alt="Mode jam: jam di tengah kapsul" width="472" height="64" loading="lazy" />
+          <img src="assets/pill-music.png" alt="Kapsul saat musik diputar: Zeno berheadset, baris lirik, dan equalizer" width="472" height="64" loading="lazy" />
+        </div>
+      </article>
+
+      <article class="feature flip">
+        <div class="feature-text">
+          <h3>Musik dan lirik karaoke</h3>
+          <p>Spotify, YouTube di browser, dan pemutar lain. Lirik tersinkron terisi seperti karaoke dengan warna dari sampul album. Klik satu baris untuk melompat ke bagian itu.</p>
+        </div>
+        <div class="screen"><img src="assets/music.png" alt="Panel musik dengan sampul album, tombol putar, dan lirik yang sedang dinyanyikan" width="936" height="912" loading="lazy" /></div>
+      </article>
+
+      <article class="feature">
+        <div class="feature-text">
+          <h3>Teman kerja Claude Code</h3>
+          <p>Saat Claude bekerja, Zeno ikut mengetik di laptopnya. Status dan lama kerja tampil di kapsul, izin Claude bisa dijawab langsung, dan kartu Kerja merangkum server lokal serta perubahan Git.</p>
+        </div>
+        <div class="screen stack">
+          <img src="assets/claude-pill.png" alt="Kapsul saat Claude menjalankan perintah, dengan Zeno bekerja di laptop" width="472" height="64" loading="lazy" />
+          <img src="assets/claude-panel.png" alt="Kartu Kerja: langkah Claude, server lokal, dan tombol aktivitas" width="936" height="280" loading="lazy" />
+        </div>
+      </article>
+
+      <article class="feature flip">
+        <div class="feature-text">
+          <h3>Studio foto bersama Zeno <span class="tag">Baru</span></h3>
+          <p>Photobooth dari webcam dengan lima grid (Tunggal, Duo, 2×2, Strip 3, Strip 4), filter, dan warna bingkai. Zeno ikut berpose di setiap foto. Hasilnya disimpan di folder Gambar › Zenopod.</p>
+        </div>
+        <div class="screen"><img src="assets/camera.png" alt="Studio foto: pratinjau kamera, pilihan grid, filter, bingkai, dan galeri hasil" width="936" height="912" loading="lazy" /></div>
+      </article>
+
+      <!-- Fitur lain: kartu lebih kecil -->
+      <div class="more">
+        <article class="card">
+          <img src="assets/chat.png" alt="Chat dengan Zeno yang membuat pengingat dan memutar musik" width="936" height="912" loading="lazy" />
+          <h3>Chat yang bisa beraksi</h3>
+          <p>Minta Zeno membuat pengingat, menyalakan timer, membuka aplikasi, atau mengatur musik. Pakai Claude, ChatGPT, atau Gemini dengan API key-mu sendiri.</p>
+        </article>
+        <article class="card">
+          <img src="assets/focus.png" alt="Island Fokus dengan angka hitung mundur besar dan laporan sesi" width="936" height="912" loading="lazy" />
+          <h3>Fokus Pomodoro</h3>
+          <p>Hitung mundur besar dengan garis progres tipis, siklus Pomodoro, dan laporan fokus tujuh hari.</p>
+        </article>
+        <article class="card">
+          <img src="assets/live-download.png" alt="Kartu unduhan selesai dengan tombol Buka" width="776" height="220" loading="lazy" />
+          <h3>Aktivitas live</h3>
+          <p>Durasi panggilan Zoom atau Teams dengan tombol bisukan mikrofon, titik privasi saat kamera atau mikrofon dipakai, dan kabar saat unduhan selesai.</p>
+        </article>
+        <article class="card">
+          <img src="assets/screen.png" alt="Waktu layar per aplikasi dan laporan minggu lalu" width="936" height="912" loading="lazy" />
+          <h3>Waktu layar</h3>
+          <p>Aplikasi yang paling lama kamu pakai hari ini, grafik tujuh hari, dan laporan setiap Senin pagi.</p>
+        </article>
+      </div>
+
+      <p class="also">Juga ada: perintah suara offline, pengingat dan kalender, ambil teks dari layar, kebiasaan harian, statistik, kontrol cepat Windows, dan 16 kostum Zeno.</p>
+    </section>
+
+    <!-- Privasi -->
+    <section id="privasi" class="privacy">
+      <h2>Datamu tetap di laptopmu</h2>
+      <ul>
+        <li><strong>Tanpa akun dan tanpa server Zenopod.</strong> Pengaturan, statistik, dan waktu layar disimpan di komputermu.</li>
+        <li><strong>Chat AI</strong> hanya mengirim pertanyaanmu ke penyedia yang kamu pilih, memakai API key milikmu.</li>
+        <li><strong>Perintah suara</strong> diproses offline oleh whisper.cpp dan tidak dikirim ke internet.</li>
+        <li><strong>Kamera</strong> hanya menyala di Studio foto, dan foto tidak dikirim ke mana pun.</li>
+      </ul>
+    </section>
+
+    <!-- Unduh & pasang -->
+    <section id="unduh" class="download">
+      <h2>Unduh dan pasang</h2>
+      <div class="install">
+        <div class="step-card">
+          <h3>Windows</h3>
+          <ol>
+            <li>Buka <a href="https://github.com/ardianramadhan/Zenopod/releases/latest">Releases</a> dan unduh <code>Zenopod-Setup-x.y.z.exe</code>.</li>
+            <li>Installer belum ditandatangani, jadi Windows bisa menampilkan "Windows protected your PC". Klik <strong>More info › Run anyway</strong>.</li>
+            <li>Pilih <strong>Install</strong>. Kapsul hitam muncul di atas layar, dan pembaruan berikutnya terpasang otomatis.</li>
+          </ol>
+          <a class="btn primary" href="https://github.com/ardianramadhan/Zenopod/releases/latest">Unduh untuk Windows</a>
+        </div>
+        <div class="step-card">
+          <h3>macOS <span class="tag muted">beta</span></h3>
+          <ol>
+            <li>Unduh <code>arm64.dmg</code> untuk Apple Silicon atau <code>x64.dmg</code> untuk Intel.</li>
+            <li>Seret Zenopod ke folder Applications.</li>
+            <li>Buka pertama kali dengan <strong>klik kanan › Open</strong>, karena aplikasi belum ditandatangani Apple.</li>
+          </ol>
+          <a class="btn" href="https://github.com/ardianramadhan/Zenopod/releases/latest">Unduh untuk macOS</a>
+        </div>
+      </div>
+      <table class="specs">
+        <caption>Spesifikasi minimum</caption>
+        <tbody>
+          <tr><th scope="row">Windows</th><td>Windows 10 versi 1809 atau Windows 11, 64-bit</td></tr>
+          <tr><th scope="row">macOS</th><td>macOS 12 Monterey ke atas, Apple Silicon atau Intel</td></tr>
+          <tr><th scope="row">RAM</th><td>4 GB (disarankan 8 GB)</td></tr>
+          <tr><th scope="row">Ruang disk</th><td>±350 MB, ±600 MB dengan perintah suara</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <img src="assets/zeno-work.png" alt="" width="64" height="64" />
+    <p>Zenopod dibuat oleh <a href="https://github.com/ardianramadhan">Ardian Ramadhan</a>. Kode dan rilis ada di <a href="https://github.com/ardianramadhan/Zenopod">GitHub</a>.</p>
+  </footer>
+</body>
+</html>

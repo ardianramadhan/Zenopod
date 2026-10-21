@@ -1,0 +1,470 @@
+/* Landing page Zenopod (GitHub Pages). Gelap mengikuti identitas Zenopod: island hitam di atas layar. */
+
+:root {
+  --bg: #0c0c10;
+  --surface: #16161c;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --accent: #5ba8f5;
+  --ink-on-accent: #08111f;
+  --radius: 20px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.6;
+}
+
+a {
+  color: var(--accent);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+h1,
+h2,
+h3 {
+  font-family: "Segoe UI Variable Display", "Segoe UI", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  margin: 0 0 36px;
+  font-size: clamp(30px, 4vw, 44px);
+}
+
+h3 {
+  margin: 0 0 10px;
+  font-size: 24px;
+}
+
+code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 0.9em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ---------- Header ---------- */
+
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px clamp(16px, 5vw, 64px);
+  background: rgba(12, 12, 16, 0.88);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  font-weight: 650;
+  font-size: 19px;
+  text-decoration: none;
+}
+
+.top nav {
+  display: flex;
+  gap: clamp(12px, 3vw, 28px);
+}
+
+.top nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 15px;
+}
+
+.top nav a:hover {
+  color: var(--text);
+}
+
+main {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 5vw, 48px);
+}
+
+/* ---------- Tombol ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 0 24px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.btn:hover {
+  background: #202028;
+}
+
+.btn.primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--ink-on-accent);
+}
+
+.btn.primary:hover {
+  background: #79b9f7;
+}
+
+.tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--ink-on-accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  vertical-align: middle;
+}
+
+.tag.muted {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+/* ---------- Layar contoh: wallpaper hangat seperti desktop, tempat island ditampilkan ---------- */
+
+.screen {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 14px;
+  padding: 18px 18px 28px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: linear-gradient(180deg, #1f2937 0%, #3b2a26 55%, #7c2d12 100%);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.screen img {
+  position: relative;
+  display: block;
+}
+
+.screen > img[width="472"] {
+  width: min(472px, 100%);
+}
+
+.screen > img[width="936"],
+.screen > img[width="776"] {
+  width: min(560px, 100%);
+}
+
+/* ---------- Hero ---------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  align-items: center;
+  gap: clamp(28px, 5vw, 72px);
+  padding: clamp(48px, 8vw, 110px) 0 clamp(36px, 6vw, 72px);
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(42px, 6.4vw, 76px);
+  letter-spacing: -0.035em;
+}
+
+.lead {
+  margin: 22px 0 0;
+  max-width: 560px;
+  font-size: clamp(18px, 2vw, 21px);
+  color: var(--muted);
+}
+
+.lead strong {
+  color: var(--text);
+}
+
+.cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.note {
+  margin: 16px 0 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.hero-visual .screen {
+  min-height: 420px;
+  padding-top: 0;
+}
+
+.hero-visual .island {
+  width: min(472px, 100%);
+}
+
+.hero-visual .zeno {
+  width: min(280px, 70%);
+  margin-top: 36px;
+}
+
+/* ---------- Video ---------- */
+
+.video video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  background: #000;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* ---------- Fitur ---------- */
+
+.features {
+  padding: clamp(64px, 9vw, 120px) 0 0;
+}
+
+.feature {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  align-items: center;
+  gap: clamp(24px, 5vw, 64px);
+  margin-bottom: clamp(56px, 8vw, 96px);
+}
+
+.feature.flip .feature-text {
+  order: 2;
+}
+
+.feature p,
+.card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.more {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.card {
+  padding: 18px 18px 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.card img {
+  display: block;
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  object-position: top center;
+  margin-bottom: 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #1f2937 0%, #3b2a26 70%, #5b2410 100%);
+  padding: 12px;
+}
+
+.card h3 {
+  font-size: 21px;
+}
+
+.also {
+  margin: 36px 0 0;
+  color: var(--muted);
+}
+
+/* ---------- Privasi ---------- */
+
+.privacy {
+  padding: clamp(64px, 9vw, 120px) 0 0;
+}
+
+.privacy ul {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 32px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.privacy li {
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.privacy li strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+/* ---------- Unduh ---------- */
+
+.download {
+  padding: clamp(64px, 9vw, 120px) 0 clamp(48px, 7vw, 96px);
+}
+
+.install {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.step-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.step-card ol {
+  margin: 0 0 22px;
+  padding-left: 22px;
+  color: var(--muted);
+}
+
+.step-card li + li {
+  margin-top: 8px;
+}
+
+.step-card .btn {
+  margin-top: auto;
+}
+
+.specs {
+  width: 100%;
+  margin-top: 28px;
+  border-collapse: collapse;
+}
+
+.specs caption {
+  margin-bottom: 10px;
+  text-align: left;
+  font-weight: 650;
+}
+
+.specs th,
+.specs td {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.specs th {
+  width: 140px;
+  font-weight: 600;
+}
+
+.specs td {
+  color: var(--muted);
+}
+
+/* ---------- Footer ---------- */
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px 16px 48px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 15px;
+  text-align: left;
+}
+
+.foot p {
+  margin: 0;
+}
+
+/* ---------- Layar kecil (HP) ---------- */
+
+@media (max-width: 860px) {
+  .hero,
+  .feature {
+    grid-template-columns: 1fr;
+  }
+
+  .feature.flip .feature-text {
+    order: 0;
+  }
+
+  .hero-visual .screen {
+    min-height: 0;
+  }
+
+  .more,
+  .privacy ul,
+  .install {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .top nav a:not(:last-child) {
+    display: none;
+  }
+
+  .cta .btn {
+    flex: 1 1 100%;
+  }
+
+  .specs th {
+    width: 96px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
