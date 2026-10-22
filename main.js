@@ -521,6 +521,7 @@ function publicState() {
     sound: config.sound,
     ticker: config.ticker,
     lyrics: config.lyrics,
+    clockMode: config.clockMode,
     battery: config.battery,
     userName: config.user.name,
     shortcut: shortcutKeys(shortcut),

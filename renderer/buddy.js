@@ -88,21 +88,50 @@
   function markup(id) {
     return `
       <defs>
-        <radialGradient id="${id}-ball" cx="38%" cy="32%" r="72%">
-          <stop offset="0" stop-color="#ffffff" />
-          <stop offset="0.38" stop-color="#e3f0ff" />
-          <stop offset="0.78" stop-color="#a8ccf6" />
-          <stop offset="1" stop-color="#6c9fe0" />
-        </radialGradient>
-        <radialGradient id="${id}-angry" cx="38%" cy="32%" r="72%">
-          <stop offset="0" stop-color="#ffffff" />
-          <stop offset="0.38" stop-color="#ffe1e1" />
-          <stop offset="0.78" stop-color="#f7a3a3" />
-          <stop offset="1" stop-color="#e05a5a" />
-        </radialGradient>
         <clipPath id="${id}-clip"><circle cx="${CX}" cy="${CY}" r="15" /></clipPath>
+        <!-- Bentuk robot: badan abu gelap, wajah di layar, ikat kepala kostum ikut kotak kepala -->
+        <radialGradient id="${id}-robot" cx="35%" cy="28%" r="85%">
+          <stop offset="0" stop-color="#ffffff" />
+          <stop offset="0.5" stop-color="#f1f2f6" />
+          <stop offset="0.85" stop-color="#d5d8e0" />
+          <stop offset="1" stop-color="#b9bdc8" />
+        </radialGradient>
+        <radialGradient id="${id}-robot-angry" cx="35%" cy="28%" r="85%">
+          <stop offset="0" stop-color="#ffffff" />
+          <stop offset="0.5" stop-color="#ffe4e4" />
+          <stop offset="0.85" stop-color="#f6b4b4" />
+          <stop offset="1" stop-color="#e07a7a" />
+        </radialGradient>
+        <linearGradient id="${id}-glass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity="0.12" />
+          <stop offset="0.45" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <linearGradient id="${id}-depth" x1="0" y1="0" x2="0.3" y2="1">
+          <stop offset="0" stop-color="#c9ccd5" />
+          <stop offset="1" stop-color="#8a8f9c" />
+        </linearGradient>
+        <linearGradient id="${id}-bevel" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity="0.95" />
+          <stop offset="0.45" stop-color="#ffffff" stop-opacity="0" />
+          <stop offset="1" stop-color="#5b6070" stop-opacity="0.35" />
+        </linearGradient>
+        <linearGradient id="${id}-rim" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#7d828f" />
+          <stop offset="0.5" stop-color="#b9bdc7" />
+          <stop offset="1" stop-color="#f4f5f8" />
+        </linearGradient>
+        <linearGradient id="${id}-inset" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#000000" stop-opacity="0.75" />
+          <stop offset="0.25" stop-color="#000000" stop-opacity="0" />
+        </linearGradient>
+        <clipPath id="${id}-screen"><rect x="9" y="11" width="22" height="20" rx="4.6" /></clipPath>
+        <clipPath id="${id}-head"><rect x="5.5" y="8" width="29" height="27" rx="7.5" /></clipPath>
       </defs>
 
+      <!-- Bayangan di lantai: mengecil saat Zeno melayang naik -->
+      <ellipse class="b-shadow" cx="20" cy="38.6" rx="9.5" ry="1.4" />
+      <!-- Melayang pelan naik-turun (terpisah dari animasi ekspresi di .b-body) -->
+      <g class="b-float">
       <g class="b-body">
         <!-- Bando headphone: melengkung di luar kepala (di belakang bola), tidak menutupi wajah atau
              ubun-ubun. Topi tetap di atasnya; earcup ada di lapisan depan (grup .phones di bawah). -->
@@ -111,9 +140,13 @@
           <path class="band" d="M5.2 21 C4.2 6.6 11.6 3 20 3 C28.4 3 35.8 6.6 34.8 21" />
           <path class="band-shine" d="M6.4 13.4 C7.4 7.6 12.4 4.6 18.2 4.1" />
         </g>
-        <circle class="sphere" cx="${CX}" cy="${CY}" r="15" fill="url(#${id}-ball)" />
+        <rect class="robot-depth robot-only" x="6.3" y="9.6" width="29" height="27.2" rx="8.2" fill="url(#${id}-depth)" />
+        <rect class="sphere robot-only" x="5.5" y="8" width="29" height="27" rx="8.2" fill="url(#${id}-robot)" />
+        <rect class="robot-bevel robot-only" x="6" y="8.5" width="28" height="26" rx="7.7" fill="none" stroke="url(#${id}-bevel)" stroke-width="1" />
+        <rect class="screen-rim robot-only" x="8.2" y="10.2" width="23.6" height="21.6" rx="5.4" fill="url(#${id}-rim)" />
+        <rect class="screen robot-only" x="9" y="11" width="22" height="20" rx="4.6" />
 
-        <g clip-path="url(#${id}-clip)">
+        <g class="face-clip" clip-path="url(#${id}-clip)">
         <g class="b-face">
           <g data-part="blush">
             <ellipse class="blush" cx="11.4" cy="25.6" rx="2.3" ry="1.3" />
@@ -187,18 +220,50 @@
             <path class="tear" d="M26.6 22.6 q0.7 4.6 -0.2 9 q-1 1.1 -1.9 0 q-0.5 -4.4 0.4 -9 z" />
           </g>
         </g>
+        </g>
+        <g class="robot-only screen-layer" clip-path="url(#${id}-screen)">
+          <rect class="screen-glass" x="9" y="11" width="22" height="20" rx="4.6" fill="url(#${id}-glass)" />
+          <rect class="screen-inset" x="9" y="11" width="22" height="20" rx="4.6" fill="url(#${id}-inset)" />
+          <path class="screen-reflect" d="M20.5 11 H25 L14.5 31 H10 Z" />
+        </g>
+        <g class="band-clip" clip-path="url(#${id}-clip)">
           <g class="cos cos-merahputih">
-            <path class="red" d="M4 11.5 C12 8 28 8 36 11.5 V14 C28 10.6 12 10.6 4 14 Z" />
-            <path class="white" d="M4 14 C12 10.6 28 10.6 36 14 V16.4 C28 13 12 13 4 16.4 Z" />
+            <path class="red robot-only" d="M4 8 H36 V9.6 H4 Z" />
+            <path class="white robot-only" d="M4 9.6 H36 V11.2 H4 Z" />
           </g>
           <!-- Kain ikat kepala ninja & tali cermin dokter: ikut terpotong bentuk bola -->
-          <g class="cos cos-ninja"><path class="cloth" d="M4 12.8 C12 9.4 28 9.4 36 12.8 V16.8 C28 13.4 12 13.4 4 16.8 Z" /></g>
-          <g class="cos cos-dokter"><path class="strap" d="M4 14.4 C12 11 28 11 36 14.4" /></g>
+          <g class="cos cos-ninja"><path class="cloth robot-only" d="M4 8.4 H36 V11.6 H4 Z" /></g>
+          <g class="cos cos-dokter"><path class="strap robot-only" d="M4 10.2 H36" /></g>
         </g>
 
         <!-- Kilau cahaya: tetap di tempat walau wajah berputar -->
-        <ellipse class="gloss" cx="15" cy="13.2" rx="3.4" ry="1.9" transform="rotate(-30 15 13.2)" />
-        <circle class="gloss-dot" cx="11.6" cy="16.6" r="0.75" />
+        <circle class="gloss-dot robot-only" cx="12" cy="13.4" r="0.55" />
+
+        <!-- Konser (robot, saat musik): alat musik bergantian, lihat data-gig & buddy.css -->
+        <g class="gig gig-guitar robot-only">
+          <path class="g-neck" d="M20 31.4 L35.4 21.4" />
+          <path class="g-head" d="M34.5 20.4 L37.1 18.7 L38.1 20.2 L35.5 21.9 Z" />
+          <circle class="g-body" cx="15" cy="33.6" r="4.8" />
+          <circle class="g-body" cx="20" cy="31.4" r="3.6" />
+          <circle class="g-hole" cx="17.6" cy="32.6" r="1.4" />
+          <path class="g-strings" d="M14.4 34.6 L35 21" />
+        </g>
+
+        <!-- Tangan panjang (robot): berpangkal di sisi kepala, pose & gerak per ekspresi (buddy.css) -->
+        <g class="arm arm-l robot-only">
+          <path class="limb" d="M5.8 25 Q3.6 29 3.4 34" />
+          <circle class="hand" cx="3.4" cy="34.4" r="2.1" />
+        </g>
+        <g class="arm arm-r robot-only">
+          <path class="limb" d="M34.2 25 Q36.4 29 36.6 34" />
+          <!-- Mic (hanya saat bernyanyi): gagang dari tangan, kepala mic mengarah ke mulut -->
+          <g class="mic-prop">
+            <path class="mic-handle" d="M36.6 34.4 L33.6 36.4" />
+            <circle class="mic-head" cx="32.9" cy="36.9" r="1.7" />
+            <path class="mic-grill" d="M31.9 36.4 l1.9 1.2 M32.3 35.7 l1.6 1" />
+          </g>
+          <circle class="hand" cx="36.6" cy="34.4" r="2.1" />
+        </g>
 
         <g class="cos cos-peci cos-lebaran">
           <path class="peci" d="M9.4 12 C14 8.6 26 8.6 30.6 12 L29.4 3.4 C24.8 0.8 15.2 0.8 10.6 3.4 Z" />
@@ -298,6 +363,7 @@
             <circle class="led" cx="35.6" cy="21.9" r="1.15" />
           </g>
         </g>
+      </g>
       </g>
 
       <!-- Laptop di depan Zeno (kita melihat punggung layarnya): cahaya layar di wajah, percikan ketikan -->
@@ -418,27 +484,67 @@
 
     const parts = [...svg.querySelectorAll('[data-part]')];
     const face = svg.querySelector('.b-face');
-    const sphere = svg.querySelector('.sphere');
+    const robot = svg.querySelector('.sphere.robot-only');
+    let shape = 'robot';
     let mood = null;
 
     // Kostum: lapisan terpisah dari ekspresi (peci, party, umbrella, …) atau null.
+    // Zeno berbentuk robot (kepala layar + tangan panjang): wajah & kostum dipotong bentuk layar/kepala.
+    function setShape() {
+      svg.dataset.shape = shape;
+      svg.querySelector('.face-clip').setAttribute('clip-path', `url(#${id}-screen)`);
+      svg.querySelector('.band-clip').setAttribute('clip-path', `url(#${id}-head)`);
+      turnRobot(0, 0);
+    }
+
     function setCostume(name) {
       if (name) svg.dataset.costume = name;
       else delete svg.dataset.costume;
+    }
+
+    const GIGS = ['mic', 'guitar'];
+    let gigTimer = null;
+    function updateGig() {
+      clearInterval(gigTimer);
+      gigTimer = null;
+      if (mood !== 'music') {
+        delete svg.dataset.gig;
+        return;
+      }
+      let i = Math.floor(Math.random() * GIGS.length);
+      svg.dataset.gig = GIGS[i];
+      gigTimer = setInterval(() => {
+        i = (i + 1) % GIGS.length;
+        svg.dataset.gig = GIGS[i];
+      }, 12000);
     }
 
     function setMood(next) {
       if (!(next in MOODS) || next === mood) return;
       mood = next;
       svg.dataset.mood = next;
+      updateGig();
       const visible = new Set(MOODS[next]);
       for (const part of parts) part.classList.toggle('on', visible.has(part.dataset.part));
-      sphere.setAttribute('fill', `url(#${id}-${next === 'angry' ? 'angry' : 'ball'})`);
+      robot.setAttribute('fill', `url(#${id}-${next === 'angry' ? 'robot-angry' : 'robot'})`);
     }
 
     // lx, ly = arah kursor (-1..1). Wajah bergeser & miring seperti bola yang menoleh,
     // sedikit memipih di tepi (perspektif), pupil bergerak sedikit lebih jauh.
+    // Robot menengok sebadan: muka depan (layar, wajah, kostum) bergeser & menyempit ke arah
+    // tengokan, sisi kubus muncul di sisi berlawanan, tangan ikut bergeser.
+    const turnEls = () => svg.querySelectorAll('.sphere.robot-only, .robot-bevel, .screen-rim, .screen, .face-clip, .screen-layer, .band-clip, .gloss-dot.robot-only, :scope > .b-body > .cos');
+    function turnRobot(lx, ly) {
+      const on = shape === 'robot';
+      const front = on ? `translate(${(lx * 1.5).toFixed(2)}px, ${(ly * 0.9).toFixed(2)}px) scale(${(1 - Math.abs(lx) * 0.06).toFixed(3)}, ${(1 - Math.abs(ly) * 0.04).toFixed(3)})` : '';
+      for (const el of turnEls()) el.style.transform = front;
+      const depth = svg.querySelector('.robot-depth');
+      if (depth) depth.style.transform = on ? `translate(${(-lx * 2.8).toFixed(2)}px, ${(-ly * 1.4).toFixed(2)}px)` : '';
+      for (const arm of svg.querySelectorAll('.arm')) arm.style.translate = on ? `${(lx * 1.1).toFixed(2)}px ${(ly * 0.5).toFixed(2)}px` : '';
+    }
+
     function look(lx, ly) {
+      turnRobot(lx, ly);
       const sx = 1 - Math.abs(lx) * 0.1;
       const sy = 1 - Math.abs(ly) * 0.1;
       face.style.transform =
@@ -485,7 +591,8 @@
     });
 
     setMood('idle');
-    return { el: svg, setMood, setCostume, look, jump, morph, play, hold, get mood() { return mood; } };
+    setShape();
+    return { el: svg, setMood, setCostume, look, jump, morph, play, hold, get mood() { return mood; }, get shape() { return shape; } };
   }
 
   window.createBuddy = createBuddy;

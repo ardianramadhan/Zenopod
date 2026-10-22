@@ -742,6 +742,22 @@
           </div>
           <div class="card row">
             <div>
+              <div class="row-title">Mode jam saat diam</div>
+              <div class="row-sub">Kalau kursor tidak bergerak, Zeno tidur dan kapsul hanya menampilkan jam (lebih hemat baterai). Gerakkan kursor untuk membangunkannya.</div>
+            </div>
+            <select id="clock-seconds" aria-label="Lama sebelum mode jam">
+              <option value="10">10 detik</option>
+              <option value="30">30 detik</option>
+              <option value="60">1 menit</option>
+              <option value="120">2 menit</option>
+              <option value="300">5 menit</option>
+              <option value="600">10 menit</option>
+              <option value="1800">30 menit</option>
+            </select>
+            <label class="switch"><input type="checkbox" id="clock-enabled" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
               <div class="row-title">Lirik lagu</div>
               <div class="row-sub">Baris lirik yang sedang dinyanyikan tampil di kapsul, lengkapnya di halaman Lirik. Liriknya dicari di lrclib.net berdasarkan judul dan artis lagu yang diputar.</div>
             </div>

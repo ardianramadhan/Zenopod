@@ -168,6 +168,9 @@
                       <div class="artist" id="artist">Putar lagu di Spotify atau Chrome</div>
                     </div>
                     <div class="controls">
+                      <button type="button" class="ctl ctl-lyrics" id="np-lyrics-btn" title="Lirik lengkap" aria-label="Lirik lengkap">
+                        <svg viewBox="0 0 24 24"><path d="M5 4.5h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4.5 3.5V17.5H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z" /><path class="dash" d="M7.5 9h9M7.5 13h6" /></svg>
+                      </button>
                       <button type="button" class="ctl" data-cmd="prev" title="Sebelumnya" aria-label="Sebelumnya">
                         <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9.5 12z" /></svg>
                       </button>
@@ -186,16 +189,25 @@
                     <span id="np-total">0:00</span>
                   </div>
                 </div>
+                <!-- Lirik berjalan di island (hanya lagu dengan lirik tersinkron) -->
+                <div class="np-lyrics" id="np-lyrics" aria-hidden="true"><ol id="np-lyric-list"></ol></div>
               </div>
-              <div class="page time-page" data-page="time" aria-label="Waktu">
-                <div class="time-row">
-                  <span class="clock-time" id="clock-time"></span>
-                  <span class="time-date"><span id="clock-date"></span><span class="dim" id="clock-hijri"></span></span>
+              <!-- Tugas hari ini: progres + tombol di kiri, daftar centang di kanan -->
+              <div class="page time-page" data-page="time" aria-label="Tugas & jadwal">
+                <div class="ti-head">
+                  <svg class="ti-ring" viewBox="0 0 20 20" aria-hidden="true"><circle class="track" cx="10" cy="10" r="7.5" /><circle class="bar" id="ti-ring-bar" cx="10" cy="10" r="7.5" pathLength="100" /></svg>
+                  <b class="ti-title">Tugas</b>
+                  <span class="ti-count" title="Selesai hari ini"><b id="ti-done">0</b><span id="ti-total">/0</span></span>
+                  <button type="button" class="ti-date" id="ti-date"></button>
+                  <b class="ti-time" id="ti-time"></b>
+                  <button type="button" class="ti-icon" id="time-add-todo" title="Tambah tugas" aria-label="Tambah tugas"><svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg></button>
+                  <button type="button" class="ti-icon" id="ti-edit" title="Semua tugas" aria-label="Semua tugas"><svg viewBox="0 0 12 12"><path d="M2.5 3.5h7M2.5 6h7M2.5 8.5h4.5" /></svg></button>
                 </div>
-                <div class="action-row">
-                  <button type="button" class="action-chip grow" id="time-next"></button>
-                  <button type="button" class="action-chip" id="time-add-todo">+ Tugas</button>
-                </div>
+                <ul class="ti-list" id="ti-list" aria-label="Tugas"></ul>
+                <!-- Elemen jam lama (dipakai pembaruan per detik) -->
+                <span class="clock-time" id="clock-time" hidden></span>
+                <span id="clock-date" hidden></span><span id="clock-hijri" hidden></span>
+                <button type="button" id="time-next" hidden></button>
               </div>
               <div class="page" data-page="weather" aria-label="Cuaca">
                 <div class="weather-main">

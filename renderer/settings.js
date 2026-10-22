@@ -1293,6 +1293,8 @@ $('ticker-enabled').addEventListener('change', (e) =>
   save({ ticker: { ...state.config.ticker, enabled: e.target.checked } }).then(renderDisplay),
 );
 $('ticker-seconds').addEventListener('change', (e) => save({ ticker: { ...state.config.ticker, seconds: Number(e.target.value) } }));
+$('clock-enabled').addEventListener('change', (e) => save({ clockMode: { ...state.config.clockMode, enabled: e.target.checked } }).then(renderDisplay));
+$('clock-seconds').addEventListener('change', (e) => save({ clockMode: { ...state.config.clockMode, seconds: Number(e.target.value) } }));
 
 $('costume').addEventListener('change', (e) => save({ costume: e.target.value }).then(renderCostume));
 
@@ -1326,6 +1328,14 @@ function renderDisplay() {
   $('ticker-seconds').value = String(state.config.ticker.seconds);
   $('ticker-seconds').disabled = !state.config.ticker.enabled;
   $('lyrics-enabled').checked = state.config.lyrics.enabled;
+  $('clock-enabled').checked = state.config.clockMode.enabled;
+  // Nilai lama di luar pilihan (mis. dari config.json) tetap ditampilkan sebagai pilihan sendiri.
+  const seconds = String(state.config.clockMode.seconds);
+  if (![...$('clock-seconds').options].some((o) => o.value === seconds)) {
+    $('clock-seconds').append(new Option(`${seconds} detik`, seconds));
+  }
+  $('clock-seconds').value = seconds;
+  $('clock-seconds').disabled = !state.config.clockMode.enabled;
   for (const input of document.querySelectorAll('[name="position"]')) input.checked = input.value === state.config.position;
   for (const input of document.querySelectorAll('[name="island"]')) input.checked = input.value === state.config.island;
   if (!$('shortcut').classList.contains('recording')) $('shortcut').value = state.config.shortcut.replace('Control', 'Ctrl');

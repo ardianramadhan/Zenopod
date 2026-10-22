@@ -1615,3 +1615,638 @@
     animation: none;
   }
 }
+
+/* Bagian robot disembunyikan sampai setShape() menandai SVG sebagai robot */
+.buddy:not([data-shape="robot"]) .robot-only {
+  display: none !important;
+}
+
+/* =====================================================================
+   Zeno robot: kepala kotak gelap, wajah menyala biru di layar, tangan panjang.
+   Ekspresi wajah memakai bagian yang sama (mata, mulut, alis), hanya warnanya
+   menyala di layar. Tangan berpose sesuai ekspresi; gerak badan "gemoy"
+   (pencet, pantul, salto, elus) tetap dari animasi .b-body di atas.
+   ===================================================================== */
+
+.buddy[data-shape="robot"] {
+  --ink: #ffffff;
+  --mouth: #ffffff;
+  --tongue: #ff8fab;
+  --robot-arm: #e2e4ea;
+  --robot-gloss: #ffffff;
+  --robot-hand: #f4f5f8;
+}
+
+.buddy[data-shape="robot"] .sphere {
+  stroke: rgba(0, 0, 0, 0.12);
+  stroke-width: 0.5;
+}
+
+.buddy .screen {
+  fill: #06070a;
+}
+
+.buddy .screen-glass {
+  pointer-events: none;
+}
+
+/* Wajah menyala lembut seperti layar */
+.buddy[data-shape="robot"] .b-face {
+  filter: drop-shadow(0 0 0.6px rgba(255, 255, 255, 0.7));
+}
+
+.buddy[data-shape="robot"] .gloss {
+  opacity: 0.35;
+}
+
+.buddy[data-shape="robot"] .gloss-dot {
+  opacity: 0.4;
+}
+
+/* Kacamata & kacamata hitam terlihat di layar gelap */
+.buddy[data-shape="robot"] .glasses {
+  fill: rgba(143, 211, 255, 0.12);
+  stroke: #e4e4e7;
+  stroke-width: 0.9;
+}
+
+.buddy[data-shape="robot"] .cos-sunglasses path {
+  fill: #18181b;
+  stroke: #e4e4e7;
+  stroke-width: 0.5;
+}
+
+.buddy[data-shape="robot"] .cos-sunglasses .bridge {
+  stroke: #e4e4e7;
+}
+
+/* ---------- Tangan ---------- */
+
+.buddy .arm {
+  transform-box: view-box;
+  transition: transform 0.45s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.buddy .arm-l {
+  transform-origin: 5.8px 25px;
+  transform: rotate(14deg);
+}
+
+.buddy .arm-r {
+  transform-origin: 34.2px 25px;
+  transform: rotate(-14deg);
+}
+
+.buddy .arm .limb {
+  fill: none;
+  stroke: var(--robot-arm);
+  stroke-width: 2.1;
+  stroke-linecap: round;
+}
+
+.buddy .arm .hand {
+  fill: var(--robot-hand);
+  stroke: rgba(0, 0, 0, 0.12);
+  stroke-width: 0.4;
+}
+
+/* Rumus sudut: tangan kiri positif = keluar/naik, negatif = ke arah wajah.
+   Tangan kanan sebaliknya. */
+
+/* Senang & menyapa: tangan kanan melambai */
+.buddy[data-mood="happy"] .arm-r,
+.buddy[data-mood="greet"] .arm-r,
+.buddy[data-mood="wink"] .arm-r {
+  transform: rotate(-140deg);
+  animation: arm-wave 0.9s ease-in-out infinite;
+}
+
+/* Tertawa & digelitik: kedua tangan di perut, ikut terguncang */
+.buddy[data-mood="laugh"] .arm-l,
+.buddy[data-mood="tickle"] .arm-l {
+  transform: rotate(-42deg);
+  animation: arm-shake-l 0.3s ease-in-out infinite;
+}
+
+.buddy[data-mood="laugh"] .arm-r,
+.buddy[data-mood="tickle"] .arm-r {
+  transform: rotate(42deg);
+  animation: arm-shake-r 0.3s ease-in-out infinite;
+}
+
+/* Jatuh cinta, cium, malu, mendengkur: tangan menutup pipi */
+.buddy[data-mood="love"] .arm-l,
+.buddy[data-mood="kiss"] .arm-l,
+.buddy[data-mood="shy"] .arm-l,
+.buddy[data-mood="purr"] .arm-l {
+  transform: rotate(-150deg);
+}
+
+.buddy[data-mood="love"] .arm-r,
+.buddy[data-mood="kiss"] .arm-r,
+.buddy[data-mood="shy"] .arm-r,
+.buddy[data-mood="purr"] .arm-r {
+  transform: rotate(150deg);
+}
+
+/* Kaget, alarm, dicabut: dua tangan terangkat */
+.buddy[data-mood="surprised"] .arm-l,
+.buddy[data-mood="alarm"] .arm-l,
+.buddy[data-mood="unplug"] .arm-l,
+.buddy[data-mood="boop"] .arm-l {
+  transform: rotate(155deg);
+}
+
+.buddy[data-mood="surprised"] .arm-r,
+.buddy[data-mood="alarm"] .arm-r,
+.buddy[data-mood="unplug"] .arm-r,
+.buddy[data-mood="boop"] .arm-r {
+  transform: rotate(-155deg);
+}
+
+/* Mata bintang & peregangan: dua tangan lurus ke atas */
+.buddy[data-mood="starstruck"] .arm-l,
+.buddy[data-mood="stretch"] .arm-l,
+.buddy[data-mood="charging"] .arm-l {
+  transform: rotate(172deg);
+}
+
+.buddy[data-mood="starstruck"] .arm-r,
+.buddy[data-mood="stretch"] .arm-r,
+.buddy[data-mood="charging"] .arm-r {
+  transform: rotate(-172deg);
+}
+
+/* Berpikir & bingung: tangan kanan di dagu */
+.buddy[data-mood="think"] .arm-r,
+.buddy[data-mood="confused"] .arm-r {
+  transform: rotate(58deg);
+}
+
+/* Bekerja: dua tangan mengetik di laptop */
+.buddy[data-mood="work"] .arm-l {
+  transform: rotate(-38deg);
+  animation: arm-type-l 0.36s steps(2) infinite;
+}
+
+.buddy[data-mood="work"] .arm-r {
+  transform: rotate(38deg);
+  animation: arm-type-r 0.36s steps(2) 0.18s infinite;
+}
+
+/* Musik: tangan naik-turun mengikuti ketukan */
+.buddy[data-mood="music"] .arm-l {
+  transform: rotate(120deg);
+  animation: arm-groove-l 0.52s ease-in-out infinite alternate;
+}
+
+.buddy[data-mood="music"] .arm-r {
+  transform: rotate(-120deg);
+  animation: arm-groove-r 0.52s ease-in-out infinite alternate;
+}
+
+/* Mendengar: tangan ke telinga */
+.buddy[data-mood="hear"] .arm-r,
+.buddy[data-mood="listen"] .arm-r {
+  transform: rotate(-100deg);
+}
+
+/* Marah & kesal: kepalan terangkat, gemetar */
+.buddy[data-mood="angry"] .arm-l,
+.buddy[data-mood="annoyed"] .arm-l {
+  transform: rotate(100deg);
+  animation: arm-shake-l 0.18s linear infinite;
+}
+
+.buddy[data-mood="angry"] .arm-r,
+.buddy[data-mood="annoyed"] .arm-r {
+  transform: rotate(-100deg);
+  animation: arm-shake-r 0.18s linear infinite;
+}
+
+/* Menangis & ngambek: tangan menyeka mata */
+.buddy[data-mood="cry"] .arm-l,
+.buddy[data-mood="sulk"] .arm-l {
+  transform: rotate(-165deg);
+}
+
+.buddy[data-mood="cry"] .arm-r,
+.buddy[data-mood="sulk"] .arm-r {
+  transform: rotate(165deg);
+}
+
+/* Menguap & makan: tangan ke mulut */
+.buddy[data-mood="yawn"] .arm-l,
+.buddy[data-mood="eat"] .arm-l {
+  transform: rotate(-120deg);
+}
+
+/* Lapar: tangan di perut */
+.buddy[data-mood="hungry"] .arm-l {
+  transform: rotate(-45deg);
+}
+
+/* Tidur, baterai lemah, fokus: tangan rileks di samping */
+.buddy[data-mood="sleep"] .arm-l,
+.buddy[data-mood="lowbat"] .arm-l {
+  transform: rotate(4deg);
+}
+
+.buddy[data-mood="sleep"] .arm-r,
+.buddy[data-mood="lowbat"] .arm-r {
+  transform: rotate(-4deg);
+}
+
+/* Usil: menggosok tangan */
+.buddy[data-mood="mischief"] .arm-l {
+  transform: rotate(-60deg);
+  animation: arm-shake-l 0.22s ease-in-out infinite;
+}
+
+.buddy[data-mood="mischief"] .arm-r {
+  transform: rotate(60deg);
+  animation: arm-shake-r 0.22s ease-in-out infinite;
+}
+
+/* Pusing: tangan berputar-putar */
+.buddy[data-mood="dizzy"] .arm-l {
+  animation: arm-flail-l 0.8s ease-in-out infinite;
+}
+
+.buddy[data-mood="dizzy"] .arm-r {
+  animation: arm-flail-r 0.8s ease-in-out infinite;
+}
+
+/* Sombong & cemberut: tangan di pinggang */
+.buddy[data-mood="smug"] .arm-l,
+.buddy[data-mood="pout"] .arm-l {
+  transform: rotate(-24deg);
+}
+
+.buddy[data-mood="smug"] .arm-r,
+.buddy[data-mood="pout"] .arm-r {
+  transform: rotate(24deg);
+}
+
+/* Dipencet (ditahan): tangan terangkat kaget */
+.buddy.held .arm-l {
+  transform: rotate(120deg);
+}
+
+.buddy.held .arm-r {
+  transform: rotate(-120deg);
+}
+
+/* Melompat & salto: tangan terangkat sesaat */
+.buddy.jump .arm-l,
+.buddy.spin .arm-l,
+.buddy.boing .arm-l {
+  animation: arm-hop-l 0.6s ease-out;
+}
+
+.buddy.jump .arm-r,
+.buddy.spin .arm-r,
+.buddy.boing .arm-r {
+  animation: arm-hop-r 0.6s ease-out;
+}
+
+@keyframes arm-wave {
+  0%,
+  100% {
+    transform: rotate(-140deg);
+  }
+  50% {
+    transform: rotate(-112deg);
+  }
+}
+
+@keyframes arm-shake-l {
+  50% {
+    translate: 0 -0.6px;
+  }
+}
+
+@keyframes arm-shake-r {
+  50% {
+    translate: 0 -0.6px;
+  }
+}
+
+@keyframes arm-type-l {
+  50% {
+    transform: rotate(-30deg);
+  }
+}
+
+@keyframes arm-type-r {
+  50% {
+    transform: rotate(30deg);
+  }
+}
+
+@keyframes arm-groove-l {
+  to {
+    transform: rotate(150deg);
+  }
+}
+
+@keyframes arm-groove-r {
+  to {
+    transform: rotate(-150deg);
+  }
+}
+
+@keyframes arm-flail-l {
+  0%,
+  100% {
+    transform: rotate(30deg);
+  }
+  50% {
+    transform: rotate(150deg);
+  }
+}
+
+@keyframes arm-flail-r {
+  0%,
+  100% {
+    transform: rotate(-150deg);
+  }
+  50% {
+    transform: rotate(-30deg);
+  }
+}
+
+@keyframes arm-hop-l {
+  40% {
+    transform: rotate(140deg);
+  }
+}
+
+@keyframes arm-hop-r {
+  40% {
+    transform: rotate(-140deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy .arm {
+    animation: none !important;
+  }
+}
+
+/* ---------- Robot 3D: ketebalan, bevel, layar tertanam ---------- */
+.buddy[data-shape="robot"] .sphere {
+  stroke: none;
+}
+
+.buddy .screen-reflect {
+  fill: #ffffff;
+  opacity: 0.07;
+}
+
+.buddy .screen-inset,
+.buddy .screen-glass,
+.buddy .screen-reflect,
+.buddy .robot-bevel {
+  pointer-events: none;
+}
+
+/* ---------- Robot menengok sebadan (lihat turnRobot di buddy.js) ---------- */
+.buddy[data-shape="robot"] .sphere.robot-only,
+.buddy[data-shape="robot"] .robot-bevel,
+.buddy[data-shape="robot"] .screen-rim,
+.buddy[data-shape="robot"] .screen,
+.buddy[data-shape="robot"] .face-clip,
+.buddy[data-shape="robot"] .screen-layer,
+.buddy[data-shape="robot"] .band-clip,
+.buddy[data-shape="robot"] .gloss-dot,
+.buddy[data-shape="robot"] .robot-depth,
+.buddy[data-shape="robot"] > .b-body > .cos {
+  transform-box: view-box;
+  transform-origin: 20px 21.5px;
+  transition: transform 0.22s ease-out;
+}
+
+.buddy[data-shape="robot"] .arm {
+  transition:
+    transform 0.45s cubic-bezier(0.34, 1.4, 0.64, 1),
+    translate 0.22s ease-out;
+}
+
+/* Robot: tanpa blush merah muda di pipi (layar cukup menampilkan mata & mulut) */
+.buddy[data-shape="robot"] [data-part="blush"],
+.buddy[data-shape="robot"] [data-part="blush-big"] {
+  display: none !important;
+}
+
+/* ---------- Melayang + bayangan di bawah ---------- */
+.buddy .b-float {
+  animation: buddy-float-idle 3.6s ease-in-out infinite;
+}
+
+.buddy .b-shadow {
+  fill: #000;
+  opacity: 0.28;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: buddy-shadow-idle 3.6s ease-in-out infinite;
+}
+
+/* Di kapsul yang gelap, bayangan hitam tidak terlihat: pakai bayangan terang tipis */
+.pill .buddy .b-shadow {
+  fill: #fff;
+  opacity: 0.12;
+}
+
+@keyframes buddy-float-idle {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -1.3px;
+  }
+}
+
+@keyframes buddy-shadow-idle {
+  0%,
+  100% {
+    scale: 1;
+    opacity: 0.28;
+  }
+  50% {
+    scale: 0.78;
+    opacity: 0.16;
+  }
+}
+
+/* Lompat: bayangan mengecil saat badan di udara */
+.buddy.jump .b-shadow,
+.buddy.boing .b-shadow,
+.buddy.spin .b-shadow {
+  animation: buddy-shadow-hop 0.6s ease-out;
+}
+
+@keyframes buddy-shadow-hop {
+  40% {
+    scale: 0.55;
+    opacity: 0.1;
+  }
+}
+
+/* Tidur: melayang lebih pelan */
+.buddy[data-mood="sleep"] .b-float,
+.buddy[data-mood="sleep"] .b-shadow {
+  animation-duration: 5.5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy .b-float,
+  .buddy .b-shadow {
+    animation: none;
+  }
+}
+
+/* ---------- Robot bernyanyi pakai mic (tanpa headset) ---------- */
+.buddy[data-shape="robot"] .phones {
+  display: none !important;
+}
+
+.buddy .mic-prop {
+  display: none;
+}
+
+.buddy[data-shape="robot"][data-mood="music"][data-gig="mic"] .mic-prop {
+  display: inline;
+}
+
+.buddy .mic-handle {
+  fill: none;
+  stroke: #3f3f46;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.buddy .mic-head {
+  fill: #52525b;
+  stroke: #27272a;
+  stroke-width: 0.4;
+}
+
+.buddy .mic-grill {
+  fill: none;
+  stroke: #a1a1aa;
+  stroke-width: 0.35;
+  stroke-linecap: round;
+}
+
+/* Tangan kanan mendekatkan mic ke mulut, sedikit bergoyang mengikuti lagu */
+.buddy[data-shape="robot"][data-mood="music"][data-gig="mic"] .arm-r {
+  transform: rotate(72deg);
+  animation: arm-sing 0.52s ease-in-out infinite alternate;
+}
+
+@keyframes arm-sing {
+  to {
+    transform: rotate(66deg);
+  }
+}
+
+/* Mulut terbuka bernyanyi di layar */
+.buddy[data-shape="robot"][data-mood="music"] [data-part="m-smile"] {
+  display: none !important;
+}
+
+.buddy[data-shape="robot"][data-mood="music"] [data-part="m-open"] {
+  display: inline !important;
+  animation: robot-sing 0.52s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center top;
+}
+
+@keyframes robot-sing {
+  to {
+    transform: scaleY(0.6);
+  }
+}
+
+/* Dijeda (listen): tanpa headset, tangan santai */
+.buddy[data-shape="robot"][data-mood="listen"] .arm-r {
+  transform: rotate(-14deg);
+}
+
+/* ---------- Konser: bernyanyi (mic) & gitar bergantian (robot) ---------- */
+.buddy .gig {
+  display: none;
+}
+
+.buddy[data-shape="robot"][data-mood="music"][data-gig="guitar"] .gig-guitar {
+  display: inline;
+}
+
+/* Gitar akustik oranye */
+.buddy .g-body {
+  fill: #f59e0b;
+  stroke: #b45309;
+  stroke-width: 0.4;
+}
+
+.buddy .g-hole {
+  fill: #3b2410;
+}
+
+.buddy .g-neck {
+  fill: none;
+  stroke: #7c4a1e;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.buddy .g-head {
+  fill: #5a3414;
+}
+
+.buddy .g-strings {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 0.25;
+}
+
+.buddy[data-shape="robot"][data-mood="music"][data-gig="guitar"] .gig-guitar {
+  transform-box: view-box;
+  transform-origin: 17px 33px;
+  animation: guitar-sway 1.04s ease-in-out infinite;
+}
+
+/* Tangan kiri memetik di badan gitar, kanan memegang leher gitar */
+.buddy[data-shape="robot"][data-mood="music"][data-gig="guitar"] .arm-l {
+  transform: rotate(-46deg);
+  animation: guitar-strum 0.26s ease-in-out infinite alternate;
+}
+
+.buddy[data-shape="robot"][data-mood="music"][data-gig="guitar"] .arm-r {
+  transform: rotate(-150deg);
+  animation: none;
+}
+
+@keyframes guitar-strum {
+  to {
+    transform: rotate(-34deg);
+  }
+}
+
+@keyframes guitar-sway {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy .gig {
+    animation: none !important;
+  }
+}

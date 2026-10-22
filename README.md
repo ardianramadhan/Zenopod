@@ -1,6 +1,6 @@
 # Zenopod
 
-Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot bulat bernama **Zeno** yang ikut bereaksi saat kamu bekerja.
+Widget kecil berbentuk kapsul di tepi layar Windows, dengan maskot robot kecil bernama **Zeno** yang ikut bereaksi saat kamu bekerja.
 
 **Yang bisa dilakukan Zenopod:**
 
@@ -67,7 +67,7 @@ Diukur di laptop Windows 11 (RAM 16 GB, prosesor 16 thread, layar 144 Hz) dengan
 |---|---|
 | **RAM** | ±350–380 MB untuk Zenopod (5 proses Electron) ditambah ±85 MB untuk helper PowerShell yang membaca musik, notifikasi, dan perangkat. Totalnya **±450 MB**. |
 | **CPU** | ±4–6% dari total CPU (setara ±0,5–0,7 core) selama animasi kapsul terlihat, misalnya Zeno, bar musik, dan kilau baterai saat mengisi. Di layar 120/144 Hz angkanya lebih tinggi daripada di layar 60 Hz, karena animasi digambar sesuai refresh rate. |
-| **Mode jam** | Setelah 30 detik tanpa gerakan kursor, Zeno disembunyikan dan animasinya berhenti, jadi lebih hemat. |
+| **Mode jam** | Setelah kursor diam (bawaan 30 detik, bisa diatur 10 detik sampai 30 menit atau dimatikan di Pengaturan › Tampilan), Zeno disembunyikan dan animasinya berhenti, jadi lebih hemat. |
 | **Disk** | ±340 MB setelah dipasang (installer ±91 MB). |
 
 Pemakaian RAM dan CPU bisa berbeda di perangkat lain. Cara mengeceknya sendiri: buka **Task Manager**, lalu jumlahkan semua baris **Zenopod** dan **Windows PowerShell** di bawahnya.

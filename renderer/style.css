@@ -7361,3 +7361,568 @@ body[data-island="notch"] .notch-cap::after {
   width: 25px;
   height: 25px;
 }
+
+/* Slot kiri & kanan seimbang: semua info pendek memakai titik berwarna + angka singkat */
+.rest-dot.call {
+  background: #f87171;
+}
+
+.rest-dot.muted {
+  background: #71717a;
+}
+
+.rest-dot.download {
+  background: #2dd4bf;
+}
+
+/* Baterai mini di slot mode jam / Zeno di tengah */
+.rest-chip svg.mini-bat {
+  width: 17px;
+  height: 9px;
+  stroke: none;
+}
+
+.mini-bat .case {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1;
+}
+
+.mini-bat .tip {
+  fill: rgba(255, 255, 255, 0.55);
+}
+
+.mini-bat .level {
+  fill: rgba(255, 255, 255, 0.92);
+}
+
+.mini-bat.charging .level {
+  fill: #34c759;
+}
+
+.mini-bat.low .level {
+  fill: #ff3b30;
+}
+
+/* Slot tanpa teks (mis. baterai mini): tanpa jarak kosong setelah ikon */
+.rest-chip b:empty {
+  display: none;
+}
+
+.rest-chip svg.mini-bat {
+  width: 19px;
+  height: 10px;
+}
+
+/* Baterai mini satu warna (putih), tanpa hijau/merah */
+.mini-bat.charging .level,
+.mini-bat.low .level {
+  fill: rgba(255, 255, 255, 0.92);
+}
+
+/* Cuaca di slot: lebih kecil */
+.rest-chip.small {
+  gap: 3px;
+  font-size: 9.5px;
+}
+
+.rest-chip.small svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* Equalizer musik di slot: putih, senada dengan ikon baterai & headset */
+.rest-eq i {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+/* ---------- Island Musik: mode lirik (pemutar kiri, lirik berjalan kanan) ---------- */
+.np-lyrics,
+.np .ctl-lyrics {
+  display: none;
+}
+
+
+.np.with-lyrics {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-rows: 34px 12px 26px;
+  column-gap: 9px;
+  row-gap: 5px;
+  align-items: center;
+  padding-left: 6px;
+}
+
+.np.with-lyrics .np-main,
+.np.with-lyrics .np-top {
+  display: contents;
+}
+
+.np.with-lyrics .np-art {
+  grid-area: 1 / 1;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.np.with-lyrics .meta {
+  grid-area: 1 / 2;
+}
+
+.np.with-lyrics .title {
+  font-size: 13px;
+}
+
+.np.with-lyrics .artist {
+  font-size: 11px;
+}
+
+.np.with-lyrics .np-progress {
+  grid-column: 1 / 3;
+  grid-row: 2;
+}
+
+.np.with-lyrics .controls {
+  grid-column: 1 / 3;
+  grid-row: 3;
+  justify-content: space-between;
+  padding: 0 6px;
+}
+
+.np.with-lyrics .ctl-lyrics {
+  display: grid;
+}
+
+.np .ctl-lyrics svg {
+  fill: currentColor;
+}
+
+.np .ctl-lyrics .dash {
+  fill: none;
+  stroke: var(--surface, #18181b);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.np.with-lyrics .ctl {
+  width: 24px;
+  height: 24px;
+}
+
+.np.with-lyrics .ctl svg {
+  width: 13px;
+  height: 13px;
+}
+
+.np.with-lyrics .ctl-main {
+  width: 26px;
+  height: 26px;
+}
+
+/* Kolom lirik: garis pemisah, baris aktif putih tebal, lainnya redup, memudar di bawah */
+.np.with-lyrics .np-lyrics {
+  display: block;
+  grid-column: 3;
+  grid-row: 1 / 4;
+  align-self: stretch;
+  height: 80px;
+  padding-left: 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  mask-image: linear-gradient(to bottom, #000 72%, transparent);
+}
+
+.np-lyrics ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  transition: transform 0.45s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+.np-lyrics li {
+  height: 19px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 19px;
+  color: rgba(255, 255, 255, 0.32);
+  transition: color 0.3s;
+}
+
+.np-lyrics li.now {
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .np-lyrics ol {
+    transition: none;
+  }
+}
+
+/* ---------- Island Tugas ---------- */
+
+.time-page {
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 0 4px 0 6px;
+}
+
+.ti-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 18px;
+  font-size: 12px;
+}
+
+.ti-title {
+  font-size: 13px;
+}
+
+.ti-ring {
+  width: 15px;
+  height: 15px;
+  rotate: -90deg;
+  flex: none;
+}
+
+.ti-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ti-ring .track {
+  stroke: rgba(255, 255, 255, 0.14);
+}
+
+.ti-ring .bar {
+  stroke: #4ade80;
+  stroke-dasharray: 100;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.ti-date {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-align: right;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.ti-date.meeting {
+  color: #93c5fd;
+}
+
+.ti-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.ti-body {
+  display: grid;
+  grid-template-columns: 128px minmax(0, 1fr);
+  gap: 10px;
+  height: 62px;
+}
+
+.ti-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ti-count {
+  line-height: 1;
+}
+
+.ti-count b {
+  font-family: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ti-count span {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.ti-sub {
+  margin-top: 1px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.ti-actions {
+  display: flex;
+  gap: 5px;
+  margin-top: auto;
+}
+
+.ti-btn {
+  height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ti-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.ti-list {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  margin: 0;
+  padding: 0 2px 0 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.ti-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  height: 19px;
+  padding: 0 8px 0 4px;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ti-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ti-check {
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.4px rgba(255, 255, 255, 0.4);
+}
+
+.ti-check svg {
+  width: 9px;
+  height: 9px;
+  fill: none;
+  stroke: #0b2e16;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.ti-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Selesai: hijau, dicoret */
+.ti-item.done {
+  background: rgba(74, 222, 128, 0.16);
+}
+
+.ti-item.done .ti-check {
+  background: #4ade80;
+  box-shadow: none;
+}
+
+.ti-item.done .ti-check svg {
+  opacity: 1;
+}
+
+.ti-item.done .ti-text {
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: line-through;
+}
+
+.ti-empty {
+  padding-top: 18px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+
+/* ---------- Mode lirik & tugas v3: Zeno tetap ada (sedikit lebih kecil), isi tidak menimpa titik ---------- */
+.buddy-big,
+.buddy-big .buddy {
+  transition:
+    width 0.3s ease,
+    height 0.3s ease;
+}
+
+.media.lyric-mode .buddy-big,
+.media.todo-mode .buddy-big {
+  width: 70px;
+}
+
+.media.lyric-mode .buddy-big .buddy,
+.media.todo-mode .buddy-big .buddy {
+  width: 70px;
+  height: 70px;
+}
+
+.media.lyric-mode,
+.media.todo-mode {
+  gap: 10px;
+}
+
+/* Lirik: kolom lebih lebar, baris utuh (boleh dua baris), latar gradasi warna sampul */
+.np.with-lyrics {
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1.25fr);
+  column-gap: 8px;
+  padding-left: 0;
+}
+
+.np.with-lyrics .np-art {
+  width: 34px;
+  height: 34px;
+}
+
+.np.with-lyrics .np-lyrics {
+  height: 72px;
+  padding-left: 10px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent);
+  mask-image: linear-gradient(to bottom, #000 62%, transparent);
+}
+
+.np-lyrics ol {
+  position: relative;
+}
+
+.np-lyrics li {
+  height: auto;
+  padding: 2px 0;
+  overflow: hidden;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 12px;
+  line-height: 15px;
+}
+
+.np-lyrics li.now {
+  font-size: 12.5px;
+}
+
+.media.lyric-mode {
+  background:
+    radial-gradient(80% 160% at 100% 100%, color-mix(in srgb, var(--tint, #3b5bdb) 42%, transparent), transparent 75%),
+    linear-gradient(110deg, var(--surface) 35%, color-mix(in srgb, var(--tint, #3b5bdb) 18%, var(--surface)));
+}
+
+/* Tugas: kepala satu baris, daftar dua kolom (tanpa scrollbar, memudar bila lebih) */
+.time-page {
+  justify-content: flex-start;
+  gap: 5px;
+  padding: 0 4px 0 0;
+}
+
+.ti-head {
+  gap: 6px;
+  height: 20px;
+}
+
+.ti-title {
+  font-size: 13px;
+}
+
+.ti-count {
+  line-height: 1;
+  font-size: 12px;
+}
+
+.ti-count b {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.ti-count span {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ti-date {
+  margin-left: 4px;
+}
+
+.ti-icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.ti-icon:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.ti-icon svg {
+  width: 11px;
+  height: 11px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.media.todo-mode .ti-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 6px;
+  max-height: 46px;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.media.todo-mode .ti-list::-webkit-scrollbar {
+  display: none;
+}
+
+.ti-item {
+  height: 21px;
+}
+
+.ti-empty {
+  grid-column: 1 / -1;
+  padding-top: 8px;
+}

@@ -3,6 +3,10 @@
 const $ = (id) => document.getElementById(id);
 // Aktivitas live (privasi, rapat, unduhan) — diisi lewat onLive.
 let live = { privacy: { mic: [], camera: [] }, meeting: null, downloads: [] };
+// Perangkat Bluetooth / USB / flashdisk tersambung (diisi onDevices).
+let connectedDevices = { bluetooth: [], usb: [], drives: [] };
+// Slot kanan ikut menampilkan cuaca (slot kiri lalu memakai ikon Wi-Fi, bukan cuaca lagi).
+let rightIsWeather = false;
 
 // Studio foto: pilihan grid/filter/bingkai & status kamera (logika di bagian Studio foto).
 const CAM_LAYOUTS = {
@@ -143,6 +147,8 @@ function setDetail(value, { sync = true } = {}) {
   $('detail-btn').title = value ? 'Sembunyikan detail' : 'Tampilkan detail';
   $('detail-btn').setAttribute('aria-label', $('detail-btn').title);
   if (sync) window.kapsul.detail(value);
+  // Lirik di island hanya saat panel bawah tertutup (panel bawah sudah menampilkan lirik).
+  queueMicrotask(renderIslandLyrics);
   if (value) {
     sfx('swipe');
     // Ukuran isi bawah baru benar setelah panel melebar (mis. posisi lirik).
@@ -156,7 +162,32 @@ $('hero-view').addEventListener('click', (event) => {
   if (!event.target.closest('button, a, input')) setDetail(true);
 });
 
+// Section yang cocok dengan isi kapsul saat panel dibuka (null = tetap di section terakhir).
+const SECTION_FOR_SLIDE = {
+  music: 'music',
+  focus: 'focus',
+  timer: 'focus',
+  claude: 'work',
+  'claude-wait': 'work',
+  meeting: 'device',
+  offline: 'device',
+  weather: 'weather',
+  reminder: 'time',
+  todos: 'time',
+  habits: 'time',
+  notifs: 'inbox',
+  hungry: 'home',
+};
+
+function sectionForDisplay(wasCentered) {
+  // Tata letak tengah: yang terlihat hanya Zeno + slot; musik diputar = section Musik.
+  if (wasCentered) return media.playing ? 'music' : null;
+  return SECTION_FOR_SLIDE[tickKey] ?? null;
+}
+
 window.kapsul.onExpanded((value) => {
+  // Diambil sebelum updateCentered: saat panel terbuka, kapsul tidak lagi "di tengah".
+  const wasCentered = centered;
   open = value;
   shell.classList.toggle('open', value);
   if (!value) setDetail(false, { sync: false });
@@ -166,10 +197,15 @@ window.kapsul.onExpanded((value) => {
     goToSection('inbox', { sound: false });
   }
   // "Lihat detail" di laporan mingguan → detail Perangkat (waktu layar).
-  if (value && lastPeek.kind === 'weekly' && Date.now() - lastPeek.at < 20_000) {
+  else if (value && lastPeek.kind === 'weekly' && Date.now() - lastPeek.at < 20_000) {
     lastPeek = { kind: null, at: 0 };
     goToSection('device', { sound: false });
     setDetail(true);
+  }
+  // Selain itu: buka section sesuai yang sedang tampil di kapsul (musik → Musik, fokus → Fokus, …).
+  else if (value) {
+    const id = sectionForDisplay(wasCentered);
+    if (id && pageAvailable(PAGES[sectionIndex(id)])) goToSection(id, { sound: false });
   }
   if (!value) {
     hoveringBig = false;
@@ -224,11 +260,12 @@ document.addEventListener('keydown', (event) => {
 // Tanpa aktivitas (kursor diam) 30 dtk: Zeno menghilang, kapsul hanya menampilkan jam di tengah;
 // baterai, notifikasi, dan indikator musik tetap tampil. Kursor bergerak = Zeno bangun lagi.
 // Yang mendesak (suara, Claude menunggu, fokus, timer, kartu, reaksi) tetap memakai tampilan biasa.
-const REST_AFTER_MS = 30_000;
+// Lama kursor diam sebelum mode jam (Pengaturan › Tampilan › Mode jam). null = mode jam mati.
+let restAfterMs = 30_000;
 let resting = false;
 
 function updateResting() {
-  const should = !open && !peekState && !voiceState && !saying && !reaction && !pillOverride() && Date.now() - lastMove > REST_AFTER_MS;
+  const should = restAfterMs !== null && !open && !peekState && !voiceState && !saying && !reaction && !pillOverride() && Date.now() - lastMove > restAfterMs;
   if (should === resting) {
     if (resting) renderPillClock();
     return;
@@ -258,30 +295,31 @@ function restActivityItems() {
   if (count) items.push({ key: 'notif', ...restText('<i class="rest-dot notif"></i>', count > 9 ? '9+' : String(count)) });
   const down = (lastDev?.services ?? []).filter((x) => x.status === 'down').length;
   if (down) items.push({ key: 'dev', ...restText('<i class="rest-dot dev"></i>', String(down)) });
-  if (live.meeting) items.push({ key: 'meeting', ...restText(PILL_ICONS.mic, clock(Date.now() - live.meeting.since), live.meeting.muted ? 'muted' : 'on-call') });
-  if (live.downloads[0]) items.push({ key: 'download', ...restText(PILL_ICONS.download, sizeLabel(live.downloads[0].bytes)) });
+  if (live.meeting) items.push({ key: 'meeting', ...restText(`<i class="rest-dot ${live.meeting.muted ? 'muted' : 'call'}"></i>`, clock(Date.now() - live.meeting.since).replace(/^0(?=\d:)/, '')) });
+  if (live.downloads[0]) items.push({ key: 'download', ...restText('<i class="rest-dot download"></i>', sizeLabel(live.downloads[0].bytes).replace(/,\d(?= )/, '')) });
   return items;
 }
 
 function restStatusItems() {
   const items = [];
   if (battery && hasBattery) {
-    // Ikon baterai yang sama dengan kapsul biasa (angka di dalam, petir saat mengisi).
-    const bat = $('pill-battery').cloneNode(true);
-    bat.removeAttribute('id');
-    bat.hidden = false;
-    for (const el of bat.querySelectorAll('[id]')) el.removeAttribute('id');
-    // Elemen langsung (bukan HTML): lebar isi baterai memakai style inline yang diblokir CSP lewat innerHTML.
-    items.push({ key: 'battery', node: bat, sig: `${Math.round(battery.level * 100)}|${battery.charging}` });
+    // Baterai mini tanpa angka, satu warna putih: isi menunjukkan level. Persen ada di Perangkat.
+    const percent = Math.round(battery.level * 100);
+    const tone = battery.charging ? 'charging' : lowBattery() ? 'low' : '';
+    const fill = (10.6 * Math.max(0.08, battery.level)).toFixed(1);
+    const icon = `<svg class="mini-bat ${tone}" viewBox="0 0 17 9"><rect class="case" x="0.6" y="0.6" width="13.6" height="7.8" rx="2.2" /><rect class="level" x="2.1" y="2.1" width="${fill}" height="4.8" rx="1" /><rect class="tip" x="14.9" y="3" width="1.4" height="3" rx="0.7" /></svg>`;
+    items.push({ key: 'battery', ...restText(icon, ''), sig: `${percent}|${tone}` });
   }
+  // Headset / earbuds Bluetooth tersambung
+  const headset = connectedDevices.bluetooth.find((d) => d.kind === 'audio');
+  if (headset) items.push({ key: 'headset', ...restText(HEADSET_ICON, ''), sig: headset.name ?? '' });
   const mic = live.privacy.mic.length > 0;
   const cam = live.privacy.camera.length > 0;
   if (mic || cam) items.push({ key: 'privacy', html: `<span class="rest-chip">${mic ? '<i class="rest-dot mic"></i>' : ''}${cam ? '<i class="rest-dot cam"></i>' : ''}</span>`, sig: `${mic}|${cam}` });
-  const timer = quickTimers[0];
-  if (timer) items.push({ key: 'timer', ...restText(PILL_ICONS.bell, clock(timer.endsAt - Date.now())) });
-  if (nextReminder && /^Hari ini/.test(nextReminder.when)) items.push({ key: 'reminder', ...restText(PILL_ICONS.calendar, nextReminder.when.replace(/^Hari ini\s*/, '').replace('.', ':')) });
   return items;
 }
+
+const HEADSET_ICON = '<svg viewBox="0 0 16 16"><path d="M3 10.5V8a5 5 0 0 1 10 0v2.5" /><rect x="2" y="9.5" width="3.2" height="4.6" rx="1.3" /><rect x="10.8" y="9.5" width="3.2" height="4.6" rx="1.3" /></svg>';
 
 function renderRestSlot(name, items) {
   const el = $(`rest-${name}`);
@@ -329,25 +367,33 @@ function renderPillClock() {
 // Slot kiri & kanan dipakai di mode jam dan saat Zeno diam di tengah.
 // Kiri & kanan selalu terisi supaya seimbang: kalau kosong, kanan diisi cuaca (atau jam saat Zeno
 // di tengah / tanggal di mode jam), kiri diisi tanggal (PC tanpa baterai).
-const restDate = new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numeric' });
 
 function restFallback(side) {
   if (side === 'right' && weatherNow) {
     const icon = weatherNow.look?.costume === 'umbrella' ? 'rain' : weatherNow.kind === 'clear' ? 'sun' : 'cloud';
-    return { key: 'weather', ...restText(PILL_ICONS[icon], `${weatherNow.temperature}°`) };
+    return { key: 'weather', ...restText(PILL_ICONS[icon], `${weatherNow.temperature}°`, 'small') };
   }
   if (side === 'right' && !resting) return { key: 'time', ...restText('', timeFormat.format(new Date()).replace('.', ':')) };
   // Mode jam tanpa cuaca: status internet (jam sudah di tengah, tanggal di kiri).
   if (side === 'right') return { key: 'net', ...(systemNow?.online === false ? restText(PILL_ICONS.offline, 'Offline', 'muted') : restText(WIFI_ICON, '')) };
-  return { key: 'date', ...restText('', restDate.format(new Date()).replace(',', '')) };
+  // Kiri: ikon saja supaya ringkas.
+  if (weatherNow && !rightIsWeather) {
+    const icon = weatherNow.look?.costume === 'umbrella' ? 'rain' : weatherNow.kind === 'clear' ? 'sun' : 'cloud';
+    return { key: 'weather-icon', ...restText(PILL_ICONS[icon], '') };
+  }
+  return { key: 'net', ...restText(systemNow?.online === false ? PILL_ICONS.offline : WIFI_ICON, '') };
 }
+
 
 const WIFI_ICON = '<svg viewBox="0 0 16 16"><path d="M1.8 6a9 9 0 0 1 12.4 0M4 8.4a6 6 0 0 1 8 0M6.2 10.8a3 3 0 0 1 3.6 0" /><circle cx="8" cy="13" r="0.6" /></svg>';
 
 function renderRestSlots() {
   const left = restStatusItems();
+  // Kanan: aktivitas (musik, notifikasi, dev, panggilan, unduhan) bergantian dengan cuaca.
   const right = restActivityItems();
+  if (weatherNow) right.push(restFallback('right'));
   if (!right.length) right.push(restFallback('right'));
+  rightIsWeather = right.some((item) => item.key === 'weather');
   if (!left.length) left.push(restFallback('left'));
   renderRestSlot('left', left);
   renderRestSlot('right', right);
@@ -367,10 +413,11 @@ function wakeUp() {
 // ke kiri dan teksnya muncul.
 let centered = false;
 
+// Musik saja tidak dihitung: kapsul tetap tata letak tengah (Zeno berheadset di tengah,
+// equalizer di slot kanan). Aktivitas lain memindahkan Zeno ke kiri dengan teks statusnya.
 function hasActivity() {
   return Boolean(
-    media.playing ||
-      focusState.phase ||
+    focusState.phase ||
       claudeState.active.length ||
       quickTimers.length ||
       live.meeting ||
@@ -391,6 +438,8 @@ function updateCentered() {
   if (should !== centered) {
     centered = should;
     shell.classList.toggle('centered', centered);
+    renderBuddy();
+    applyCostume();
     if (centered) for (const slot of Object.values(restSlots)) Object.assign(slot, { index: 0, since: Date.now() });
   }
   // Mode jam merender slotnya sendiri (renderPillClock).
@@ -429,7 +478,7 @@ function sleepy() {
 
 // Ekspresi dasar tanpa reaksi.
 // Zenopod: musik > tidur (malam / kursor diam 3 menit) > biasa.
-// Panel: musik > senang; disentuh kursor = jatuh cinta.
+// Panel: musik > senang; disentuh kursor = menyapa.
 // Claude bekerja = berpikir; Claude menunggu jawaban = kaget memanggil.
 // Fokus = berkacamata, istirahat = peregangan.
 function renderBuddy() {
@@ -445,8 +494,10 @@ function renderBuddy() {
     bigBuddy.setMood(mood);
     return;
   }
-  buddy.setMood(reaction ?? (claudeWaiting() ? 'surprised' : tired ? 'lowbat' : work ?? (sleepy() && !media.playing ? 'sleep' : (pillSlide?.mood ?? (media.playing ? 'music' : 'idle')))));
-  bigBuddy.setMood(reaction ?? (hoveringBig ? 'love' : tired ? 'lowbat' : pageMood()));
+  // Tata letak tengah: teks slide tersembunyi, jadi ekspresinya tidak ikut slide (musik = berheadset).
+  const slideMood = centered ? null : pillSlide?.mood;
+  buddy.setMood(reaction ?? (claudeWaiting() ? 'surprised' : tired ? 'lowbat' : work ?? (sleepy() && !media.playing ? 'sleep' : (slideMood ?? (media.playing ? 'music' : 'idle')))));
+  bigBuddy.setMood(reaction ?? (hoveringBig ? 'greet' : tired ? 'lowbat' : pageMood()));
 }
 
 // Reaksi sementara, lalu kembali ke ekspresi dasar.
@@ -861,6 +912,10 @@ window.kapsul.onState((state) => {
     renderPillText(true);
   }
   profile = { userName: state.userName ?? '', buddyName: state.buddyName ?? '' };
+  if (state.clockMode) {
+    restAfterMs = state.clockMode.enabled ? Math.max(5, Number(state.clockMode.seconds) || 30) * 1000 : null;
+    updateResting();
+  }
   renderPage();
   if (state.focus) {
     focusSettings = state.focus;
@@ -1398,6 +1453,7 @@ $('todo-form').addEventListener('submit', (event) => {
 window.kapsul.onTodos((items) => {
   todoItems = items ?? [];
   renderTodos();
+  renderTodoIsland();
 });
 
 // ---------- Dev: server lokal & Git ----------
@@ -1572,6 +1628,8 @@ function goToPage(index, { sound = true } = {}) {
   applyCostume();
   renderPage();
   syncCamera();
+  // Ditunda: goToPage juga dipanggil saat skrip baru dimuat (sebelum state lirik dideklarasikan).
+  queueMicrotask(renderIslandLyrics);
   if (changed) {
     bigBuddy.morph();
     if (sound) {
@@ -1805,6 +1863,63 @@ $('time-add-todo').addEventListener('click', () => {
   setDetail(true);
   setTimeout(() => $('todo-input').focus(), 260);
 });
+$('ti-edit').addEventListener('click', () => setDetail(true));
+
+// ---------- Island Tugas: progres hari ini + daftar centang ----------
+const TI_DATE = new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+
+function renderTodoIsland() {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const open = todoItems.filter((t) => !t.done);
+  const doneToday = todoItems.filter((t) => t.done && (t.doneAt ?? 0) >= today).sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
+  const total = open.length + doneToday.length;
+  $('ti-done').textContent = String(doneToday.length);
+  $('ti-total').textContent = `/${total}`;
+  $('ti-ring-bar').style.strokeDashoffset = String(100 - (total ? (100 * doneToday.length) / total : 0));
+  $('ti-time').textContent = timeFormat.format(now).replace('.', ':');
+
+  // Rapat ≤ 2 jam lagi menggantikan tanggal (klik = gabung / buka jadwal).
+  const meeting = nextMeeting(now.getTime());
+  const soon = meeting && meeting.start - now.getTime() < 2 * 3_600_000;
+  const date = $('ti-date');
+  date.classList.toggle('meeting', Boolean(soon));
+  date.textContent = soon ? `${meeting.title} · ${eventTime(meeting, now.getTime())}` : TI_DATE.format(now);
+  date.title = soon ? (meeting.link ? 'Gabung rapat' : 'Lihat jadwal') : 'Lihat jadwal';
+  date.onclick = soon && meeting.link ? () => window.kapsul.meeting(meeting.link) : () => setDetail(true);
+
+  const list = $('ti-list');
+  list.replaceChildren();
+  if (!total) {
+    const li = document.createElement('li');
+    li.className = 'ti-empty';
+    li.textContent = 'Belum ada tugas hari ini.';
+    list.append(li);
+    return;
+  }
+  for (const todo of [...open, ...doneToday]) {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `ti-item${todo.done ? ' done' : ''}`;
+    b.setAttribute('aria-pressed', String(todo.done));
+    b.title = todo.done ? 'Tandai belum selesai' : 'Tandai selesai';
+    b.innerHTML = '<span class="ti-check"><svg viewBox="0 0 12 12"><path d="M2.5 6.2l2.3 2.3 4.7-5" /></svg></span>';
+    const text = document.createElement('span');
+    text.className = 'ti-text';
+    text.textContent = todo.text;
+    b.append(text);
+    b.addEventListener('click', () => {
+      if (!todo.done) {
+        react('happy', 1200);
+        sfx('tick');
+      }
+      window.kapsul.todo('toggle', { id: todo.id });
+    });
+    li.append(b);
+    list.append(li);
+  }
+}
 
 function renderWeather() {
   const w = weatherNow;
@@ -2257,10 +2372,14 @@ function renderPage() {
   if (page === 'home') renderHome(now);
   else if (page === 'chat') renderChat();
   else if (page === 'camera') renderCamera();
-  else if (page === 'music') renderLyrics();
+  else if (page === 'music') {
+    renderLyrics();
+    queueMicrotask(renderIslandLyrics);
+  }
   else if (page === 'time') {
     renderClock(now);
     renderTimeCard();
+    queueMicrotask(renderTodoIsland);
     renderAgenda();
     renderHabits();
   } else if (page === 'weather') renderWeather();
@@ -2274,7 +2393,10 @@ setInterval(() => {
   if (open && PAGES[pageIndex].id === 'music') renderMusicProgress();
   if (open && PAGES[pageIndex].id === 'time') {
     renderClock(new Date());
-    if (new Date().getSeconds() === 0) renderTimeCard();
+    if (new Date().getSeconds() === 0) {
+      renderTimeCard();
+      renderTodoIsland();
+    }
   }
   if (open && PAGES[pageIndex].id === 'focus' && !focusState.running) renderFocusSummary();
 }, 1000);
@@ -2670,7 +2792,7 @@ let seasonalCostume = null;
 function applyCostume() {
   peekBuddy.setCostume(seasonalCostume);
   // Slide cuaca di kapsul: payung / kacamata hitam sebentar.
-  buddy.setCostume(pillSlide?.costume ?? seasonalCostume);
+  buddy.setCostume((centered ? null : pillSlide?.costume) ?? seasonalCostume);
   const onWeather = PAGES[pageIndex]?.id === 'weather';
   bigBuddy.setCostume(onWeather ? (weatherNow?.look?.costume ?? seasonalCostume) : seasonalCostume);
 }
@@ -2795,7 +2917,6 @@ const DEVICE_ICONS = {
   other: '<svg viewBox="0 0 16 16"><path d="M8 2v9.5M8 2 6.5 4h3zM8 13.5a1 1 0 1 0 0 .01M8 10.5 5 8.5V6.5M8 9l3-1.5V6" /></svg>',
 };
 
-let connectedDevices = { bluetooth: [], usb: [], drives: [] };
 
 function renderDeviceList() {
   const list = $('device-list');
@@ -4174,6 +4295,49 @@ function mediaSource(app) {
 }
 
 // Bar progres di kartu Musik (diperbarui tiap detik saat section Musik terbuka).
+// ---------- Island Musik: mode lirik (dua kolom: pemutar + lirik berjalan) ----------
+let npLyricMode = false;
+
+function renderIslandLyrics() {
+  const on = !detail && lyricsReady() && lyricsNow.synced && lyricsNow.lines.length > 0;
+  const np = document.querySelector('.np');
+  np.classList.toggle('with-lyrics', on);
+  // Zeno besar disembunyikan di section Musik supaya lirik dapat ruang (Zeno tetap di kapsul).
+  $('media').classList.toggle('lyric-mode', on && PAGES[pageIndex]?.id === 'music');
+  $('media').classList.toggle('todo-mode', PAGES[pageIndex]?.id === 'time');
+  if (on !== npLyricMode) {
+    npLyricMode = on;
+    renderMusicProgress();
+  }
+  if (!on) return;
+  const list = $('np-lyric-list');
+  const song = mediaKey(media);
+  if (list.dataset.song !== song) {
+    list.dataset.song = song;
+    list.replaceChildren(
+      ...lyricsNow.lines.map((line) => {
+        const li = document.createElement('li');
+        li.textContent = line.text || '♪';
+        return li;
+      }),
+    );
+  }
+  const idx = Math.max(0, lyricLineAt(trackPosition() ?? 0));
+  if (list.dataset.idx === String(idx)) return;
+  list.dataset.idx = String(idx);
+  for (const [i, li] of [...list.children].entries()) li.classList.toggle('now', i === idx);
+  // Baris aktif di urutan kedua (satu baris sebelumnya redup di atas). Baris boleh lebih dari
+  // satu baris teks, jadi posisinya diukur dari elemen sebenarnya.
+  const anchor = list.children[Math.max(0, idx - 1)];
+  list.style.transform = `translateY(${-(anchor?.offsetTop ?? 0)}px)`;
+}
+
+setInterval(() => {
+  if (open && PAGES[pageIndex]?.id === 'music' && media.playing) renderIslandLyrics();
+}, 250);
+
+$('np-lyrics-btn').addEventListener('click', () => setDetail(true));
+
 function renderMusicProgress() {
   const ms = trackPosition();
   const duration = media.duration;
@@ -4181,7 +4345,7 @@ function renderMusicProgress() {
   $('np-progress').hidden = !show;
   if (!show) return;
   $('np-elapsed').textContent = mmss(Math.min(ms, duration));
-  $('np-total').textContent = mmss(duration);
+  $('np-total').textContent = npLyricMode ? `-${mmss(Math.max(0, duration - ms))}` : mmss(duration);
   $('np-bar').style.width = `${Math.min(100, (100 * ms) / duration)}%`;
 }
 
@@ -4690,6 +4854,7 @@ window.kapsul.onLyrics((state) => {
   lyricsNow = state ?? { key: null, status: 'none', synced: false, lines: [] };
   lyricIndex = -1;
   renderLyrics();
+  renderIslandLyrics();
   renderPillText();
 });
 
@@ -4699,6 +4864,7 @@ window.kapsul.onMedia((state) => {
   media = state ?? { playing: false, title: null };
   updateTrackClock(prevKey);
   renderMedia();
+  renderIslandLyrics();
   renderLyrics();
   // Lagu mulai diputar saat panel tertutup: panel berikutnya langsung di section Musik.
   if (media.playing && !wasPlaying && !open) goToSection('music', { sound: false });
