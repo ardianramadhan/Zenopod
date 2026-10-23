@@ -7,7 +7,7 @@ if (process.argv.includes('--zenopod-hook')) {
 }
 
 const { app, BrowserWindow, Tray, Menu, clipboard, desktopCapturer, dialog, globalShortcut, ipcMain, nativeImage, powerMonitor, screen, session, shell } = require('electron');
-const { spawn } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -17,6 +17,10 @@ const path = require('node:path');
 // supaya config, statistik, dan token hook Claude tetap di tempat yang sama.
 // ZENOPOD_DATA_DIR = folder lain (untuk mencoba versi kode di samping versi terpasang).
 app.setPath('userData', process.env.ZENOPOD_DATA_DIR || path.join(app.getPath('appData'), 'kapsul'));
+
+// Windows: kamera Studio lewat jalur biasa, bukan D3D11. Layanan kamera Chromium tetap hidup
+// setelah Studio ditutup; jalur D3D11 membuatnya memakan ±75 MB, jalur biasa ±17 MB.
+if (process.platform === 'win32') app.commandLine.appendSwitch('disable-features', 'MediaFoundationD3D11VideoCapture');
 
 const { CONFIG_FILE, DEFAULT_OFFSET, normalize, readConfig, writeConfig } = require('./lib/config');
 const paths = require('./lib/paths');
@@ -38,6 +42,7 @@ const calendar = require('./lib/calendar');
 const sysmon = require('./lib/sysmon');
 const habits = require('./lib/habits');
 const lyrics = require('./lib/lyrics');
+const wallpapers = require('./lib/wallpaper');
 
 const SIZE = {
   collapsed: { width: 236, height: 40 },
@@ -63,6 +68,8 @@ let knownIds = null; // null = belum ada daftar pertama (notifikasi lama tidak d
 let lastActivity = Date.now();
 let devTimers = null;
 let quickState = null; // volume, muted, brightness, wifi, bluetooth (dari bridge.ps1)
+let lockState = null; // { caps, num } terakhir dari bridge.ps1
+let keepOpenForDialog = false; // dialog pilih file dari panel: jangan tutup panel saat fokus berpindah
 const appIcons = {};
 
 const primaryInstance = app.requestSingleInstanceLock();
@@ -269,8 +276,10 @@ function createWindow() {
     guardTopmost();
   });
 
-  // Klik di luar widget = tutup panel.
-  win.on('blur', () => setExpanded(false));
+  // Klik di luar widget = tutup panel (kecuali selama dialog pilih file dari panel terbuka).
+  win.on('blur', () => {
+    if (!keepOpenForDialog) setExpanded(false);
+  });
 
   // Layar berubah (monitor dicolok/dicabut, resolusi) = posisikan ulang.
   screen.on('display-metrics-changed', () => win.setBounds(boundsFor(currentState())));
@@ -417,7 +426,7 @@ function peekAction(id, action) {
   } else if (peek.kind === 'pet') {
     if (action === 'feed') feedPet('cookie');
   } else if (peek.kind === 'water') {
-    if (action === 'drank') statsAdd('water');
+    if (action === 'drank') drinkWater();
     // "Nanti" = ingatkan lagi 10 menit kemudian.
     if (action === 'later') wellness.water = Math.max(0, Number(config.wellness.waterMinutes || 60) - 10);
   } else if (peek.kind === 'update') {
@@ -439,6 +448,10 @@ function peekAction(id, action) {
     if (action === 'join') openMeeting(peek.ref);
   } else if (peek.kind === 'habit') {
     if (action === 'done') habitDone(peek.ref, true);
+  } else if (peek.kind === 'todo') {
+    const todo = config.todos.find((t) => t.id === peek.ref);
+    if (todo && action === 'done' && !todo.done) todoCommand('toggle', { id: todo.id });
+    if (todo && action === 'later') todoCommand('due', { id: todo.id, due: Math.max(todo.due ?? 0, Date.now()) + 3_600_000 });
   } else if (peek.kind === 'ocr') {
     if (action === 'again') setTimeout(startSnip, 300);
   } else if (peek.kind === 'power') {
@@ -518,6 +531,7 @@ function publicState() {
     chatName: chatProvider().short,
     devEnabled: config.dev.services.length > 0 || config.dev.projects.length > 0,
     focus: config.focus,
+    water: { ml: config.wellness.waterMl, target: config.wellness.waterTargetMl, remind: config.wellness.water, minutes: config.wellness.waterMinutes },
     sound: config.sound,
     ticker: config.ticker,
     lyrics: config.lyrics,
@@ -621,6 +635,14 @@ function handleBridge(message) {
     if (Boolean(quickState?.micMuted) !== Boolean(message.micMuted)) setTimeout(sendLive, 0);
     quickState = message;
     send('kapsul:quick-state', quickState);
+  } else if (message.type === 'typing') {
+    send('kapsul:typing', Boolean(message.active));
+  } else if (message.type === 'locks') {
+    // Kondisi awal tidak diumumkan; hanya tombol yang baru saja ditekan (Caps atau Num Lock).
+    const now = { caps: Boolean(message.caps), num: Boolean(message.num) };
+    const changed = !lockState ? null : now.caps !== lockState.caps ? 'caps' : now.num !== lockState.num ? 'num' : null;
+    lockState = now;
+    if (changed) send('kapsul:locks', { key: changed, on: now[changed] });
   } else if (message.type === 'speech') {
     send('kapsul:speech', message.data);
   } else if (message.type === 'ocr') {
@@ -1362,12 +1384,23 @@ function clipCommand(action, id) {
 
 const sendTodos = () => send('kapsul:todos', config.todos);
 
+// Tenggat tugas: angka ms (waktu lokal), atau null bila tanpa tenggat.
+const dueValue = (value) => {
+  const ms = Number(value);
+  return Number.isFinite(ms) && ms > 0 ? Math.round(ms) : null;
+};
+
 function todoCommand(action, payload = {}) {
   let todos = config.todos;
   if (action === 'add') {
     const text = String(payload.text ?? '').trim().slice(0, 200);
     if (!text) return;
-    todos = [...todos, { id: crypto.randomUUID(), text, done: false, at: Date.now() }];
+    const due = dueValue(payload.due);
+    todos = [...todos, { id: crypto.randomUUID(), text, done: false, at: Date.now(), ...(due ? { due } : {}) }];
+  } else if (action === 'due') {
+    // Ganti/hapus tenggat → pengingatnya disiapkan ulang.
+    const due = dueValue(payload.due);
+    todos = todos.map((t) => (t.id === payload.id ? { ...t, due, soonSent: false, dueSent: false } : t));
   } else if (action === 'toggle') {
     const target = todos.find((t) => t.id === payload.id);
     if (target && !target.done) statsAdd('todos');
@@ -1710,8 +1743,8 @@ async function runVoiceCommand(heard) {
         return reply(heard, `Mantap! ${found.name} tercatat${after?.streak > 1 ? `, ${after.streak} hari berturut-turut` : ''}.`, 'laugh');
       }
       if (/\bminum\b/.test(intent.text)) {
-        statsAdd('water');
-        return reply(heard, 'Sip, minum air tercatat.', 'happy');
+        drinkWater();
+        return reply(heard, `Sip, minum air tercatat. ${waterText()}`, 'happy');
       }
       if (chatReady()) return fallbackAnswer(heard);
       return reply(heard, `Kebiasaan “${intent.text}” belum ada. Tambahkan di Pengaturan › Kebiasaan ya.`, 'confused');
@@ -1994,8 +2027,12 @@ function runZenoTool(name, input) {
     case 'add_todo': {
       const todo = text(input.text);
       if (!todo) return { ok: false, label: 'Tugas kosong', result: { error: 'text wajib' } };
-      todoCommand('add', { text: todo });
-      return { ok: true, label: `Tugas · ${todo}`, result: {} };
+      // Tenggat opsional: tanggal YYYY-MM-DD (+ jam HH:MM, bawaan 17:00).
+      const date = text(input.due_date);
+      const time = TIME_RE.test(text(input.due_time).padStart(5, '0')) ? text(input.due_time).padStart(5, '0') : '17:00';
+      const due = DATE_RE.test(date) ? new Date(`${date}T${time}:00`).getTime() : null;
+      todoCommand('add', { text: todo, due });
+      return { ok: true, label: `Tugas · ${todo}${due ? ` · tenggat ${formatTime(due)}` : ''}`, result: due ? { due: formatTime(due) } : {} };
     }
     case 'get_schedule': {
       const tomorrow = input.day === 'tomorrow';
@@ -2175,6 +2212,24 @@ function checkHunger() {
 }
 
 // ---------- Istirahat mata & minum air ----------
+// Sekali minum = config.wellness.waterMl; total ml hari ini disimpan di statistik (waterMl).
+const liters = (ml) => (ml / 1000).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+
+function drinkWater() {
+  // Jam minum dicatat untuk grafik per jam di section Minum: [waktu, ml].
+  const day = stats.day();
+  day.waterLog = [...(day.waterLog ?? []), [Date.now(), config.wellness.waterMl]].slice(-80);
+  stats.add('waterMl', config.wellness.waterMl);
+  statsAdd('water');
+}
+
+function waterText() {
+  const drank = stats.day().waterMl ?? 0;
+  const target = config.wellness.waterTargetMl;
+  if (drank >= target) return `Target hari ini tercapai: ${liters(drank)} L. Mantap!`;
+  return `Hari ini ${liters(drank)} dari ${liters(target)} L (${Math.round((drank / target) * 100)}%).`;
+}
+
 // Menghitung menit aktif (ada gerakan kursor). Pergi > 5 menit = sudah istirahat → hitungan diulang.
 
 const wellness = { eyes: 0, water: 0 };
@@ -2214,11 +2269,11 @@ function tickWellness() {
       sound: 'wake',
       app: `${config.buddy.name || 'Zeno'} · Minum air`,
       title: 'Waktunya minum air',
-      body: 'Satu gelas dulu, biar tetap segar.',
+      body: waterText(),
       seconds: 20,
       actions: [
         { id: 'later', label: 'Nanti' },
-        { id: 'drank', label: 'Sudah minum', primary: true },
+        { id: 'drank', label: `Sudah minum · ${config.wellness.waterMl} ml`, primary: true },
       ],
     });
   }
@@ -2247,7 +2302,7 @@ function sendStats() {
     const today = stats.day();
     const top = stats.topSong();
     const listen = (songs) => Object.values(songs ?? {}).reduce((sum, ms) => sum + ms, 0);
-    const week = stats.week().map((d) => ({ key: d.key, focus: d.focus, focusMs: d.focusMs, listenMs: listen(d.songs) }));
+    const week = stats.week().map((d) => ({ key: d.key, focus: d.focus, focusMs: d.focusMs, listenMs: listen(d.songs), waterMl: d.waterMl ?? 0 }));
     // Ringkasan musik di detail Musik: 5 lagu terlama hari ini + total waktu dengar.
     const songs = Object.entries(today.songs ?? {})
       .sort((a, b) => b[1] - a[1])
@@ -2440,7 +2495,8 @@ const calendarFeeds = () => config.calendar.feeds.map((f) => ({ id: f.id, name: 
 function sendCalendar() {
   const now = Date.now();
   const connected = config.calendar.enabled && config.calendar.feeds.length > 0;
-  send('kapsul:calendar', { connected, events: calendarState.events.filter((e) => e.end > now).slice(0, 10) });
+  // Acara sejak awal bulan ini sampai 35 hari ke depan: agenda + kalender bulanan.
+  send('kapsul:calendar', { connected, events: calendarState.events.slice(0, 400) });
 }
 
 async function pollCalendar() {
@@ -2810,13 +2866,59 @@ const formatTime = (ms) => {
 
 function sendReminders() {
   const next = schedule.upcoming(config.reminders);
-  send('kapsul:reminders', next ? { title: next.title, when: formatTime(next.next) } : null);
+  // list: semua pengingat aktif untuk ditandai di kalender (repeat: none | daily | weekdays).
+  const list = config.reminders.filter((r) => !r.done && r.next).map((r) => ({ title: r.title, next: r.next, repeat: r.repeat }));
+  send('kapsul:reminders', next ? { title: next.title, when: formatTime(next.next), list } : { list });
 }
 
 function updateReminder(id, change) {
   saveConfig({ ...config, reminders: config.reminders.map((r) => (r.id === id ? change(r) : r)) });
   sendReminders();
   settingsWin?.webContents.send('settings:changed');
+}
+
+// Tenggat tugas: Zeno mengingatkan 30 menit sebelumnya, lalu sekali lagi saat waktunya tiba.
+const TODO_SOON_MS = 30 * 60_000;
+
+function checkTodoDue() {
+  const now = Date.now();
+  let changed = false;
+  const todos = config.todos.map((t) => {
+    if (t.done || !t.due) return t;
+    const late = now >= t.due;
+    if (late && !t.dueSent) {
+      changed = true;
+      todoPeek(t, true);
+      return { ...t, dueSent: true, soonSent: true };
+    }
+    if (!late && !t.soonSent && t.due - now <= TODO_SOON_MS) {
+      changed = true;
+      todoPeek(t, false);
+      return { ...t, soonSent: true };
+    }
+    return t;
+  });
+  if (!changed) return;
+  saveConfig({ ...config, todos });
+  sendTodos();
+}
+
+function todoPeek(todo, late) {
+  const minutes = Math.max(1, Math.round((todo.due - Date.now()) / 60_000));
+  showPeek({
+    kind: 'todo',
+    mood: late ? 'alarm' : 'surprised',
+    app: `${config.buddy.name || 'Zeno'} · Tenggat tugas · ${formatTime(todo.due)}`,
+    title: todo.text,
+    body: late ? 'Sudah waktunya. Yuk, selesaikan sekarang.' : `${minutes} menit lagi tenggatnya.`,
+    sticky: late,
+    sound: late ? 'alarm' : 'notif',
+    ref: todo.id,
+    actions: [
+      { id: 'later', label: 'Tunda 1 jam' },
+      { id: 'done', label: 'Tandai selesai', primary: true },
+    ],
+  });
 }
 
 function checkReminders() {
@@ -3253,6 +3355,126 @@ function listPhotos() {
 // Hanya file di folder foto (nama dari tampilan tidak dipercaya begitu saja).
 const photoPath = (name) => path.join(photosDir(), path.basename(String(name)));
 
+// ---------- Wallpaper dari island ----------
+const wallpaperDir = () => path.join(app.getPath('userData'), 'wallpapers');
+const wallThumbs = new Map(); // id → data URL kecil (dibuat sekali)
+
+function wallpaperState() {
+  const items = wallpapers.list(wallpaperDir()).map(({ id, file }) => {
+    if (!wallThumbs.has(id)) {
+      const image = nativeImage.createFromPath(file);
+      wallThumbs.set(id, image.isEmpty() ? null : `data:image/jpeg;base64,${image.resize({ width: 320, quality: 'good' }).toJPEG(78).toString('base64')}`);
+    }
+    return { id, thumb: wallThumbs.get(id) };
+  });
+  return { items, current: config.wallpaper.current, hasOriginal: Boolean(config.wallpaper.original), slideshow: config.wallpaper.slideshow, shuffle: config.wallpaper.shuffle };
+}
+
+// Wallpaper desktop saat ini (Windows: registri), disimpan sekali supaya bisa dikembalikan.
+function currentDesktopWallpaper() {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve(null);
+    execFile('reg', ['query', 'HKCU\\Control Panel\\Desktop', '/v', 'WallPaper'], { windowsHide: true }, (error, out) => {
+      const match = !error && /WallPaper\s+REG_SZ\s+(.+)/i.exec(String(out));
+      resolve(match ? match[1].trim() : null);
+    });
+  });
+}
+
+function setDesktopWallpaper(file) {
+  if (process.platform === 'win32') bridgeCommand(`wallpaper ${file}`);
+  else if (IS_MAC) {
+    const quoted = file.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    execFile('osascript', ['-e', `tell application "System Events" to tell every desktop to set picture to POSIX file "${quoted}"`], () => {});
+  }
+}
+
+async function useWallpaper(id) {
+  if (id === 'original') {
+    if (config.wallpaper.original) setDesktopWallpaper(config.wallpaper.original);
+    saveConfig({ ...config, wallpaper: { ...config.wallpaper, current: null } });
+    return wallpaperState();
+  }
+  const file = wallpapers.fileFor(wallpaperDir(), id);
+  if (!file) return wallpaperState();
+  if (!config.wallpaper.original && !config.wallpaper.current) {
+    const original = await currentDesktopWallpaper();
+    if (original && !original.startsWith(wallpaperDir())) config.wallpaper.original = original;
+  }
+  setDesktopWallpaper(file);
+  saveConfig({ ...config, wallpaper: { ...config.wallpaper, current: id, changedAt: Date.now() } });
+  return wallpaperState();
+}
+
+// Slideshow: ganti ke gambar berikutnya (atau acak) dari koleksi setiap N menit, walau panel tertutup.
+async function slideshowTick() {
+  const { slideshow, shuffle, current, changedAt } = config.wallpaper;
+  if (!slideshow) return;
+  const items = wallpapers.list(wallpaperDir());
+  if (items.length < 2 || Date.now() - changedAt < slideshow * 60_000) return;
+  const at = items.findIndex((w) => w.id === current);
+  let next = (at + 1) % items.length;
+  if (shuffle) {
+    next = Math.floor(Math.random() * (items.length - 1));
+    if (next >= at && at >= 0) next++;
+  }
+  send('kapsul:wallpaper-state', await useWallpaper(items[next].id));
+}
+
+ipcMain.handle('kapsul:wallpapers', () => wallpaperState());
+ipcMain.handle('kapsul:wallpaper-add', async (_event, dataUrl) => {
+  const result = wallpapers.add(wallpaperDir(), dataUrl);
+  if (!result.ok) return { ...wallpaperState(), error: result.error };
+  return useWallpaper(result.id);
+});
+ipcMain.handle('kapsul:wallpaper-pick', async () => {
+  keepOpenForDialog = true;
+  try {
+    const picked = await dialog.showOpenDialog(win, {
+      title: 'Pilih gambar wallpaper',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Gambar', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] }],
+    });
+    if (picked.canceled || !picked.filePaths.length) return wallpaperState();
+    let last = null;
+    let error = null;
+    for (const file of picked.filePaths.slice(0, 10)) {
+      const ext = path.extname(file).slice(1).toLowerCase().replace('jpg', 'jpeg');
+      let data;
+      try {
+        data = fs.readFileSync(file);
+      } catch {
+        error = 'Gambar tidak bisa dibaca.';
+        continue;
+      }
+      const result = wallpapers.add(wallpaperDir(), `data:image/${ext};base64,${data.toString('base64')}`, Date.now() + (last ? 1 : 0));
+      if (result.ok) last = result.id;
+      else error = result.error;
+    }
+    const state = last ? await useWallpaper(last) : wallpaperState();
+    return error ? { ...state, error } : state;
+  } finally {
+    keepOpenForDialog = false;
+    win?.focus();
+  }
+});
+ipcMain.handle('kapsul:wallpaper-slideshow', (_event, minutes, shuffle) => {
+  saveConfig({
+    ...config,
+    // Mulai hitung dari sekarang supaya gambar tidak langsung berganti saat slideshow dinyalakan.
+    wallpaper: { ...config.wallpaper, slideshow: Number(minutes) || 0, shuffle: Boolean(shuffle), changedAt: Date.now() },
+  });
+  return wallpaperState();
+});
+ipcMain.handle('kapsul:wallpaper-use', (_event, id) => useWallpaper(String(id ?? '')));
+ipcMain.handle('kapsul:wallpaper-remove', (_event, id) => {
+  if (wallpapers.remove(wallpaperDir(), String(id ?? ''))) {
+    wallThumbs.delete(id);
+    if (config.wallpaper.current === id) saveConfig({ ...config, wallpaper: { ...config.wallpaper, current: null } });
+  }
+  return wallpaperState();
+});
+
 ipcMain.handle('kapsul:photos', () => listPhotos());
 ipcMain.handle('kapsul:photo-save', (_event, dataUrl) => {
   const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl ?? ''));
@@ -3321,6 +3543,24 @@ ipcMain.handle('kapsul:ask', async (_event, question) => {
   }
 });
 ipcMain.on('kapsul:quick-set', (_event, what, value) => quickSet(String(what), value));
+ipcMain.on('kapsul:drink', () => drinkWater());
+// Pengaturan minum langsung dari section Minum: sekali minum, target, pengingat (nyala & jarak).
+ipcMain.on('kapsul:water-settings', (_event, patch = {}) => {
+  const w = config.wellness;
+  const num = (v, fallback) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
+  saveConfig({
+    ...config,
+    wellness: {
+      ...w,
+      waterMl: num(patch.ml, w.waterMl),
+      waterTargetMl: num(patch.target, w.waterTargetMl),
+      water: typeof patch.remind === 'boolean' ? patch.remind : w.water,
+      waterMinutes: num(patch.minutes, w.waterMinutes),
+    },
+  });
+  send('kapsul:state', publicState());
+  settingsWin?.webContents.send('settings:changed');
+});
 ipcMain.on('kapsul:pet', (_event, action, food) => {
   if (action === 'feed') feedPet(String(food));
   if (action === 'play') playPet();
@@ -3400,6 +3640,8 @@ app.whenReady().then(async () => {
   claude.startServer(onClaudeEvent, onPermission);
   watchGreetings();
   setInterval(checkReminders, 15_000);
+  setInterval(checkTodoDue, 30_000);
+  setInterval(slideshowTick, 30_000);
   setInterval(sendClaude, 60_000);
   setInterval(tickStats, 30_000);
   setInterval(tickWellness, 60_000);

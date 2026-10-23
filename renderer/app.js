@@ -465,6 +465,9 @@ const IDLE_SLEEP_MS = 3 * 60 * 1000;
 let lastMove = Date.now();
 let hoveringBig = false;
 let reaction = null;
+let userTyping = false; // diisi bridge (lihat onTyping)
+let waterSettings = { ml: 250, target: 2000 }; // sekali minum & target harian (ml), dari state
+const waterLiters = (ml) => (ml / 1000).toLocaleString('id-ID', { maximumFractionDigits: 2 });
 let reactionTimer = null;
 
 function isNight() {
@@ -496,9 +499,16 @@ function renderBuddy() {
   }
   // Tata letak tengah: teks slide tersembunyi, jadi ekspresinya tidak ikut slide (musik = berheadset).
   const slideMood = centered ? null : pillSlide?.mood;
-  buddy.setMood(reaction ?? (claudeWaiting() ? 'surprised' : tired ? 'lowbat' : work ?? (sleepy() && !media.playing ? 'sleep' : (slideMood ?? (media.playing ? 'music' : 'idle')))));
-  bigBuddy.setMood(reaction ?? (hoveringBig ? 'greet' : tired ? 'lowbat' : pageMood()));
+  buddy.setMood(reaction ?? (claudeWaiting() ? 'surprised' : tired ? 'lowbat' : work ?? (userTyping ? 'typing' : sleepy() && !media.playing ? 'sleep' : (slideMood ?? (media.playing ? 'music' : 'idle')))));
+  bigBuddy.setMood(reaction ?? (hoveringBig ? 'greet' : tired ? 'lowbat' : userTyping && !busy ? 'typing' : pageMood()));
 }
+
+// Kamu sedang mengetik (dari bridge: ada input sementara kursor diam) → Zeno ikut mengetik.
+window.kapsul.onTyping?.((active) => {
+  if (active === userTyping) return;
+  userTyping = active;
+  renderBuddy();
+});
 
 // Reaksi sementara, lalu kembali ke ekspresi dasar.
 function react(mood, ms) {
@@ -933,6 +943,10 @@ window.kapsul.onState((state) => {
   if (noNotifs && inboxMode === 'notifs') setInboxMode('clips');
   // Section Kerja: saat Claude bekerja, atau kalau ada server/project yang dipantau.
   devEnabled = Boolean(state.devEnabled);
+  if (state.water) {
+    waterSettings = state.water;
+    renderWater();
+  }
   goToPage(pageIndex, { sound: false });
   renderShortcut(state.shortcut);
   renderApps(state.apps);
@@ -1392,10 +1406,298 @@ window.kapsul.onClips((items) => {
 
 let todoItems = [];
 
+// ---------- Tenggat tugas ----------
+const DUE_WEEKDAY = new Intl.DateTimeFormat('id-ID', { weekday: 'short' });
+const DUE_DATE = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
+const DUE_TIME = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
+const dayStart = (ms) => {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+// Urutan tugas terbuka: tenggat terdekat dulu, lalu yang tanpa tenggat (urutan dibuat).
+const byDue = (a, b) => (a.due ?? Infinity) - (b.due ?? Infinity) || (a.at ?? 0) - (b.at ?? 0);
+
+// "Hari ini 14.00", "Besok 09.00", "Sen 14.00", "28 Okt"; short = versi ringkas untuk island.
+function dueLabel(due, { short = false } = {}) {
+  const now = Date.now();
+  const days = Math.round((dayStart(due) - dayStart(now)) / 86_400_000);
+  const time = DUE_TIME.format(due);
+  const state = due < now ? 'late' : due - now < 2 * 3_600_000 ? 'soon' : '';
+  let text;
+  if (days === 0) text = short ? time : `Hari ini ${time}`;
+  else if (days === 1) text = short ? 'Besok' : `Besok ${time}`;
+  else if (days === -1) text = short ? 'Kemarin' : `Kemarin ${time}`;
+  else if (days > 1 && days < 7) text = short ? DUE_WEEKDAY.format(due) : `${DUE_WEEKDAY.format(due)} ${time}`;
+  else text = DUE_DATE.format(due);
+  if (state === 'late' && !short) text = `Terlambat · ${text}`;
+  return { text, state };
+}
+
+const dueAt = (dayOffset, hour) => {
+  const d = new Date();
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(hour, 0, 0, 0);
+  return d.getTime();
+};
+const two = (n) => String(n).padStart(2, '0');
+const localDate = (ms) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+};
+const localTime = (ms) => {
+  const d = new Date(ms);
+  return `${two(d.getHours())}:${two(d.getMinutes())}`;
+};
+
+// Editor tenggat di dalam panel (tanpa popup tanggal bawaan: popup bisa mencuri fokus dan menutup panel).
+let dueEditor = null;
+function closeDueEditor() {
+  dueEditor?.remove();
+  dueEditor = null;
+}
+
+function openDueEditor(after, current, onPick) {
+  const reopen = dueEditor?.previousElementSibling === after;
+  closeDueEditor();
+  if (reopen) return;
+  const box = document.createElement('div');
+  box.className = 'due-editor';
+  const monday = new Date();
+  monday.setDate(monday.getDate() + ((8 - monday.getDay()) % 7 || 7));
+  monday.setHours(9, 0, 0, 0);
+  const quick = [
+    ['Hari ini 17.00', dueAt(0, 17)],
+    ['Besok 09.00', dueAt(1, 9)],
+    ['Besok 17.00', dueAt(1, 17)],
+    ['Senin 09.00', monday.getTime()],
+  ].filter(([, ms]) => ms > Date.now());
+  const chips = document.createElement('div');
+  chips.className = 'due-chips';
+  for (const [label, ms] of quick) {
+    chips.append(
+      actionChip(label, () => {
+        closeDueEditor();
+        onPick(ms);
+      }),
+    );
+  }
+  const row = document.createElement('div');
+  row.className = 'due-custom';
+  const base = current ?? dueAt(0, 17);
+  const date = Object.assign(document.createElement('input'), { type: 'date', value: localDate(base) });
+  const time = Object.assign(document.createElement('input'), { type: 'time', value: localTime(base) });
+  const save = actionChip(
+    'Pasang',
+    () => {
+      const ms = new Date(`${date.value}T${time.value || '17:00'}:00`).getTime();
+      if (!Number.isFinite(ms)) return;
+      closeDueEditor();
+      onPick(ms);
+    },
+    { primary: true },
+  );
+  row.append(date, time, save);
+  box.append(chips, row);
+  if (current) {
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'link due-clear';
+    clear.textContent = 'Tanpa tenggat';
+    clear.addEventListener('click', () => {
+      closeDueEditor();
+      onPick(null);
+    });
+    box.append(clear);
+  }
+  after.after(box);
+  dueEditor = box;
+}
+
+const DUE_ICON = '<svg viewBox="0 0 12 12"><circle cx="6" cy="6.4" r="4.2" /><path d="M6 4.3v2.2l1.4.9" /></svg>';
+
+function dueChip(todo) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'due-chip';
+  chip.innerHTML = DUE_ICON;
+  if (todo.due) {
+    const { text, state } = dueLabel(todo.due);
+    chip.append(text);
+    if (state) chip.classList.add(state);
+    chip.title = 'Ubah tenggat';
+  } else {
+    chip.classList.add('empty');
+    chip.title = 'Pasang tenggat';
+  }
+  chip.setAttribute('aria-label', chip.title);
+  return chip;
+}
+
+// ---------- Kalender bulanan ----------
+// Titik per hari: acara kalender (biru), tenggat tugas (kuning), pengingat (ungu). Klik hari = daftar isinya.
+let reminderList = [];
+let calMonth = (() => {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+})();
+let calSelected = dayStart(Date.now());
+// Bawaan: satu baris minggu ini (padat). "Bulan" = tampilan sebulan penuh.
+let calMonthView = false;
+const CAL_RANGE = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
+const CAL_TITLE = new Intl.DateTimeFormat('id-ID', { month: 'long', year: 'numeric' });
+const CAL_DAY = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+const CAL_WEEK = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+
+// Isi satu hari: [{ kind: 'event'|'todo'|'reminder', time (ms|null), title, late? }]
+function calItems(day) {
+  const end = day + 86_400_000;
+  const items = [];
+  for (const e of calendarEvents ?? []) {
+    if (e.start < end && e.end > day) items.push({ kind: 'event', time: e.allDay ? null : e.start, title: e.title });
+  }
+  for (const t of todoItems) {
+    if (!t.done && t.due >= day && t.due < end) items.push({ kind: 'todo', time: t.due, title: t.text, late: t.due < Date.now() });
+  }
+  const weekday = new Date(day).getDay();
+  for (const r of reminderList) {
+    const first = dayStart(r.next);
+    const on = r.repeat === 'daily' ? day >= first : r.repeat === 'weekdays' ? day >= first && weekday > 0 && weekday < 6 : day === first;
+    if (!on) continue;
+    const d = new Date(r.next);
+    items.push({ kind: 'reminder', time: new Date(day).setHours(d.getHours(), d.getMinutes(), 0, 0), title: r.title });
+  }
+  return items.sort((a, b) => (a.time ?? -1) - (b.time ?? -1));
+}
+
+// Senin dari minggu yang berisi tanggal terpilih.
+const weekStart = (ms) => {
+  const d = new Date(ms);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return dayStart(d.getTime());
+};
+const addDays = (ms, n) => {
+  const d = new Date(ms);
+  d.setDate(d.getDate() + n);
+  return d.getTime();
+};
+
+function renderCalendar() {
+  const grid = $('cal-grid');
+  grid.replaceChildren();
+  grid.classList.toggle('week', !calMonthView);
+  $('cal-mode').textContent = calMonthView ? 'Minggu' : 'Bulan';
+  $('cal-mode').setAttribute('aria-pressed', String(calMonthView));
+  for (const name of CAL_WEEK) {
+    const head = document.createElement('span');
+    head.className = 'cal-wd';
+    head.textContent = name;
+    grid.append(head);
+  }
+  const today = dayStart(Date.now());
+  let list;
+  if (calMonthView) {
+    $('cal-title').textContent = CAL_TITLE.format(calMonth);
+    const lead = (calMonth.getDay() + 6) % 7; // Senin = kolom pertama
+    for (let i = 0; i < lead; i++) grid.append(document.createElement('span'));
+    const count = new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 0).getDate();
+    list = Array.from({ length: count }, (_, i) => new Date(calMonth.getFullYear(), calMonth.getMonth(), i + 1).getTime());
+  } else {
+    const start = weekStart(calSelected);
+    list = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+    $('cal-title').textContent = `${CAL_RANGE.format(list[0])} – ${CAL_RANGE.format(list[6])}`;
+  }
+  for (const day of list) {
+    const n = new Date(day).getDate();
+    const items = calItems(day);
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'cal-cell';
+    cell.classList.toggle('today', day === today);
+    cell.classList.toggle('picked', day === calSelected);
+    cell.classList.toggle('past', day < today);
+    cell.setAttribute('aria-label', `${CAL_DAY.format(day)}${items.length ? `, ${items.length} agenda` : ''}`);
+    const num = document.createElement('b');
+    num.textContent = String(n);
+    const dots = document.createElement('i');
+    for (const kind of ['event', 'todo', 'reminder']) {
+      if (items.some((x) => x.kind === kind)) {
+        const dot = document.createElement('span');
+        dot.className = `k-${kind}`;
+        dots.append(dot);
+      }
+    }
+    cell.append(num, dots);
+    cell.addEventListener('click', () => {
+      calSelected = day;
+      renderCalendar();
+    });
+    grid.append(cell);
+  }
+  renderCalendarDay();
+}
+
+function renderCalendarDay() {
+  const list = $('cal-day');
+  list.replaceChildren();
+  const items = calItems(calSelected);
+  const head = document.createElement('li');
+  head.className = 'cal-day-head';
+  head.textContent = CAL_DAY.format(calSelected);
+  list.append(head);
+  if (!items.length) {
+    const li = document.createElement('li');
+    li.className = 'dim';
+    li.textContent = calendarEvents === null ? 'Kosong. Sambungkan kalender di Pengaturan › Kalender untuk melihat acaramu.' : 'Tidak ada acara, tenggat, atau pengingat.';
+    list.append(li);
+    return;
+  }
+  for (const item of items) {
+    const li = document.createElement('li');
+    li.className = `cal-item k-${item.kind}${item.late ? ' late' : ''}`;
+    const time = document.createElement('b');
+    time.textContent = item.time === null ? 'Seharian' : DUE_TIME.format(item.time);
+    const title = document.createElement('span');
+    title.textContent = item.title;
+    const kind = document.createElement('small');
+    kind.textContent = item.kind === 'event' ? 'Acara' : item.kind === 'todo' ? (item.late ? 'Terlambat' : 'Tenggat') : 'Pengingat';
+    li.append(time, title, kind);
+    list.append(li);
+  }
+}
+
+// ‹ › pindah satu minggu (tampilan minggu) atau satu bulan (tampilan bulan).
+const shiftMonth = (delta) => {
+  if (calMonthView) calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + delta, 1);
+  else {
+    calSelected = addDays(calSelected, 7 * delta);
+    const d = new Date(calSelected);
+    calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+  }
+  renderCalendar();
+};
+$('cal-mode').addEventListener('click', () => {
+  calMonthView = !calMonthView;
+  const d = new Date(calSelected);
+  calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+  renderCalendar();
+});
+$('cal-prev').addEventListener('click', () => shiftMonth(-1));
+$('cal-next').addEventListener('click', () => shiftMonth(1));
+$('cal-today').addEventListener('click', () => {
+  const d = new Date();
+  calMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+  calSelected = dayStart(d.getTime());
+  renderCalendar();
+});
+
 function renderTodos() {
   const list = $('todo-list');
+  closeDueEditor();
+  renderCalendar();
+  renderRings();
+  queueMicrotask(renderSummary);
   list.replaceChildren();
-  const open = todoItems.filter((t) => !t.done);
+  const open = todoItems.filter((t) => !t.done).sort(byDue);
   const done = todoItems.filter((t) => t.done).sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
   $('todo-count').hidden = open.length === 0;
   $('todo-count').textContent = String(open.length);
@@ -1437,17 +1739,45 @@ function renderTodos() {
     close.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>';
     close.addEventListener('click', () => window.kapsul.todo('remove', { id: todo.id }));
 
-    row.append(check, text, close);
+    if (todo.done) row.append(check, text, close);
+    else {
+      const due = dueChip(todo);
+      due.addEventListener('click', () => openDueEditor(row, todo.due ?? null, (ms) => window.kapsul.todo('due', { id: todo.id, due: ms })));
+      row.append(check, text, due, close);
+    }
     list.append(row);
   }
 }
+
+// Tenggat untuk tugas yang sedang ditulis (tombol jam di sebelah kolom tulis).
+let newTodoDue = null;
+function renderNewTodoDue() {
+  const button = $('todo-due');
+  button.classList.toggle('set', Boolean(newTodoDue));
+  button.classList.toggle('empty', !newTodoDue);
+  button.innerHTML = DUE_ICON;
+  if (newTodoDue) button.append(dueLabel(newTodoDue).text);
+  button.title = newTodoDue ? 'Ubah tenggat' : 'Pasang tenggat';
+  button.setAttribute('aria-label', button.title);
+}
+$('todo-due').addEventListener('click', () =>
+  openDueEditor($('todo-form'), newTodoDue, (ms) => {
+    newTodoDue = ms;
+    renderNewTodoDue();
+    $('todo-input').focus();
+  }),
+);
+renderNewTodoDue();
 
 $('todo-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const input = $('todo-input');
   if (!input.value.trim()) return;
-  window.kapsul.todo('add', { text: input.value });
+  window.kapsul.todo('add', { text: input.value, due: newTodoDue });
   input.value = '';
+  newTodoDue = null;
+  renderNewTodoDue();
+  closeDueEditor();
 });
 
 window.kapsul.onTodos((items) => {
@@ -1550,15 +1880,17 @@ window.kapsul.onDev(renderDev);
 
 const PAGES = [
   { id: 'home', label: 'Beranda', sound: 'hello' },
-  { id: 'chat', label: 'Chat', sound: 'pop' },
-  { id: 'camera', label: 'Studio foto', sound: 'shutter' },
-  { id: 'music', label: 'Musik', sound: 'note' },
   { id: 'time', label: 'Waktu & jadwal', sound: 'ticktock' },
-  { id: 'weather', label: 'Cuaca', sound: 'today' },
-  { id: 'focus', label: 'Fokus & timer', sound: 'tick' },
-  { id: 'device', label: 'Perangkat', sound: 'tick' },
+  { id: 'music', label: 'Musik', sound: 'note' },
   { id: 'inbox', label: 'Kotak masuk', sound: 'pop' },
+  { id: 'focus', label: 'Fokus & timer', sound: 'tick' },
+  { id: 'water', label: 'Minum air', sound: 'pop' },
+  { id: 'chat', label: 'Chat', sound: 'pop' },
   { id: 'work', label: 'Kerja', sound: 'tick' },
+  { id: 'device', label: 'Perangkat', sound: 'tick' },
+  { id: 'weather', label: 'Cuaca', sound: 'today' },
+  { id: 'camera', label: 'Studio foto', sound: 'shutter' },
+  { id: 'wallpaper', label: 'Wallpaper', sound: 'swipe' },
 ];
 
 // Cuaca hanya kalau kota sudah dipilih; Kerja saat Claude bekerja atau ada server/project dipantau.
@@ -1600,6 +1932,20 @@ function placeTracks(offsetPx = 0) {
   $('deck-track').style.transform = x;
 }
 
+// Baris section terlalu panjang = bisa digeser; tepi memudar sebagai petunjuk.
+function updateNavFade() {
+  const nav = $('nav');
+  nav.classList.toggle('overflow', nav.scrollWidth > nav.clientWidth + 1);
+  nav.classList.toggle('scrolled', nav.scrollLeft > 2);
+}
+$('nav').addEventListener('scroll', updateNavFade, { passive: true });
+$('nav').addEventListener('wheel', (event) => {
+  if (!event.deltaY || $('nav').scrollWidth <= $('nav').clientWidth) return;
+  event.preventDefault();
+  $('nav').scrollLeft += event.deltaY;
+}, { passive: false });
+new ResizeObserver(updateNavFade).observe($('nav'));
+
 function goToPage(index, { sound = true } = {}) {
   let next = (index + PAGES.length) % PAGES.length;
   const step = index < pageIndex ? -1 : 1;
@@ -1618,6 +1964,12 @@ function goToPage(index, { sound = true } = {}) {
     button.setAttribute('aria-selected', String(page.id === PAGES[next].id));
     button.hidden = !pageAvailable(page);
   }
+  // Tab aktif selalu terlihat walau baris section digeser.
+  queueMicrotask(() => {
+    const tab = $('nav').querySelector('[aria-selected="true"]');
+    tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    updateNavFade();
+  });
   for (const [i, dot] of [...$('hero-dots').children].entries()) {
     dot.setAttribute('aria-selected', String(i === next));
     dot.hidden = !pageAvailable(PAGES[i]);
@@ -1779,16 +2131,117 @@ function actionChip(label, onClick, { icon = null, primary = false, title = null
 function renderHome(now) {
   const period = periodNow(now);
   const firstName = (profile.userName || '').split(/\s+/)[0];
-  $('greet-title').textContent = `Selamat ${period}${firstName ? `, ${firstName}` : ''}!`;
+  $('greet-period').textContent = `Selamat ${period}${firstName ? ',' : '!'}`;
+  $('greet-name').textContent = firstName;
   renderQuickApps();
   renderPet();
+  // Ditunda: renderHome juga terpanggil saat skrip dimuat, sebelum state section lain dideklarasikan.
+  queueMicrotask(renderSummary);
 }
 
-// 5 aplikasi pertama sekali klik + tombol cari (membuka detail Beranda).
+// ---------- Ringkasan Beranda: satu kartu per section ----------
+// Semua kartu sama bentuknya: label + ikon, satu nilai utama, lalu bar tipis (yang punya target) atau keterangan.
+const SUM_ICONS = {
+  focus: '<circle cx="8" cy="9" r="5.2" /><path d="M6.5 1.8h3M8 9V6" />',
+  water: '<path d="M8 2.3c2.1 2.7 4 4.9 4 7.2a4 4 0 0 1-8 0c0-2.3 1.9-4.5 4-7.2z" />',
+  tasks: '<rect x="2.5" y="2.5" width="11" height="11" rx="3" /><path d="M5.5 8.2l1.8 1.8 3.4-3.8" />',
+  screen: '<rect x="2" y="3" width="12" height="8" rx="1.5" /><path d="M6 13.5h4" />',
+  music: '<path d="M6 12V3.5l7-1.5V10.5" /><circle cx="4.5" cy="12" r="1.6" /><circle cx="11.5" cy="10.5" r="1.6" />',
+  agenda: '<rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 7h11M5.5 2v3M10.5 2v3" />',
+};
+
+function renderSummary() {
+  const box = $('sum-grid');
+  if (!box) return;
+  const t = statsToday ?? {};
+  const now = Date.now();
+  const focusMin = Math.round((t.focusMs ?? 0) / 60_000);
+  const focusGoal = Math.max(1, focusSettings.focusMinutes * focusSettings.cycles);
+  const tasks = todayTodos();
+  const nextDue = todoItems.filter((x) => !x.done && x.due).sort(byDue)[0];
+  const screen = screenState?.today;
+  const event = (calendarEvents ?? []).find((e) => e.end > now);
+  const cards = [
+    { id: 'focus', icon: 'focus', label: 'Fokus', value: `${focusMin} m`, ratio: focusMin / focusGoal, sub: `dari ${focusGoal} m · ${t.focus ?? 0} sesi` },
+    { id: 'water', icon: 'water', label: 'Minum', value: `${waterLiters(t.waterMl ?? 0)} L`, ratio: (t.waterMl ?? 0) / waterSettings.target, sub: `dari ${waterLiters(waterSettings.target)} L` },
+    {
+      id: 'time',
+      icon: 'tasks',
+      label: 'Tugas',
+      value: `${tasks.done}/${tasks.total}`,
+      ratio: tasks.total ? tasks.done / tasks.total : 0,
+      sub: nextDue ? `${dueLabel(nextDue.due, { short: true }).text} · ${nextDue.text}` : tasks.total ? 'selesai hari ini' : 'belum ada tugas',
+    },
+    { id: 'device', icon: 'screen', label: 'Waktu layar', value: screen?.totalMs >= 60_000 ? minutesText(screen.totalMs) : '0 m', sub: screen?.apps?.[0]?.name ? `terlama: ${screen.apps[0].name}` : 'belum ada' },
+    {
+      id: 'music',
+      icon: 'music',
+      label: media.title && media.playing ? 'Sedang diputar' : 'Musik',
+      value: media.title || (statsMusic?.listenMs >= 60_000 ? minutesText(statsMusic.listenMs) : '–'),
+      small: Boolean(media.title),
+      sub: media.title ? media.artist || media.app || '' : statsMusic?.listenMs ? 'didengar hari ini' : 'belum ada lagu',
+    },
+    {
+      id: 'time',
+      icon: 'agenda',
+      label: 'Berikutnya',
+      value: event ? (event.allDay ? 'Hari ini' : eventTime(event, now)) : nextReminder ? nextReminder.when.replace(/^Hari ini /, '') : '–',
+      sub: event ? event.title : nextReminder ? nextReminder.title : 'jadwal kosong',
+    },
+  ];
+  box.replaceChildren();
+  for (const card of cards) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'sum-card';
+    b.innerHTML = `<span class="sum-head"><span class="sum-label"></span><svg viewBox="0 0 16 16" aria-hidden="true">${SUM_ICONS[card.icon]}</svg></span>`;
+    b.querySelector('.sum-label').textContent = card.label;
+    const value = document.createElement('b');
+    value.className = `sum-value${card.small ? ' small' : ''}`;
+    value.textContent = card.value;
+    b.append(value);
+    if (card.ratio !== undefined) {
+      const bar = document.createElement('i');
+      bar.className = 'sum-bar';
+      const fill = document.createElement('span');
+      fill.style.width = `${Math.min(100, Math.max(0, card.ratio * 100)).toFixed(1)}%`;
+      bar.append(fill);
+      b.append(bar);
+    }
+    const sub = document.createElement('span');
+    sub.className = 'sum-sub';
+    sub.textContent = card.sub;
+    b.append(sub);
+    b.title = `${card.label}: ${card.value}${card.sub ? ` · ${card.sub}` : ''}`;
+    b.addEventListener('click', () => goToSection(card.id));
+    box.append(b);
+  }
+}
+
+// 4 aplikasi pertama sebagai "dadu" 2×2: tiap beberapa detik keempatnya bergeser searah jarum jam
+// (aplikasi ke-5 dst. ikut bergiliran masuk). Kotak dibangun ulang hanya saat daftar aplikasi berubah.
+const DICE_CELLS = [[0, 0], [1, 0], [1, 1], [0, 1]]; // kiri atas → kanan atas → kanan bawah → kiri bawah
+const DICE_STEP = 19.5; // lebar kotak 17,5px + celah 2px (style.css .home-dice)
+let diceKey = null;
+let diceTiles = [];
+let diceTurn = 0;
+
 function renderQuickApps() {
   const box = $('quick-apps');
+  const apps = launcherApps.slice(0, Math.max(4, QUICK_APPS));
+  const key = apps.map((a) => `${a.index}:${a.name}:${a.icon ? 1 : 0}`).join('|');
+  if (key === diceKey) return;
+  diceKey = key;
+  diceTurn = 0;
   box.replaceChildren();
-  for (const item of launcherApps.slice(0, QUICK_APPS)) {
+  diceTiles = [];
+  if (!apps.length) {
+    box.classList.add('empty');
+    box.append(actionChip('+ Aplikasi', () => window.kapsul.openSettings('apps'), { title: 'Tambah aplikasi favorit' }));
+    return;
+  }
+  box.classList.remove('empty');
+  diceTiles = apps.map((item) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'quick-app';
@@ -1805,20 +2258,30 @@ function renderQuickApps() {
     }
     button.addEventListener('click', () => launch(item.index));
     box.append(button);
-  }
-  if (!launcherApps.length) box.append(actionChip('+ Tambah aplikasi', () => window.kapsul.openSettings('apps')));
-  const search = document.createElement('button');
-  search.type = 'button';
-  search.className = 'quick-app search';
-  search.title = 'Cari aplikasi, hitung, timer…';
-  search.setAttribute('aria-label', search.title);
-  search.innerHTML = '<svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" /></svg>';
-  search.addEventListener('click', () => {
-    setDetail(true);
-    $('app-search').focus();
+    return button;
   });
-  box.append(search);
+  placeDice(false);
 }
+
+// Posisi tiap aplikasi pada giliran sekarang; yang tidak kebagian kotak menunggu (tersembunyi).
+function placeDice(animate = true) {
+  const n = diceTiles.length;
+  diceTiles.forEach((tile, i) => {
+    const slot = (i + diceTurn) % Math.max(4, n);
+    const cell = DICE_CELLS[slot];
+    tile.classList.toggle('no-anim', !animate);
+    tile.classList.toggle('away', !cell);
+    if (cell) tile.style.translate = `${cell[0] * DICE_STEP}px ${cell[1] * DICE_STEP}px`;
+    tile.tabIndex = cell ? 0 : -1;
+  });
+}
+
+setInterval(() => {
+  if (!open || PAGES[pageIndex]?.id !== 'home' || diceTiles.length < 2) return;
+  if ($('quick-apps').matches(':hover, :focus-within')) return;
+  diceTurn = (diceTurn + 1) % Math.max(4, diceTiles.length);
+  placeDice(true);
+}, 3200);
 
 function renderClock(now) {
   const time = $('clock-time');
@@ -1871,7 +2334,7 @@ const TI_DATE = new Intl.DateTimeFormat('id-ID', { weekday: 'short', day: 'numer
 function renderTodoIsland() {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const open = todoItems.filter((t) => !t.done);
+  const open = todoItems.filter((t) => !t.done).sort(byDue);
   const doneToday = todoItems.filter((t) => t.done && (t.doneAt ?? 0) >= today).sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
   const total = open.length + doneToday.length;
   $('ti-done').textContent = String(doneToday.length);
@@ -1909,6 +2372,14 @@ function renderTodoIsland() {
     text.className = 'ti-text';
     text.textContent = todo.text;
     b.append(text);
+    if (todo.due && !todo.done) {
+      const { text: label, state } = dueLabel(todo.due, { short: true });
+      const due = document.createElement('span');
+      due.className = `ti-due${state ? ` ${state}` : ''}`;
+      due.textContent = label;
+      b.append(due);
+      b.title = `Tenggat ${dueLabel(todo.due).text} · klik untuk tandai selesai`;
+    }
     b.addEventListener('click', () => {
       if (!todo.done) {
         react('happy', 1200);
@@ -2232,11 +2703,13 @@ function renderDeviceTop() {
     const percent = Math.round(battery.level * 100);
     $('device-bat-fill').style.width = `${Math.max(4, percent)}%`;
     $('device-bat-percent').textContent = `${percent}%`;
-    $('device-bat-state').textContent = battery.charging
-      ? ` · mengisi${Number.isFinite(battery.chargingTime) && battery.chargingTime > 0 ? `, penuh ±${durationText(battery.chargingTime)}` : ''}`
+    // Kotak kecil: cukup "mengisi" / sisa waktu; rinciannya di tooltip.
+    $('device-bat-state').textContent = battery.charging ? ' · isi' : '';
+    box.title = battery.charging
+      ? `Mengisi${Number.isFinite(battery.chargingTime) && battery.chargingTime > 0 ? `, penuh ±${durationText(battery.chargingTime)}` : ''}`
       : Number.isFinite(battery.dischargingTime) && battery.dischargingTime > 0
-        ? ` · cukup ±${durationText(battery.dischargingTime)}`
-        : ' · pakai baterai';
+        ? `Cukup ±${durationText(battery.dischargingTime)}`
+        : 'Pakai baterai';
     box.classList.toggle('charging', battery.charging);
     box.classList.toggle('low', lowBattery());
   }
@@ -2372,6 +2845,10 @@ function renderPage() {
   if (page === 'home') renderHome(now);
   else if (page === 'chat') renderChat();
   else if (page === 'camera') renderCamera();
+  else if (page === 'wallpaper') {
+    if (!wallLoaded) loadWallpapers();
+    else renderWallpapers();
+  }
   else if (page === 'music') {
     renderLyrics();
     queueMicrotask(renderIslandLyrics);
@@ -2384,6 +2861,7 @@ function renderPage() {
     renderHabits();
   } else if (page === 'weather') renderWeather();
   else if (page === 'focus') renderFocusSummary();
+  else if (page === 'water') renderWaterPage();
   else if (page === 'device') renderDeviceTop();
   else if (page === 'inbox') renderInboxSummary();
   else if (page === 'work') renderClaudeCard();
@@ -3509,6 +3987,11 @@ $('chat-last').addEventListener('click', () => {
 (() => {
   let depth = 0;
   const hasFiles = (event) => [...(event.dataTransfer?.types ?? [])].includes('Files');
+  // Selama diseret, jenis file sudah terbaca (bukan isinya): semua gambar = nanti tanya mau dipakai untuk apa.
+  const onlyImages = (event) => {
+    const items = [...(event.dataTransfer?.items ?? [])].filter((i) => i.kind === 'file');
+    return items.length > 0 && items.every((i) => i.type.startsWith('image/'));
+  };
   const hide = () => {
     depth = 0;
     $('drop-hint').hidden = true;
@@ -3519,7 +4002,9 @@ $('chat-last').addEventListener('click', () => {
     event.preventDefault();
     depth++;
     if (!open) window.kapsul.expand(true);
-    goToSection('chat', { sound: false });
+    const images = onlyImages(event);
+    if (!images) goToSection('chat', { sound: false });
+    $('drop-hint-text').textContent = images ? 'Lepas gambarnya, lalu pilih: wallpaper atau chat' : 'Lepas di sini, biar Zeno melahapnya 😋';
     $('drop-hint').hidden = false;
     shell.classList.add('dropping');
     if (depth === 1) react('hungry', 1600);
@@ -3539,9 +4024,215 @@ $('chat-last').addEventListener('click', () => {
     event.preventDefault();
     if (!hasFiles(event)) return;
     hide();
-    attachFiles(event.dataTransfer.files, { x: event.clientX, y: event.clientY });
+    const files = [...event.dataTransfer.files];
+    const point = { x: event.clientX, y: event.clientY };
+    if (files.length && files.every((f) => f.type.startsWith('image/'))) askDropTarget(files, point);
+    else attachFiles(files, point);
   });
 })();
+
+// Pilihan untuk gambar yang dilepas: wallpaper atau chat.
+let dropFiles = null;
+function askDropTarget(files, point) {
+  dropFiles = { files, point };
+  const thumbs = $('drop-thumbs');
+  thumbs.replaceChildren();
+  // Pratinjau lewat data URL (CSP island hanya mengizinkan gambar 'self' & data:).
+  for (const file of files.slice(0, 3)) {
+    const img = document.createElement('img');
+    img.alt = '';
+    thumbs.append(img);
+    const reader = new FileReader();
+    reader.onload = () => (img.src = reader.result);
+    reader.readAsDataURL(file);
+  }
+  $('drop-choice-title').textContent = files.length > 1 ? `${files.length} gambar ini untuk apa?` : 'Gambar ini untuk apa?';
+  $('drop-wallpaper').lastChild.textContent = files.length > 1 ? ' Tambah ke wallpaper' : ' Jadikan wallpaper';
+  $('drop-choice').hidden = false;
+  react('surprised', 900);
+  $('drop-wallpaper').focus();
+}
+
+function closeDropChoice() {
+  $('drop-choice').hidden = true;
+  $('drop-thumbs').replaceChildren();
+  dropFiles = null;
+}
+
+$('drop-wallpaper').addEventListener('click', () => {
+  const picked = dropFiles;
+  closeDropChoice();
+  if (!picked) return;
+  goToSection('wallpaper', { sound: false });
+  addWallpaperFiles(picked.files);
+});
+$('drop-chat').addEventListener('click', () => {
+  const picked = dropFiles;
+  closeDropChoice();
+  if (!picked) return;
+  goToSection('chat', { sound: false });
+  attachFiles(picked.files, picked.point);
+});
+$('drop-cancel').addEventListener('click', closeDropChoice);
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !$('drop-choice').hidden) closeDropChoice();
+});
+
+// ---------- Wallpaper dari island ----------
+// Geser (scroll/seret/panah) = pindah gambar dan langsung dipasang sebagai wallpaper desktop.
+let wall = { items: [], current: null, hasOriginal: false };
+let wallIndex = 0;
+let wallLoaded = false;
+let wallApplyTimer = null;
+const WALL_STEP = 98; // lebar thumbnail 92px + celah 6px (style.css .wall-thumb)
+
+async function loadWallpapers() {
+  applyWallState(await window.kapsul.wallpapers());
+}
+
+function applyWallState(state) {
+  if (!state) return;
+  wall = state;
+  wallLoaded = true;
+  const at = wall.items.findIndex((w) => w.id === wall.current);
+  if (at >= 0) wallIndex = at;
+  wallIndex = Math.min(wallIndex, Math.max(0, wall.items.length - 1));
+  $('wall-error').hidden = !state.error;
+  $('wall-error').textContent = state.error ?? '';
+  renderWallpapers();
+}
+
+function renderWallpapers() {
+  const track = $('wall-track');
+  track.replaceChildren();
+  $('wall-count').textContent = wall.items.length ? `${wallIndex + 1}/${wall.items.length}` : '';
+  // Slideshow nyala: tanda kecil "▶ 15 m" di island; pengaturannya di detail.
+  const every = wall.slideshow ?? 0;
+  $('wall-show').hidden = !every || wall.items.length < 2;
+  $('wall-show').textContent = `▶ ${every >= 1440 ? '1 hari' : every >= 60 ? `${every / 60} j` : `${every} m`}`;
+  $('wall-show').title = `Slideshow tiap ${every >= 1440 ? 'hari' : every >= 60 ? `${every / 60} jam` : `${every} menit`}${wall.shuffle ? ', acak' : ''}`;
+  $('wall-every').value = String(every);
+  $('wall-shuffle').checked = Boolean(wall.shuffle);
+  $('wall-shuffle').disabled = !every;
+  if (!wall.items.length) {
+    const empty = document.createElement('button');
+    empty.type = 'button';
+    empty.className = 'wall-empty';
+    empty.innerHTML = '<svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg>';
+    empty.append('Unggah gambar untuk wallpaper');
+    empty.addEventListener('click', pickWallpaper);
+    track.append(empty);
+  }
+  wall.items.forEach((item, i) => {
+    const thumb = document.createElement('button');
+    thumb.type = 'button';
+    thumb.className = 'wall-thumb';
+    thumb.classList.toggle('focus', i === wallIndex);
+    thumb.classList.toggle('on', item.id === wall.current);
+    thumb.style.backgroundImage = item.thumb ? `url("${item.thumb}")` : '';
+    thumb.setAttribute('aria-label', `Wallpaper ${i + 1}${item.id === wall.current ? ' (terpasang)' : ''}`);
+    thumb.addEventListener('click', () => moveWall(i - wallIndex, { now: true }));
+    track.append(thumb);
+  });
+  // Gambar terpilih selalu di tengah deretan.
+  track.style.translate = `${-wallIndex * WALL_STEP}px 0`;
+  renderWallGrid();
+}
+
+function renderWallGrid() {
+  const grid = $('wall-grid');
+  grid.replaceChildren();
+  $('wall-kicker').textContent = `Koleksi wallpaper · ${wall.items.length}`;
+  $('wall-restore').hidden = !wall.hasOriginal;
+  const add = document.createElement('button');
+  add.type = 'button';
+  add.className = 'wall-cell add';
+  add.innerHTML = '<svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg><span>Unggah</span>';
+  add.addEventListener('click', pickWallpaper);
+  grid.append(add);
+  for (const item of wall.items) {
+    const cell = document.createElement('div');
+    cell.className = 'wall-cell';
+    cell.classList.toggle('on', item.id === wall.current);
+    cell.style.backgroundImage = item.thumb ? `url("${item.thumb}")` : '';
+    const use = document.createElement('button');
+    use.type = 'button';
+    use.className = 'wall-use';
+    use.setAttribute('aria-label', 'Pasang wallpaper ini');
+    use.addEventListener('click', async () => applyWallState(await window.kapsul.wallpaperUse(item.id)));
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'notif-x wall-remove';
+    remove.setAttribute('aria-label', 'Hapus dari koleksi');
+    remove.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>';
+    remove.addEventListener('click', async () => applyWallState(await window.kapsul.wallpaperRemove(item.id)));
+    cell.append(use, remove);
+    grid.append(cell);
+  }
+}
+
+// Pindah n gambar; dipasang setelah geseran berhenti sebentar (supaya scroll cepat tidak memasang semuanya).
+function moveWall(delta, { now = false } = {}) {
+  if (!wall.items.length) return;
+  const next = Math.max(0, Math.min(wall.items.length - 1, wallIndex + delta));
+  const changed = next !== wallIndex;
+  wallIndex = next;
+  renderWallpapers();
+  if (changed) sfx('swipe');
+  clearTimeout(wallApplyTimer);
+  const id = wall.items[wallIndex].id;
+  if (id === wall.current) return;
+  wallApplyTimer = setTimeout(async () => applyWallState(await window.kapsul.wallpaperUse(id)), now ? 0 : 450);
+}
+
+async function pickWallpaper() {
+  applyWallState(await window.kapsul.wallpaperPick());
+  react('happy', 1200);
+}
+
+// Geser: roda mouse/touchpad, seret, atau tombol panah.
+let wheelSum = 0;
+$('wall-strip').addEventListener('wheel', (event) => {
+  event.preventDefault();
+  wheelSum += Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  if (Math.abs(wheelSum) < 60) return;
+  moveWall(Math.sign(wheelSum));
+  wheelSum = 0;
+}, { passive: false });
+let wallDrag = null;
+$('wall-strip').addEventListener('pointerdown', (event) => {
+  wallDrag = { x: event.clientX, moved: 0 };
+});
+window.addEventListener('pointerup', (event) => {
+  if (!wallDrag) return;
+  const dx = event.clientX - wallDrag.x;
+  wallDrag = null;
+  if (Math.abs(dx) > 30) moveWall(dx < 0 ? 1 : -1);
+});
+$('wall-strip').addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowRight') moveWall(1, { now: true });
+  else if (event.key === 'ArrowLeft') moveWall(-1, { now: true });
+});
+$('wall-add').addEventListener('click', pickWallpaper);
+$('wall-every').addEventListener('change', async () => applyWallState(await window.kapsul.wallpaperSlideshow(Number($('wall-every').value), $('wall-shuffle').checked)));
+$('wall-shuffle').addEventListener('change', async () => applyWallState(await window.kapsul.wallpaperSlideshow(Number($('wall-every').value), $('wall-shuffle').checked)));
+// Slideshow mengganti gambar dari main: deretan di island ikut bergeser.
+window.kapsul.onWallpapers?.((state) => applyWallState(state));
+$('wall-all').addEventListener('click', () => setDetail(true));
+$('wall-restore').addEventListener('click', async () => applyWallState(await window.kapsul.wallpaperUse('original')));
+
+// Gambar diseret ke island saat section Wallpaper terbuka = tambahkan ke koleksi (bukan lampiran chat).
+async function addWallpaperFiles(files) {
+  for (const file of [...files].filter((f) => f.type.startsWith('image/')).slice(0, 10)) {
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+    if (dataUrl) applyWallState(await window.kapsul.wallpaperAdd(dataUrl));
+  }
+}
 
 // ---------- Cari aplikasi ----------
 // Tombol panel + semua aplikasi terpasang. ↑↓ pilih, Enter buka.
@@ -3819,15 +4510,147 @@ function renderWeekChart(chart, days, value, text, title) {
   }
 }
 
-// Detail Fokus: sesi & menit hari ini, grafik 7 hari terakhir.
+// ---------- Detail Fokus: analisa hari ini & 7 hari ----------
+// Warna per metrik tetap (palet tervalidasi di latar panel, lihat style.css --an-*): fokus, minum, tugas.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const svgEl = (tag, attrs = {}) => {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  return el;
+};
+const WEEKDAY_LONG = new Intl.DateTimeFormat('id-ID', { weekday: 'long' });
+const dayName = (key) => (key ? WEEKDAY_LONG.format(new Date(`${key}T12:00`)) : 'Hari ini');
+
+function todayTodos() {
+  const start = dayStart(Date.now());
+  const done = todoItems.filter((t) => t.done && (t.doneAt ?? 0) >= start).length;
+  const open = todoItems.filter((t) => !t.done).length;
+  return { done, total: done + open };
+}
+
+// Satu cincin (monokrom): menit fokus hari ini terhadap target (lama fokus × sesi per siklus).
+function ringMeter(svg, ratio, label) {
+  svg.replaceChildren();
+  const r = 50;
+  const len = 2 * Math.PI * r;
+  svg.append(svgEl('circle', { class: 'ring-track', cx: 60, cy: 60, r }));
+  const bar = svgEl('circle', { class: 'ring-bar', cx: 60, cy: 60, r });
+  // Lewat style (bukan atribut): aturan .ring-bar lama di style.css memaksa stroke-dasharray.
+  bar.style.strokeDasharray = `${(len * Math.min(1, Math.max(0, ratio))).toFixed(2)} ${len.toFixed(2)}`;
+  svg.append(bar);
+  svg.setAttribute('aria-label', label);
+}
+
+function renderRings() {
+  const t = statsToday ?? {};
+  const minutes = Math.round((t.focusMs ?? 0) / 60_000);
+  const goal = Math.max(1, focusSettings.focusMinutes * focusSettings.cycles);
+  const ratio = minutes / goal;
+  ringMeter($('focus-rings'), ratio, `Fokus hari ini ${minutes} dari ${goal} menit`);
+  $('rings-pct').textContent = `${Math.min(999, Math.round(ratio * 100))}%`;
+  $('kpi-min').textContent = String(minutes);
+  $('kpi-sessions').textContent = String(t.focus ?? 0);
+}
+
+// Bar 7 hari + garis rata-rata; label nilai hanya hari ini & hari terbaik; tooltip per batang.
+// opts: value(d) → angka, label(n) → teks nilai, tip(d, n) → teks tooltip.
+function renderFocusBars(days) {
+  return renderBars($('focus-bars'), days, {
+    value: (d) => Math.round((d.focusMs ?? 0) / 60_000),
+    label: (n) => String(n),
+    tip: (d, n) => `${n} menit · ${d.focus ?? 0} sesi`,
+    floor: 30,
+  });
+}
+
+function renderBars(box, days, { value, label: labelText, tip: tipText, floor = 1, mini = false }) {
+  box.replaceChildren();
+  const minutes = days.map(value);
+  const max = Math.max(floor, ...minutes);
+  const avg = minutes.reduce((a, b) => a + b, 0) / Math.max(1, minutes.length);
+  const best = minutes.indexOf(Math.max(...minutes));
+  const W = 300;
+  const H = mini ? 62 : 86;
+  const base = H - 20; // garis dasar (di bawahnya label hari)
+  const top = 12;
+  const slot = W / days.length;
+  const bw = 18;
+  const y = (m) => base - ((base - top) * m) / max;
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'bars-svg', role: 'img', 'aria-label': days.map((d, i) => `${dayName(d.key)}: ${tipText(d, minutes[i])}`).join(', ') });
+  for (const frac of [0.5, 1]) svg.append(svgEl('line', { class: 'bars-grid', x1: 0, x2: W, y1: y(max * frac), y2: y(max * frac) }));
+  svg.append(svgEl('line', { class: 'bars-base', x1: 0, x2: W, y1: base, y2: base }));
+  const tip = document.createElement('div');
+  tip.className = 'an-tip';
+  tip.hidden = true;
+  days.forEach((d, i) => {
+    const cx = slot * i + slot / 2;
+    const m = minutes[i];
+    const h = Math.max(m ? 3 : 0, base - y(m));
+    const today = i === days.length - 1;
+    // Batang: ujung atas membulat 4px, menempel di garis dasar.
+    if (h > 0) {
+      const r = Math.min(4, h);
+      const x0 = cx - bw / 2;
+      const y0 = base - h;
+      svg.append(svgEl('path', { class: `bar k-focus${today ? ' today' : ''}`, d: `M${x0} ${base}V${y0 + r}Q${x0} ${y0} ${x0 + r} ${y0}H${x0 + bw - r}Q${x0 + bw} ${y0} ${x0 + bw} ${y0 + r}V${base}Z` }));
+    }
+    // Label nilai hanya untuk hari ini & hari terbaik (bukan di setiap batang).
+    if (m && (today || i === best)) {
+      const label = svgEl('text', { class: 'bars-value', x: cx, y: base - h - 4, 'text-anchor': 'middle' });
+      label.textContent = labelText(m);
+      svg.append(label);
+    }
+    const day = svgEl('text', { class: `bars-day${today ? ' today' : ''}`, x: cx, y: H - 8, 'text-anchor': 'middle' });
+    day.textContent = today ? 'Ini' : WEEKDAY.format(new Date(`${d.key}T12:00`));
+    svg.append(day);
+    // Area sentuh selebar kolom (lebih besar dari batangnya).
+    const hit = svgEl('rect', { class: 'bars-hit', x: slot * i, y: 0, width: slot, height: base });
+    hit.addEventListener('pointerenter', () => {
+      tip.hidden = false;
+      tip.innerHTML = '';
+      const b = document.createElement('b');
+      b.textContent = today ? 'Hari ini' : dayName(d.key);
+      tip.append(b, tipText(d, m));
+      tip.style.left = `${(100 * cx) / W}%`;
+      tip.style.top = `${(100 * Math.min(y(m), base - 10)) / H}%`;
+    });
+    hit.addEventListener('pointerleave', () => (tip.hidden = true));
+    svg.append(hit);
+  });
+  if (avg > 0) {
+    svg.append(svgEl('line', { class: 'bars-avg', x1: 0, x2: W, y1: y(avg), y2: y(avg) }));
+    const label = svgEl('text', { class: 'bars-avg-label', x: 2, y: y(avg) - 4, 'text-anchor': 'start' });
+    label.textContent = `rata-rata ${labelText(Math.round(avg))}`;
+    svg.append(label);
+  }
+  box.append(svg, tip);
+  return { minutes, avg, best };
+}
+
+// Satu kalimat kesimpulan: hari ini dibanding rata-rata 7 hari + hari terbaik.
+function renderFocusInsight(days, { minutes, avg, best }) {
+  const today = minutes[minutes.length - 1] ?? 0;
+  const el = $('focus-insight');
+  if (!minutes.some((m) => m > 0)) {
+    el.textContent = 'Belum ada sesi fokus minggu ini.';
+    return;
+  }
+  const diff = avg ? Math.round(((today - avg) / avg) * 100) : 0;
+  const bestText = best === minutes.length - 1 ? 'hari ini' : dayName(days[best].key);
+  el.textContent = today
+    ? `${Math.abs(diff)}% ${diff >= 0 ? 'di atas' : 'di bawah'} rata-rata · terbaik ${bestText}`
+    : `Rata-rata ${Math.round(avg)} menit/hari · terbaik ${bestText}`;
+}
+
 function renderFocusReport() {
   const t = statsToday ?? {};
-  $('focus-stat-sessions').textContent = String(t.focus ?? 0);
-  $('focus-stat-minutes').textContent = String(Math.round((t.focusMs ?? 0) / 60_000));
-  const days = statsWeek.length ? statsWeek : [{ key: '', focus: t.focus ?? 0 }];
-  $('focus-stat-week').textContent = String(days.reduce((sum, d) => sum + (d.focus ?? 0), 0));
-  $('focus-week-total').textContent = `${days.reduce((sum, d) => sum + (d.focus ?? 0), 0)} sesi`;
-  renderWeekChart($('focus-week'), days, (d) => d.focus ?? 0, (d) => String(d.focus), (d) => `${d.focus ?? 0} sesi${d.focusMs ? ` · ${Math.round(d.focusMs / 60_000)} menit` : ''}`);
+  const days = statsWeek.length ? statsWeek : [{ key: '', focus: t.focus ?? 0, focusMs: t.focusMs ?? 0 }];
+  const totalMin = days.reduce((sum, d) => sum + Math.round((d.focusMs ?? 0) / 60_000), 0);
+  const sessions = days.reduce((sum, d) => sum + (d.focus ?? 0), 0);
+  $('focus-week-total').textContent = `${totalMin} menit`;
+  $('kpi-week').textContent = String(sessions);
+  renderRings();
+  renderFocusInsight(days, renderFocusBars(days));
 }
 
 // Detail Musik tanpa lirik: waktu dengar & lagu terlama hari ini, grafik 7 hari.
@@ -3888,37 +4711,68 @@ const hoursText = (ms) => {
 };
 const shortDate = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' });
 
+// Donat waktu layar: 4 aplikasi terlama + "Lainnya" (abu-abu). Celah 2px antar irisan.
+const SCREEN_SLOTS = ['#3987e5', 'rgba(57, 135, 229, 0.66)', 'rgba(57, 135, 229, 0.4)'];
+function renderScreenDonut(today) {
+  const svg = $('screen-donut');
+  const legend = $('screen-legend');
+  svg.replaceChildren();
+  legend.replaceChildren();
+  const total = today.totalMs || 0;
+  const apps = (today.apps ?? []).filter((a) => a.ms >= 30_000);
+  const top = apps.slice(0, 3);
+  const rest = total - top.reduce((n, a) => n + a.ms, 0);
+  const slices = top.map((a, i) => ({ name: a.name, ms: a.ms, color: SCREEN_SLOTS[i] }));
+  if (rest >= 30_000) slices.push({ name: 'Lainnya', ms: rest, color: '#3f3f46' });
+  const r = 46;
+  const len = 2 * Math.PI * r;
+  svg.append(svgEl('circle', { class: 'ring-track donut', cx: 60, cy: 60, r }));
+  let offset = 0;
+  for (const slice of slices) {
+    const part = (len * slice.ms) / Math.max(total, 1);
+    const gap = slices.length > 1 ? Math.min(2.5, part / 2) : 0;
+    svg.append(svgEl('circle', { class: 'donut-slice', cx: 60, cy: 60, r, stroke: slice.color, 'stroke-dasharray': `${Math.max(0, part - gap).toFixed(2)} ${len.toFixed(2)}`, 'stroke-dashoffset': (-offset).toFixed(2) }));
+    offset += part;
+  }
+  svg.setAttribute('aria-label', slices.length ? `Waktu layar hari ini: ${slices.map((x) => `${x.name} ${minutesText(x.ms)}`).join(', ')}` : 'Belum ada waktu layar hari ini');
+  if (!slices.length) {
+    const li = document.createElement('li');
+    li.className = 'ring-empty';
+    li.textContent = 'Zeno mencatat aplikasi yang kamu pakai (tanpa saat idle atau terkunci). Datanya hanya disimpan di laptop ini.';
+    legend.append(li);
+    return;
+  }
+  for (const slice of slices) {
+    const li = document.createElement('li');
+    const sw = document.createElement('i');
+    sw.style.background = slice.color;
+    const name = document.createElement('span');
+    name.textContent = slice.name;
+    name.title = slice.name;
+    const value = document.createElement('b');
+    value.textContent = minutesText(slice.ms);
+    const pct = document.createElement('small');
+    pct.textContent = `${Math.round((100 * slice.ms) / total)}%`;
+    li.append(sw, name, value, pct);
+    legend.append(li);
+  }
+}
+
 function renderScreen() {
   const s = screenState ?? { today: { totalMs: 0, apps: [], count: 0 }, week: [], lastWeek: null };
-  $('screen-total').textContent = s.today.totalMs >= 60_000 ? minutesText(s.today.totalMs) : '';
-  const list = $('screen-top');
-  list.replaceChildren();
-  const longest = s.today.apps[0]?.ms || 1;
-  for (const a of s.today.apps) {
-    const li = document.createElement('li');
-    const name = document.createElement('span');
-    name.className = 'music-name';
-    const b = document.createElement('b');
-    b.textContent = a.name;
-    name.append(b);
-    const time = document.createElement('small');
-    time.textContent = minutesText(a.ms);
-    const bar = document.createElement('i');
-    bar.style.width = `${(100 * a.ms) / longest}%`;
-    li.append(name, time, bar);
-    list.append(li);
-  }
-  if (!s.today.apps.length) {
-    const li = document.createElement('li');
-    li.className = 'music-empty';
-    li.textContent = 'Zeno mencatat aplikasi yang kamu pakai (tanpa saat idle atau terkunci). Datanya hanya disimpan di laptop ini.';
-    list.append(li);
-  }
+  $('screen-total').textContent = s.today.totalMs >= 60_000 ? minutesText(s.today.totalMs) : '0 m';
+  renderScreenDonut(s.today);
 
   const days = s.week.length ? s.week : [{ key: '', ms: s.today.totalMs }];
   const total = days.reduce((n, d) => n + (d.ms ?? 0), 0);
   $('screen-week-total').textContent = total >= 60_000 ? `${minutesText(total / days.length)} / hari` : '';
-  renderWeekChart($('screen-week'), days, (d) => d.ms ?? 0, (d) => `${hoursText(d.ms)} j`, (d) => `${minutesText(d.ms ?? 0)} waktu layar`);
+  renderBars($('screen-week'), days, {
+    value: (d) => Math.round((d.ms ?? 0) / 60_000),
+    label: (n) => (n >= 60 ? `${(n / 60).toLocaleString('id-ID', { maximumFractionDigits: 1 })} j` : `${n} m`),
+    tip: (d) => `${minutesText(d.ms ?? 0)} waktu layar`,
+    floor: 60,
+    mini: true,
+  });
 
   const w = s.lastWeek;
   $('screen-weekly').hidden = !w;
@@ -3953,6 +4807,7 @@ window.kapsul.onStats((data) => {
   petState = data?.pet ?? null;
   statsWeek = data?.week ?? [];
   statsMusic = data?.music ?? null;
+  renderWater();
   renderFocusReport();
   renderMusicReport();
   if (!claudeState.active.length) renderWorkStats();
@@ -3977,7 +4832,8 @@ function renderAgenda() {
   const now = Date.now();
   const list = $('agenda-list');
   list.replaceChildren();
-  const events = (calendarEvents ?? []).filter((e) => e.end > now).slice(0, 5);
+  const untilTomorrow = dayStart(now) + 2 * 86_400_000;
+  const events = (calendarEvents ?? []).filter((e) => e.end > now && e.start < untilTomorrow).slice(0, 5);
   $('agenda-block').hidden = calendarEvents === null;
   $('agenda-kicker').textContent = events.length ? 'Agenda' : 'Agenda · kosong';
   if (!events.length) {
@@ -4007,6 +4863,7 @@ function renderAgenda() {
 window.kapsul.onCalendar((data) => {
   calendarEvents = data?.connected ? data.events : null;
   renderAgenda();
+  renderCalendar();
   renderPillText();
 });
 
@@ -4052,8 +4909,8 @@ window.kapsul.onHabits((list) => {
 
 // level: 'ok' | 'mid' (kuning) | 'high' (merah) → warna meter.
 function bar(id, percent, text, level = 'ok') {
-  $(id).style.width = `${percent ?? 0}%`;
-  $(id).dataset.level = level;
+  $(id).style.strokeDasharray = `${Math.max(0, Math.min(100, percent ?? 0))} 100`;
+  $(id).dataset.level = level; // dipakai teks peringatan, bukan warna meter
   $(`${id}-text`).textContent = text;
 }
 
@@ -4064,11 +4921,14 @@ function renderSystem() {
   if (!s) return;
   const net = $('system-net');
   net.className = `system-net ${s.online === false ? 'off' : s.online ? 'on' : ''}`;
+  // Status internet = titik kecil di tombol Wi-Fi (hijau online, merah putus), teks di tooltip.
+  $('quick-wifi').dataset.net = s.online === false ? 'off' : s.online ? 'on' : '';
+  $('quick-wifi').title = `Wi-Fi · ${s.online == null ? 'mengecek internet' : s.online ? `online${s.ms ? ` ${s.ms} ms` : ''}` : 'internet putus'}`;
   net.textContent = s.online == null ? 'Mengecek…' : s.online ? `Online${s.ms ? ` · ${s.ms} ms` : ''}` : 'Internet putus';
   bar('system-cpu', s.cpu, s.cpu != null ? `${s.cpu}%` : '–', loadLevel(s.cpu));
   bar('system-ram', s.memory?.percent, s.memory ? `${s.memory.percent}%` : '–', loadLevel(s.memory?.percent));
   const diskFree = s.disk ? 100 - s.disk.percent : null;
-  $('system-disk-label').textContent = s.disk?.drive ? `Sisa disk ${s.disk.drive}` : 'Sisa disk';
+  $('system-disk-label').textContent = s.disk?.drive ? `Disk ${s.disk.drive}` : 'Disk';
   bar('system-disk', s.disk?.percent, s.disk ? bytesText(s.disk.free) : '–', diskFree == null ? 'ok' : diskFree < 10 ? 'high' : diskFree < 20 ? 'mid' : 'ok');
 }
 
@@ -4151,24 +5011,112 @@ setInterval(() => {
 
 // ---------- Zeno peliharaan ----------
 
+// ---------- Minum air ----------
+
+function renderWater() {
+  renderFocusReport();
+  renderWaterPage();
+}
+
+// ---------- Section Minum ----------
+const HOUR = new Intl.DateTimeFormat('id-ID', { hour: '2-digit' });
+
+function renderWaterPage() {
+  const t = statsToday ?? {};
+  const drank = t.waterMl ?? 0;
+  const ratio = drank / waterSettings.target;
+  $('wt-now').textContent = waterLiters(drank);
+  $('wt-goal').textContent = `/ ${waterLiters(waterSettings.target)} L`;
+  const left = Math.max(0, Math.ceil((waterSettings.target - drank) / waterSettings.ml));
+  $('wt-sub').textContent = ratio >= 1 ? `${Math.round(ratio * 100)}% · target tercapai` : `${Math.round(ratio * 100)}% · ${left}× lagi`;
+  $('wt-fill').style.width = `${Math.min(100, ratio * 100).toFixed(1)}%`;
+  $('wt-drink-text').textContent = `${waterSettings.ml} ml`;
+  $('wt-drink').title = `Catat minum ${waterSettings.ml} ml`;
+  const bell = $('wt-remind');
+  bell.setAttribute('aria-checked', String(waterSettings.remind !== false));
+  bell.title = waterSettings.remind !== false ? `Pengingat nyala · tiap ${waterSettings.minutes ?? 60} menit` : 'Pengingat mati';
+
+  // ml per jam: 8 jam terakhir sampai jam sekarang.
+  const box = $('wt-chart');
+  box.replaceChildren();
+  const now = new Date();
+  const hours = Array.from({ length: 8 }, (_, i) => {
+    const d = new Date(now);
+    d.setHours(now.getHours() - 7 + i, 0, 0, 0);
+    return d.getTime();
+  });
+  const per = hours.map((h) => (t.waterLog ?? []).filter(([at]) => at >= h && at < h + 3_600_000).reduce((n, [, ml]) => n + ml, 0));
+  const max = Math.max(waterSettings.ml * 2, ...per);
+  const W = 150;
+  const H = 74;
+  const base = 60;
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'bars-svg', role: 'img', 'aria-label': hours.map((h, i) => `${HOUR.format(h)}: ${per[i]} ml`).join(', ') });
+  const slot = W / hours.length;
+  hours.forEach((h, i) => {
+    const cx = slot * i + slot / 2;
+    svg.append(svgEl('rect', { class: 'wt-col', x: cx - 5, y: 6, width: 10, height: base - 6, rx: 4 }));
+    const hgt = per[i] ? Math.max(4, ((base - 6) * per[i]) / max) : 0;
+    if (hgt) svg.append(svgEl('rect', { class: 'bar k-focus today', x: cx - 5, y: base - hgt, width: 10, height: hgt, rx: 4 }));
+    if (i % 3 === 1 || i === hours.length - 1) {
+      const label = svgEl('text', { class: `bars-day${i === hours.length - 1 ? ' today' : ''}`, x: cx, y: H - 3, 'text-anchor': 'middle' });
+      label.textContent = HOUR.format(h);
+      svg.append(label);
+    }
+  });
+  box.append(svg);
+
+  // Detail: 7 hari + pengaturan.
+  const days = statsWeek.length ? statsWeek : [{ key: '', waterMl: drank }];
+  const avg = days.reduce((n, d) => n + (d.waterMl ?? 0), 0) / days.length;
+  $('water-week-total').textContent = `rata-rata ${waterLiters(avg)} L/hari`;
+  renderBars($('water-bars'), days, {
+    value: (d) => d.waterMl ?? 0,
+    label: (n) => `${waterLiters(n)}`,
+    tip: (d) => `${waterLiters(d.waterMl ?? 0)} L`,
+    floor: waterSettings.target,
+  });
+  const pick = (id, value) => {
+    const select = $(id);
+    if (![...select.options].some((o) => Number(o.value) === Number(value))) select.add(new Option(String(value), String(value)));
+    select.value = String(value);
+  };
+  pick('wt-ml', waterSettings.ml);
+  pick('wt-target', waterSettings.target);
+  pick('wt-every', waterSettings.remind === false ? 0 : waterSettings.minutes ?? 60);
+}
+
+$('wt-drink').addEventListener('click', () => {
+  window.kapsul.drink();
+  react('happy', 1200);
+  sfx('tick');
+});
+$('wt-settings').addEventListener('click', () => setDetail(true));
+$('wt-remind').addEventListener('click', () => window.kapsul.waterSettings({ remind: waterSettings.remind === false }));
+$('wt-ml').addEventListener('change', (e) => window.kapsul.waterSettings({ ml: Number(e.target.value) }));
+$('wt-target').addEventListener('change', (e) => window.kapsul.waterSettings({ target: Number(e.target.value) }));
+$('wt-every').addEventListener('change', (e) => {
+  const minutes = Number(e.target.value);
+  window.kapsul.waterSettings(minutes ? { remind: true, minutes } : { remind: false });
+});
+
 function renderPet() {
   if (!petState) return;
   const hunger = Math.round(petState.hunger);
-  $('pet-level').textContent = profile.buddyName || 'Zeno';
-  $('pet-xp').textContent = `${Math.floor(petState.xp)} / ${petState.needed} XP ke level ${petState.level + 1}`;
-  $('pet-lv').textContent = String(petState.level);
-  $('pet-xpring').style.strokeDasharray = `${Math.min(100, (petState.xp / petState.needed) * 100)} 100`;
-  $('pet-hunger').style.width = `${hunger}%`;
-  $('pet-hunger').classList.toggle('low', hunger < 25);
-  $('pet-hunger-text').textContent = `${hunger}%`;
-  $('pet-xpbar').style.width = `${Math.min(100, (petState.xp / petState.needed) * 100)}%`;
+  // Beranda: kenyang di tombol makan, cincin XP di progres.
+  $('home-hunger').textContent = `${hunger}%`;
+  $('home-hunger').classList.toggle('low', hunger < 25);
+  $('home-level').textContent = `Lv ${petState.level}`;
+  $('home-progress').title = `${profile.buddyName || 'Zeno'} level ${petState.level} · ${Math.floor(petState.xp)}/${petState.needed} XP ke level ${petState.level + 1}`;
+  $('home-xpring').style.strokeDasharray = `${Math.min(100, (petState.xp / petState.needed) * 100)} 100`;
   if (PAGES[pageIndex].id === 'home') renderBuddy();
 }
 
 for (const button of document.querySelectorAll('[data-food]')) {
   button.addEventListener('click', () => window.kapsul.pet('feed', button.dataset.food));
 }
-$('pet-play').addEventListener('click', () => window.kapsul.pet('play'));
+$('home-feed').addEventListener('click', () => window.kapsul.pet('feed', 'apple'));
+$('home-play').addEventListener('click', () => window.kapsul.pet('play'));
+$('home-progress').addEventListener('click', () => setDetail(true));
 
 // Makan: mengunyah + suara nyam; main: lompat & tertawa.
 window.kapsul.onPetEvent((event) => {
@@ -4221,9 +5169,46 @@ function renderQuick() {
 }
 
 window.kapsul.onQuickState((state) => {
+  const before = quick;
   quick = state;
   renderQuick();
+  if (!before || quickDragging.volume || quickDragging.brightness) return;
+  if (state.volume !== before.volume || state.muted !== before.muted) showOsd('volume', state.volume, state.muted);
+  else if (state.brightness != null && state.brightness !== before.brightness) showOsd('brightness', state.brightness);
 });
+
+// ---------- OSD di kapsul: volume, kecerahan, Caps/Num Lock ----------
+const OSD_ICONS = {
+  volume: (v, muted) => `<svg viewBox="0 0 16 16"><path class="fill" d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z" />${
+    muted || v === 0
+      ? '<path d="M10.6 6.2l3.4 3.6M14 6.2l-3.4 3.6" />'
+      : `<path class="w1" d="M10.4 6.3a2.4 2.4 0 0 1 0 3.4" />${v > 50 ? '<path class="w2" d="M12.1 4.6a4.8 4.8 0 0 1 0 6.8" />' : ''}`
+  }</svg>`,
+  brightness: () => '<svg viewBox="0 0 16 16"><circle class="fill" cx="8" cy="8" r="2.6" /><g class="rays"><path d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M3.5 12.5l1.1-1.1M11.4 4.6l1.1-1.1" /></g></svg>',
+  lock: (on) => `<svg viewBox="0 0 16 16"><rect class="fill" x="3.6" y="7.2" width="8.8" height="6.6" rx="1.6" /><path class="shackle${on ? ' shut' : ''}" d="M5.6 7.2V5.4a2.4 2.4 0 0 1 4.8 0v1.8" /></svg>`,
+};
+let osdTimer = null;
+
+function showOsd(kind, value, muted = false) {
+  if (open) return;
+  const osd = $('osd');
+  const lock = kind === 'caps' || kind === 'num';
+  osd.dataset.kind = kind;
+  $('osd-icon').innerHTML = lock ? OSD_ICONS.lock(value) : OSD_ICONS[kind](value, muted);
+  $('osd-label').textContent = lock ? (kind === 'caps' ? 'Caps Lock' : 'Num Lock') : '';
+  $('osd-bar').hidden = lock;
+  $('osd-fill').style.width = `${muted ? 0 : value}%`;
+  $('osd-value').textContent = lock ? (value ? 'Nyala' : 'Mati') : muted ? 'Bisu' : `${value}%`;
+  osd.classList.toggle('on-state', lock && value);
+  // Mulai ulang animasi ikon tiap kali muncul lagi.
+  osd.classList.remove('show');
+  void osd.offsetWidth;
+  osd.classList.add('show');
+  clearTimeout(osdTimer);
+  osdTimer = setTimeout(() => osd.classList.remove('show'), 1600);
+}
+
+window.kapsul.onLocks?.(({ key, on }) => showOsd(key, on));
 
 // Geser slider: kirim paling cepat tiap 120 ms; nilai akhir saat dilepas.
 for (const what of ['volume', 'brightness']) {
@@ -4261,7 +5246,10 @@ for (const what of ['wifi', 'bluetooth']) {
 
 // ---------- Pengingat berikutnya (section Waktu) ----------
 
-window.kapsul.onReminders((next) => {
+window.kapsul.onReminders((data) => {
+  const next = data?.title ? data : null;
+  reminderList = data?.list ?? [];
+  renderCalendar();
   nextReminder = next;
   renderTimeCard();
   $('next-reminder').classList.toggle('empty', !next);

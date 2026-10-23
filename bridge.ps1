@@ -525,6 +525,75 @@ public static class ZenoWin {
   [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int max);
   public static uint ForegroundPid() { uint pid; GetWindowThreadProcessId(GetForegroundWindow(), out pid); return pid; }
   public static string ForegroundTitle() { var sb = new StringBuilder(256); GetWindowText(GetForegroundWindow(), sb, 256); return sb.ToString(); }
+  // Waktu input terakhir (keyboard ATAU mouse, tanpa tahu tombol apa) + posisi kursor.
+  [StructLayout(LayoutKind.Sequential)] struct LastInputInfo { public uint cbSize; public uint dwTime; }
+  [DllImport("user32.dll")] static extern bool GetLastInputInfo(ref LastInputInfo info);
+  [StructLayout(LayoutKind.Sequential)] struct Point { public int X; public int Y; }
+  [DllImport("user32.dll")] static extern bool GetCursorPos(out Point p);
+  public static uint LastInput() { var i = new LastInputInfo(); i.cbSize = (uint)Marshal.SizeOf(i); GetLastInputInfo(ref i); return i.dwTime; }
+  public static string Cursor() { Point p; GetCursorPos(out p); return p.X + "," + p.Y; }
+}
+"@
+
+# ---------- Sedang mengetik, Caps/Num Lock, volume (cek cepat tiap ±0,3 dtk) ----------
+# Mengetik = ada input baru sementara kursor mouse diam. Tombol yang ditekan TIDAK dibaca.
+$lastInputTick = 0
+$lastCursor = ''
+$typingUntil = 0
+$typing = $false
+function Emit-Typing {
+    $t = [ZenoWin]::LastInput()
+    $c = [ZenoWin]::Cursor()
+    $now = [Environment]::TickCount
+    if ($script:lastInputTick -ne 0 -and $t -ne $script:lastInputTick -and $c -eq $script:lastCursor) { $script:typingUntil = $now + 1400 }
+    $script:lastInputTick = $t
+    $script:lastCursor = $c
+    $active = ($script:typingUntil - $now) -gt 0
+    if ($active -ne $script:typing) {
+        $script:typing = $active
+        Send @{ type = 'typing'; active = $active }
+    }
+}
+
+$lastLocks = $null
+function Emit-Locks([bool]$force) {
+    $caps = [Console]::CapsLock
+    $num = [Console]::NumberLock
+    $key = "$caps|$num"
+    if (-not $force -and $key -eq $script:lastLocks) { return }
+    $script:lastLocks = $key
+    Send @{ type = 'locks'; caps = $caps; num = $num }
+}
+
+# Volume berubah (tombol keyboard, mixer) → kirim kondisi lengkap saat itu juga.
+$lastVolume = $null
+function Check-Volume {
+    $v = "$([int][math]::Round([ZenoAudio]::Volume * 100))|$([ZenoAudio]::Mute)"
+    if ($null -ne $script:lastVolume -and $v -ne $script:lastVolume) { Emit-Quick $false }
+    $script:lastVolume = $v
+}
+
+# Kecerahan berubah (tombol Fn, slider Windows): event WMI, tanpa polling.
+$brightEvents = $false
+try {
+    Register-CimIndicationEvent -Namespace root/WMI -ClassName WmiMonitorBrightnessEvent -SourceIdentifier ZenoBrightness -ErrorAction Stop | Out-Null
+    $brightEvents = $true
+} catch { }
+function Check-Brightness {
+    if (-not $brightEvents) { return }
+    $events = @(Get-Event -SourceIdentifier ZenoBrightness -ErrorAction SilentlyContinue)
+    if (-not $events.Count) { return }
+    $events | Remove-Event
+    Emit-Quick $false
+}
+
+# ---------- Wallpaper desktop (dari island) ----------
+Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public static class ZenoWall {
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool SystemParametersInfo(uint action, uint param, string value, uint flags);
+  // SPI_SETDESKWALLPAPER, simpan ke profil + kabari aplikasi lain
+  public static bool Set(string file) { return SystemParametersInfo(0x0014, 0, file, 0x01 | 0x02); }
 }
 "@
 
@@ -567,10 +636,12 @@ try { Emit-Quick $true } catch { }
 try { Emit-Bluetooth $true } catch { }
 try { Emit-Usb $true } catch { }
 try { Emit-Privacy $true } catch { }
+try { Emit-Locks $true } catch { }
 $quickTick = 0
+$fastTick = 0
 
 while ($true) {
-    if ($pending.Wait(800)) {
+    if ($pending.Wait(300)) {
         $cmd = $pending.Result
         if ($null -eq $cmd) { break }  # stdin ditutup = Zenopod keluar
         $parts = $cmd.Trim() -split '\s+', 2
@@ -586,6 +657,7 @@ while ($true) {
                 'dismiss' { if ($listener) { $listener.RemoveNotification([uint32]$parts[1]) } }
                 'clear'   { Clear-Notifications }
                 'eject'   { Eject-Drive $parts[1].Trim() }
+                'wallpaper' { [ZenoWall]::Set($parts[1].Trim()) | Out-Null }
                 'voices'  { Emit-Voices }
                 'speak'   { $p = $parts[1] -split '\s+', 2; Speak $p[0] $p[1] }
                 'ocr'     { $p = $parts[1] -split '\s+', 2; Read-Text $p[0] $p[1] }
@@ -595,6 +667,14 @@ while ($true) {
         Start-Sleep -Milliseconds 150
         $pending = $stdin.ReadLineAsync()
     }
+    try { Emit-Typing } catch { }
+    try { Emit-Locks $false } catch { }
+    try { Check-Volume } catch { }
+    try { Check-Brightness } catch { }
+    # Sisanya tetap tiap ±0,9 dtk seperti sebelumnya.
+    $fastTick++
+    if ($fastTick -lt 3) { continue }
+    $fastTick = 0
     try { Emit-Media $false } catch { }
     try { Emit-Notifications $false } catch { }
     # Volume/kecerahan/radio bisa berubah dari luar: cek tiap ±4 detik.

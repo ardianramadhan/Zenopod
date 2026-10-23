@@ -5,10 +5,17 @@
 
 (() => {
   let ctx = null;
+  let idleTimer = null;
 
+  // AudioContext yang terbuka terus menjalankan aliran audio (walau senyap): tutup setelah sepi.
   function audio() {
     if (!ctx || ctx.state === 'closed') ctx = new AudioContext();
     if (ctx.state === 'suspended') ctx.resume();
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      ctx?.close().catch(() => {});
+      ctx = null;
+    }, 15000);
     return ctx;
   }
 

@@ -1533,71 +1533,185 @@
   display: none;
 }
 
-/* ---------- Zeno bekerja (laptop) ---------- */
+/* ---------- Zeno bekerja: layar wajah jadi editor kode ---------- */
 
-.buddy .laptop .lid {
-  fill: #2a2a31;
-  stroke: #45454f;
-  stroke-width: 0.5;
+.buddy .code .code-bg {
+  fill: #0b1020;
 }
 
-.buddy .laptop .lid-edge {
-  fill: #52525b;
+.buddy .code .code-gutter {
+  fill: rgba(125, 211, 252, 0.08);
 }
 
-.buddy .laptop .logo {
-  fill: rgba(255, 255, 255, 0.4);
+.buddy .code .cl {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  scale: 0 1;
 }
 
-/* Cahaya layar memantul di wajah, sedikit berkedip seperti layar yang berganti isi */
-.buddy .laptop .glow {
-  fill: #7dd3fc;
-  opacity: 0.32;
+.buddy .code .kw {
+  fill: #c084fc;
 }
 
-.buddy .laptop .keys rect {
-  fill: #e0f2fe;
-  opacity: 0;
+.buddy .code .fn {
+  fill: #60a5fa;
 }
 
-.buddy[data-mood="work"] .laptop .glow {
-  animation: laptop-glow 2.4s ease-in-out infinite;
+.buddy .code .tx {
+  fill: #e5e7eb;
 }
 
-.buddy[data-mood="work"] .laptop .keys .k1 {
-  animation: laptop-key 0.9s steps(1) infinite;
+.buddy .code .st {
+  fill: #4ade80;
 }
 
-.buddy[data-mood="work"] .laptop .keys .k2 {
-  animation: laptop-key 0.9s steps(1) 0.3s infinite;
+.buddy .code .nm {
+  fill: #fbbf24;
 }
 
-.buddy[data-mood="work"] .laptop .keys .k3 {
-  animation: laptop-key 0.9s steps(1) 0.6s infinite;
+.buddy .code .pn {
+  fill: #94a3b8;
+}
+
+.buddy .code .cm {
+  fill: #475569;
+}
+
+.buddy[data-mood="work"] .code .l1 {
+  animation: code-l1 6s linear infinite;
+}
+
+.buddy[data-mood="work"] .code .l2 {
+  animation: code-l2 6s linear infinite;
+}
+
+.buddy[data-mood="work"] .code .l3 {
+  animation: code-l3 6s linear infinite;
+}
+
+.buddy[data-mood="work"] .code .l4 {
+  animation: code-l4 6s linear infinite;
+}
+
+.buddy[data-mood="work"] .code .l5 {
+  animation: code-l5 6s linear infinite;
+}
+
+.buddy[data-mood="work"] .code .l6 {
+  animation: code-l6 6s linear infinite;
+}
+
+@keyframes code-l1 {
+  0%,
+  5% {
+    scale: 0 1;
+    animation-timing-function: steps(5, end);
+  }
+  15%,
+  90% {
+    scale: 1 1;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    scale: 1 1;
+    opacity: 0;
+  }
+}
+
+@keyframes code-l2 {
+  0%,
+  17.5% {
+    scale: 0 1;
+    animation-timing-function: steps(5, end);
+  }
+  27.5%,
+  90% {
+    scale: 1 1;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    scale: 1 1;
+    opacity: 0;
+  }
+}
+
+@keyframes code-l3 {
+  0%,
+  30% {
+    scale: 0 1;
+    animation-timing-function: steps(5, end);
+  }
+  40%,
+  90% {
+    scale: 1 1;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    scale: 1 1;
+    opacity: 0;
+  }
+}
+
+@keyframes code-l4 {
+  0%,
+  42.5% {
+    scale: 0 1;
+    animation-timing-function: steps(5, end);
+  }
+  52.5%,
+  90% {
+    scale: 1 1;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    scale: 1 1;
+    opacity: 0;
+  }
+}
+
+@keyframes code-l5 {
+  0%,
+  55% {
+    scale: 0 1;
+    animation-timing-function: steps(5, end);
+  }
+  65%,
+  90% {
+    scale: 1 1;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    scale: 1 1;
+    opacity: 0;
+  }
+}
+
+@keyframes code-l6 {
+  0%,
+  67.5% {
+    scale: 0 1;
+    animation-timing-function: steps(5, end);
+  }
+  77.5%,
+  90% {
+    scale: 1 1;
+    opacity: 1;
+  }
+  96%,
+  100% {
+    scale: 1 1;
+    opacity: 0;
+  }
 }
 
 /* Getaran kecil seperti sedang mengetik */
 .buddy[data-mood="work"] .b-body {
   animation: buddy-type 0.36s steps(2) infinite;
-}
-
-@keyframes laptop-glow {
-  0%,
-  100% {
-    opacity: 0.32;
-  }
-  50% {
-    opacity: 0.18;
-  }
-}
-
-@keyframes laptop-key {
-  0% {
-    opacity: 0.9;
-  }
-  34% {
-    opacity: 0;
-  }
 }
 
 @keyframes buddy-type {
@@ -1609,10 +1723,180 @@
   }
 }
 
+/* ---------- Kamu mengetik: layar wajah jadi baris ketikan ---------- */
+
+.buddy .typebar .tb-ch {
+  fill: #e0f2fe;
+  opacity: 0;
+}
+
+.buddy .typebar .tb-caret {
+  fill: #e0f2fe;
+}
+
+.buddy[data-mood="typing"] .typebar .c1 {
+  animation: tb-ch1 1.4s steps(1, end) infinite;
+}
+
+.buddy[data-mood="typing"] .typebar .c2 {
+  animation: tb-ch2 1.4s steps(1, end) infinite;
+}
+
+.buddy[data-mood="typing"] .typebar .c3 {
+  animation: tb-ch3 1.4s steps(1, end) infinite;
+}
+
+.buddy[data-mood="typing"] .typebar .c4 {
+  animation: tb-ch4 1.4s steps(1, end) infinite;
+}
+
+.buddy[data-mood="typing"] .typebar .c5 {
+  animation: tb-ch5 1.4s steps(1, end) infinite;
+}
+
+.buddy[data-mood="typing"] .typebar .c6 {
+  animation: tb-ch6 1.4s steps(1, end) infinite;
+}
+
+.buddy[data-mood="typing"] .typebar .c7 {
+  animation: tb-ch7 1.4s steps(1, end) infinite;
+}
+
+.buddy[data-mood="typing"] .typebar .tb-caret {
+  animation: tb-caret 1.4s steps(1, end) infinite;
+}
+
+/* Huruf ke-n muncul pada n×10% (tiap 0,14 dtk), semua hilang bersama di 87% */
+@keyframes tb-ch1 {
+  0% {
+    opacity: 1;
+  }
+  87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tb-ch2 {
+  0% {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tb-ch3 {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tb-ch4 {
+  0% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tb-ch5 {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tb-ch6 {
+  0% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tb-ch7 {
+  0% {
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Kursor tepat di belakang huruf terakhir: huruf ke-n muncul tiap 0,14 dtk (10% dari 1,4 dtk) */
+@keyframes tb-caret {
+  0% {
+    translate: -13.8px 0;
+  }
+  10% {
+    translate: -11.5px 0;
+  }
+  20% {
+    translate: -9.2px 0;
+  }
+  30% {
+    translate: -6.9px 0;
+  }
+  40% {
+    translate: -4.6px 0;
+  }
+  50% {
+    translate: -2.3px 0;
+  }
+  60% {
+    translate: 0.0px 0;
+  }
+  87%,
+  100% {
+    translate: -16.1px 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .buddy[data-mood="work"] .b-body,
-  .buddy[data-mood="work"] .laptop * {
-    animation: none;
+  .buddy .code *,
+  .buddy .typebar * {
+    animation: none !important;
+  }
+
+  .buddy .code .cl {
+    scale: 1 1;
+  }
+
+  .buddy .typebar .tb-ch {
+    opacity: 1;
   }
 }
 
@@ -1783,7 +2067,7 @@
   transform: rotate(58deg);
 }
 
-/* Bekerja: dua tangan mengetik di laptop */
+/* Bekerja: dua tangan mengetik */
 .buddy[data-mood="work"] .arm-l {
   transform: rotate(-38deg);
   animation: arm-type-l 0.36s steps(2) infinite;

@@ -33,8 +33,10 @@
     think: ['e-up', 'm-hmm', 'b-raised', 'x-thought'],
     alarm: ['e-wide', 'm-open', 'b-raised', 'x-bang', 'blush'],
     focus: ['e-open', 'm-flat', 'x-glasses'],
-    // Claude sedang bekerja: berkacamata, menatap laptop, mengetik.
-    work: ['e-down', 'm-flat', 'x-glasses', 'x-laptop'],
+    // Claude sedang bekerja: layar wajah menampilkan kode yang sedang diketik.
+    work: ['x-code'],
+    // Kamu sedang mengetik: layar wajah berganti jadi ketikan (huruf muncul tik-tik + kursor).
+    typing: ['x-typebar'],
     listen: ['e-open', 'm-smile', 'blush', 'x-phones'],
     greet: ['e-happy', 'm-open', 'blush', 'x-sparkle'],
     clock: ['e-up', 'm-smile', 'blush', 'x-clock'],
@@ -222,6 +224,22 @@
         </g>
         </g>
         <g class="robot-only screen-layer" clip-path="url(#${id}-screen)">
+          <!-- Bekerja: layar wajah jadi editor kode, baris-baris terketik bergiliran -->
+          <g data-part="x-code" class="code">
+            <rect class="code-bg" x="9" y="11" width="22" height="20" />
+            <rect class="code-gutter" x="9" y="11" width="1.3" height="20" />
+            <g class="cl l1"><rect class="kw" x="11.6" y="14.10" width="3.2" height="1.25" rx="0.6" /><rect class="fn" x="15.5" y="14.10" width="5.2" height="1.25" rx="0.6" /><rect class="pn" x="21.4" y="14.10" width="1.4" height="1.25" rx="0.6" /></g>
+            <g class="cl l2"><rect class="kw" x="13.2" y="16.85" width="2.4" height="1.25" rx="0.6" /><rect class="tx" x="16.3" y="16.85" width="3.6" height="1.25" rx="0.6" /><rect class="pn" x="20.6" y="16.85" width="1" height="1.25" rx="0.6" /><rect class="st" x="22.3" y="16.85" width="5" height="1.25" rx="0.6" /></g>
+            <g class="cl l3"><rect class="fn" x="13.2" y="19.60" width="4.2" height="1.25" rx="0.6" /><rect class="pn" x="18.1" y="19.60" width="1" height="1.25" rx="0.6" /><rect class="nm" x="19.8" y="19.60" width="2.2" height="1.25" rx="0.6" /><rect class="pn" x="22.7" y="19.60" width="1" height="1.25" rx="0.6" /></g>
+            <g class="cl l4"><rect class="cm" x="13.2" y="22.35" width="9.6" height="1.25" rx="0.6" /></g>
+            <g class="cl l5"><rect class="kw" x="13.2" y="25.10" width="3" height="1.25" rx="0.6" /><rect class="tx" x="16.9" y="25.10" width="4.4" height="1.25" rx="0.6" /><rect class="pn" x="22.0" y="25.10" width="1.2" height="1.25" rx="0.6" /></g>
+            <g class="cl l6"><rect class="pn" x="11.6" y="27.85" width="1.4" height="1.25" rx="0.6" /></g>
+          </g>
+          <!-- Kamu mengetik: layar wajah jadi baris ketikan, huruf muncul satu per satu -->
+          <g data-part="x-typebar" class="typebar">
+            <rect class="tb-ch c1" x="11.60" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c2" x="13.90" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c3" x="16.20" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c4" x="18.50" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c5" x="20.80" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c6" x="23.10" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c7" x="25.40" y="20" width="1.6" height="2" rx="0.5" />
+            <rect class="tb-caret" x="27.8" y="19.2" width="0.8" height="3.6" rx="0.3" />
+          </g>
           <rect class="screen-glass" x="9" y="11" width="22" height="20" rx="4.6" fill="url(#${id}-glass)" />
           <rect class="screen-inset" x="9" y="11" width="22" height="20" rx="4.6" fill="url(#${id}-inset)" />
           <path class="screen-reflect" d="M20.5 11 H25 L14.5 31 H10 Z" />
@@ -366,18 +384,6 @@
       </g>
       </g>
 
-      <!-- Laptop di depan Zeno (kita melihat punggung layarnya): cahaya layar di wajah, percikan ketikan -->
-      <g data-part="x-laptop" class="laptop">
-        <ellipse class="glow" cx="20" cy="24.6" rx="10.5" ry="3.2" />
-        <g class="keys">
-          <rect class="k1" x="11.2" y="23.2" width="1.6" height="0.9" rx="0.4" />
-          <rect class="k2" x="27.2" y="23" width="1.6" height="0.9" rx="0.4" />
-          <rect class="k3" x="15" y="22.4" width="1.2" height="0.8" rx="0.4" />
-        </g>
-        <rect class="lid" x="8.4" y="25.4" width="23.2" height="12.4" rx="2.2" />
-        <rect class="lid-edge" x="8.4" y="25.4" width="23.2" height="1.2" rx="0.6" />
-        <circle class="logo" cx="20" cy="31.6" r="1.7" />
-      </g>
       <g data-part="x-notes" class="notes">
         <g class="note n1">
           <path d="M33 8.5v-5.2l3.2-0.9v4.8" />

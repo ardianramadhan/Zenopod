@@ -622,6 +622,12 @@ function renderFocus() {
   $('water-enabled').checked = w.water;
   $('water-minutes').value = String(w.waterMinutes);
   $('water-minutes').disabled = !w.water;
+  // Nilai di luar pilihan (diubah manual di config) tetap tampil sebagai opsi tambahan.
+  for (const [id, value, label] of [['water-ml', w.waterMl, `${w.waterMl} ml`], ['water-target', w.waterTargetMl, `${(w.waterTargetMl / 1000).toLocaleString('id-ID')} liter`]]) {
+    const select = $(id);
+    if (![...select.options].some((o) => Number(o.value) === value)) select.add(new Option(label, String(value)));
+    select.value = String(value);
+  }
   $('focus-mute').checked = f.muteNotifications;
 }
 
@@ -640,6 +646,8 @@ for (const [key, input, minutes] of [['eyes', 'eyes-enabled', 'eyes-minutes'], [
   $(input).addEventListener('change', (e) => save({ wellness: { ...state.config.wellness, [key]: e.target.checked } }).then(renderFocus));
   $(minutes).addEventListener('change', (e) => save({ wellness: { ...state.config.wellness, [`${key}Minutes`]: Number(e.target.value) } }));
 }
+$('water-ml').addEventListener('change', (e) => save({ wellness: { ...state.config.wellness, waterMl: Number(e.target.value) } }));
+$('water-target').addEventListener('change', (e) => save({ wellness: { ...state.config.wellness, waterTargetMl: Number(e.target.value) } }));
 $('focus-autobreak').addEventListener('change', (e) => save({ focus: { ...state.config.focus, autoStartBreak: e.target.checked } }));
 $('focus-mute').addEventListener('change', (e) => save({ focus: { ...state.config.focus, muteNotifications: e.target.checked } }));
 
