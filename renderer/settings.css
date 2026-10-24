@@ -1188,3 +1188,67 @@ kbd {
     width: auto;
   }
 }
+
+/* ---------- Wallpaper ---------- */
+.wp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.wp-head span {
+  flex: 1;
+  color: var(--muted);
+}
+
+.wp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.wp-cell {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background: var(--surface, rgba(255, 255, 255, 0.06)) center / cover no-repeat;
+  overflow: hidden;
+}
+
+.wp-cell.on {
+  box-shadow: 0 0 0 2px #4ade80;
+}
+
+.wp-use {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.wp-use:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.wp-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.wp-cell:hover .wp-remove,
+.wp-remove:focus-visible {
+  opacity: 1;
+}

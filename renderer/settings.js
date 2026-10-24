@@ -259,6 +259,7 @@ function render() {
   if (section === 'stats') renderStats();
   if (section === 'chat') renderChat();
   if (section === 'display') renderDisplay();
+  if (section === 'wallpaper') renderWallpapers();
   if (section === 'calendar') renderCalendar();
   if (section === 'habits') renderHabitSettings();
   if (section === 'system') {
@@ -1411,3 +1412,41 @@ api.onSection((next) => (next === 'intro' ? startIntro() : show(next)));
   if (requested === 'intro' || !state.config.user.name) startIntro();
   else show(requested || 'guide');
 })();
+
+// ---------- Wallpaper ----------
+let wallState = null;
+
+async function renderWallpapers(fresh) {
+  wallState = fresh ?? (await api.wallpapers());
+  const w = wallState;
+  $('wp-every').value = String(w.slideshow ?? 0);
+  $('wp-shuffle').checked = Boolean(w.shuffle);
+  $('wp-shuffle').disabled = !w.slideshow;
+  $('wp-restore').hidden = !w.hasOriginal;
+  $('wp-count').textContent = w.items.length ? `${w.items.length} gambar` : 'Belum ada gambar';
+  $('wp-error').hidden = !w.error;
+  $('wp-error').textContent = w.error ?? '';
+  const grid = $('wp-grid');
+  grid.replaceChildren();
+  for (const item of w.items) {
+    const cell = el('div', 'wp-cell');
+    cell.classList.toggle('on', item.id === w.current);
+    if (item.thumb) cell.style.backgroundImage = `url("${item.thumb}")`;
+    const use = el('button', 'wp-use');
+    use.type = 'button';
+    use.setAttribute('aria-label', item.id === w.current ? 'Wallpaper terpasang' : 'Pasang wallpaper ini');
+    use.addEventListener('click', async () => renderWallpapers(await api.wallpaperUse(item.id)));
+    const remove = el('button', 'wp-remove', '×');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'Hapus dari koleksi');
+    remove.addEventListener('click', async () => renderWallpapers(await api.wallpaperRemove(item.id)));
+    cell.append(use, remove);
+    grid.append(cell);
+  }
+}
+
+$('wp-add').addEventListener('click', async () => renderWallpapers(await api.wallpaperPick()));
+$('wp-restore').addEventListener('click', async () => renderWallpapers(await api.wallpaperUse('original')));
+const saveSlideshow = async () => renderWallpapers(await api.wallpaperSlideshow(Number($('wp-every').value), $('wp-shuffle').checked));
+$('wp-every').addEventListener('change', saveSlideshow);
+$('wp-shuffle').addEventListener('change', saveSlideshow);

@@ -2,15 +2,13 @@
 <html lang="id">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; style-src 'self'; script-src 'self'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; media-src 'self' data: blob:; frame-src https://www.youtube-nocookie.com; style-src 'self'; script-src 'self'" />
     <title>Zenopod</title>
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="buddy.css" />
   </head>
   <body>
     <div id="shell" class="shell">
-      <!-- Kilat kamera (Studio foto) -->
-      <div class="cam-flash" id="cam-flash" aria-hidden="true"></div>
       <!-- Tampilan kecil (kapsul) -->
       <div class="pill" id="pill">
         <span class="buddy-slot" id="buddy-slot"></span>
@@ -60,6 +58,10 @@
            + isi bawah; keduanya bergeser bersama. Baris ikon di atas = penunjuk & pintasan section. -->
       <div class="panel" id="panel">
         <button type="button" class="grip" id="grip" title="Geser Zenopod" aria-label="Geser Zenopod"><i></i><i></i><i></i><i></i><i></i><i></i></button>
+        <!-- Kunci island: tetap terbuka walau kursor keluar / klik di luar -->
+        <button type="button" class="pin-btn" id="pin-btn" aria-pressed="false" title="Kunci island agar tetap terbuka" aria-label="Kunci island agar tetap terbuka">
+          <svg viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="7" rx="1.8" /><path class="shackle" d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>
+        </button>
 
         <nav class="nav">
           <div class="tab-list" id="nav" role="tablist" aria-label="Section">
@@ -94,15 +96,6 @@
             <button type="button" role="tab" data-section="device" aria-label="Perangkat" title="Perangkat">
               <svg class="ti ti-device" viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="7.5" rx="1.4" /><path d="M1.5 13h13" /><path class="pulse" d="M4.5 7h1.6l1-1.6 1.4 3 1-1.4h2" /></svg>
             </button>
-            <button type="button" role="tab" data-section="weather" id="nav-weather" aria-label="Cuaca" title="Cuaca">
-              <svg class="ti ti-weather" viewBox="0 0 16 16" aria-hidden="true"><g class="rays"><path d="M5.5 1.6v1.2M1.6 5.5h1.2M2.7 2.7l.85.85M8.3 2.7l-.85.85" /></g><path d="M3.6 6.4a2 2 0 0 1 3.6-1.5" /><path class="cloud" d="M5 13.2h6.3a2.3 2.3 0 0 0 .2-4.6 3.3 3.3 0 0 0-6.3.9A1.9 1.9 0 0 0 5 13.2z" /></svg>
-            </button>
-            <button type="button" role="tab" data-section="camera" aria-label="Studio foto" title="Studio foto">
-              <svg class="ti ti-camera" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 5.5A1.5 1.5 0 0 1 3.5 4h1.6l1-1.5h3.8l1 1.5h1.6A1.5 1.5 0 0 1 14 5.5v6A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5z" /><circle class="lens" cx="8" cy="8.4" r="2.4" /></svg>
-            </button>
-            <button type="button" role="tab" data-section="wallpaper" aria-label="Wallpaper" title="Wallpaper">
-              <svg class="ti ti-wall" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.6" /><path class="hill" d="M2.4 11.6 6 8.2l2.6 2.4 1.8-1.6 3.2 2.8" /><circle class="sun" cx="10.6" cy="6" r="1.1" /></svg>
-            </button>
           </div>
           <div class="nav-actions">
             <button type="button" class="icon-link" id="snip-btn" title="Ambil teks dari layar" aria-label="Ambil teks dari layar">
@@ -128,7 +121,15 @@
               <!-- Beranda: sapaan + 4 aplikasi (dadu berputar), lalu kasih makan · progres Zeno · main -->
               <div class="page home-page" data-page="home" aria-label="Beranda">
                 <div class="home-top">
-                  <div class="home-greet" id="greet-title"><small id="greet-period"></small><b id="greet-name"></b></div>
+                  <!-- "Selamat Pagi Kang", lalu ikon cuaca + kalimat singkat (klik = detail cuaca) -->
+                  <div class="home-greet" id="greet-title">
+                    <b id="greet-name"></b>
+                    <div class="greet-sub">
+                      <button type="button" class="home-wx-badge" id="home-wx-badge" hidden><span class="hw-icon" id="hw-icon" aria-hidden="true"></span><span id="hw-cond"></span><b id="hw-temp"></b></button>
+                      <!-- Baterai laptop & perangkat tersambung, ringkas (detail di Overview) -->
+                      <span class="hw-devs" id="hw-devs"></span>
+                    </div>
+                  </div>
                   <div class="home-dice" id="quick-apps"></div>
                 </div>
                 <div class="home-bottom">
@@ -195,6 +196,22 @@
                     <span id="np-elapsed">0:00</span>
                     <i><b id="np-bar"></b></i>
                     <span id="np-total">0:00</span>
+                  </div>
+                </div>
+                <!-- Mini player YouTube: video di kiri (iframe di #yt-box mengikuti slot ini), judul & tombol di kanan -->
+                <div class="yt-mini" id="yt-mini" hidden>
+                  <div class="yt-slot" id="yt-slot-small"></div>
+                  <div class="yt-info">
+                    <b class="yt-title" id="yt-title"></b>
+                    <span class="yt-author" id="yt-author"></span>
+                    <span class="yt-time" id="yt-time"></span>
+                    <div class="yt-actions">
+                      <button type="button" class="yt-btn main" id="yt-play-btn" title="Jeda" aria-label="Jeda"><svg viewBox="0 0 16 16" class="i-pause"><path d="M5 3.5v9M11 3.5v9" /></svg><svg viewBox="0 0 16 16" class="i-play"><path d="M5 3.2v9.6L12.8 8z" /></svg></button>
+                      <button type="button" class="yt-btn" id="yt-mute-btn" title="Bisukan" aria-label="Bisukan"><svg viewBox="0 0 16 16" class="i-sound"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M11 5.5a3.5 3.5 0 0 1 0 5" /></svg><svg viewBox="0 0 16 16" class="i-muted"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M10.8 6.2l3.4 3.6M14.2 6.2l-3.4 3.6" /></svg></button>
+                      <button type="button" class="yt-btn" id="yt-big-btn" title="Perbesar" aria-label="Perbesar"><svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9" /></svg></button>
+                      <button type="button" class="yt-btn" id="yt-open-btn" title="Buka di browser" aria-label="Buka di browser"><svg viewBox="0 0 16 16"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 9.5v3a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3" /></svg></button>
+                      <button type="button" class="yt-btn" id="yt-close-btn" title="Tutup video" aria-label="Tutup video"><svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
+                    </div>
                   </div>
                 </div>
                 <!-- Lirik berjalan di island (hanya lagu dengan lirik tersinkron) -->
@@ -298,49 +315,6 @@
                 </div>
                 <span class="system-net" id="system-net" hidden></span>
               </div>
-              <div class="page" data-page="weather" aria-label="Cuaca">
-                <div class="weather-main">
-                  <span class="weather-scene" id="weather-scene" aria-hidden="true"></span>
-                  <span class="weather-temp" id="weather-temp"></span>
-                  <span class="weather-text">
-                    <span class="weather-cond" id="weather-cond"></span>
-                    <span class="page-sub dim" id="weather-feels"></span>
-                  </span>
-                </div>
-                <div class="weather-tip" id="weather-tip"></div>
-              </div>
-              <!-- Studio foto: pratinjau kamera, pilihan grid, tombol jepret -->
-              <div class="page camera-page" data-page="camera" aria-label="Studio foto">
-                <div class="cam-preview" id="cam-preview">
-                  <video id="cam-video" muted playsinline></video>
-                  <span class="cam-count" id="cam-count" hidden></span>
-                  <span class="cam-msg" id="cam-msg" hidden></span>
-                  <span class="cam-progress" id="cam-progress" hidden></span>
-                  <!-- Foto bareng Zeno: pose yang akan dijepret -->
-                  <span class="cam-buddy" id="cam-buddy" hidden></span>
-                </div>
-                <div class="cam-side">
-                  <div class="cam-head">
-                    <div class="page-kicker" id="cam-title">Studio</div>
-                    <button type="button" class="cam-zeno" id="cam-zeno" aria-pressed="false" title="Foto bareng Zeno" aria-label="Foto bareng Zeno">
-                      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8.6" r="5.6" /><circle class="eye" cx="6.1" cy="8.2" r="0.85" /><circle class="eye" cx="9.9" cy="8.2" r="0.85" /><path d="M6.6 10.6q1.4 1.1 2.8 0" /></svg>
-                    </button>
-                  </div>
-                  <div class="cam-layouts" id="cam-layouts" role="radiogroup" aria-label="Grid foto"></div>
-                </div>
-                <button type="button" class="cam-shutter" id="cam-shutter" title="Jepret" aria-label="Jepret"><i></i></button>
-              </div>
-              <!-- Wallpaper: geser deretan gambar untuk langsung mengganti wallpaper desktop -->
-              <div class="page wall-page" data-page="wallpaper" aria-label="Wallpaper">
-                <div class="wall-head">
-                  <b>Wallpaper</b>
-                  <span class="wall-count" id="wall-count"></span>
-                  <span class="wall-show" id="wall-show" hidden></span>
-                  <button type="button" class="ti-icon" id="wall-add" title="Unggah gambar" aria-label="Unggah gambar"><svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg></button>
-                  <button type="button" class="ti-icon" id="wall-all" title="Semua wallpaper" aria-label="Semua wallpaper"><svg viewBox="0 0 12 12"><path d="M2.5 3.5h7M2.5 6h7M2.5 8.5h4.5" /></svg></button>
-                </div>
-                <div class="wall-strip" id="wall-strip" tabindex="0" aria-label="Geser untuk ganti wallpaper"><div class="wall-track" id="wall-track"></div></div>
-              </div>
             </div>
           </div>
           <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Section"></div>
@@ -356,8 +330,48 @@
                   <input id="app-search" placeholder="Cari aplikasi, hitung, timer…" autocomplete="off" spellcheck="false" aria-label="Cari aplikasi" />
                   <span class="hint" id="shortcut"></span>
                 </div>
-                <!-- Ringkasan semua section hari ini; klik kartu = buka section-nya -->
-                <div class="sum-grid" id="sum-grid"></div>
+                <!-- Overview: KPI hari ini, tren 7 hari (pilih ukuran), waktu layar, perangkat, cuaca -->
+                <div class="ov-kpis" id="ov-kpis"></div>
+                <div class="an-card ov-trend">
+                  <div class="an-head">
+                    <span class="page-kicker">Tren 7 hari</span>
+                    <div class="ov-seg" id="ov-seg" role="radiogroup" aria-label="Ukuran tren">
+                      <button type="button" role="radio" data-metric="focus" aria-checked="true">Fokus</button>
+                      <button type="button" role="radio" data-metric="screen" aria-checked="false">Layar</button>
+                      <button type="button" role="radio" data-metric="water" aria-checked="false">Minum</button>
+                    </div>
+                  </div>
+                  <div class="an-bars" id="ov-bars"></div>
+                  <p class="kpi-note" id="ov-note"></p>
+                </div>
+                <div class="an-card ov-screen" id="ov-screen">
+                  <div class="an-head"><span class="page-kicker">Waktu layar hari ini</span><span class="an-total" id="ov-screen-total"></span></div>
+                  <div class="an-rings screen-share">
+                    <div class="rings-wrap small">
+                      <svg class="rings" id="ov-donut" viewBox="0 0 120 120" role="img"></svg>
+                    </div>
+                    <ul class="ring-legend" id="ov-legend"></ul>
+                  </div>
+                </div>
+                <!-- Baterai laptop & perangkat yang tersambung (Bluetooth, USB, flashdisk), seperti widget baterai -->
+                <div class="pane-head home-dev-head"><span class="page-kicker">Perangkat</span><span class="page-kicker" id="home-dev-count"></span></div>
+                <div class="home-devs" id="home-devs"></div>
+                <!-- Cuaca (dulu section sendiri): kondisi sekarang + saran utama, grafik 12 jam, fakta singkat -->
+                <div class="home-wx" id="home-wx" hidden>
+                  <div class="weather-main">
+                    <span class="weather-scene" id="weather-scene" aria-hidden="true"></span>
+                    <span class="weather-temp" id="weather-temp"></span>
+                    <span class="weather-text">
+                      <span class="weather-cond" id="weather-cond"></span>
+                      <span class="page-sub dim" id="weather-feels"></span>
+                    </span>
+                    <span class="page-kicker wx-peak" id="wx-peak"></span>
+                  </div>
+                  <div class="weather-tip" id="weather-tip"></div>
+                  <div class="wx-chart" id="wx-chart" tabindex="0" role="img" aria-label="Grafik suhu dan peluang hujan 12 jam ke depan"></div>
+                  <table class="sr-only" id="wx-table"></table>
+                  <div class="wx-facts" id="weather-details"></div>
+                </div>
                 <div class="pane-head" id="apps-head">
                   <span class="page-kicker">Aplikasi lain</span>
                   <button type="button" class="link" id="apps-manage">Atur</button>
@@ -412,6 +426,13 @@
             </section>
 
             <section class="pane lyrics-pane" data-pane="music" aria-label="Lirik & ringkasan musik">
+              <!-- Tempel / seret link YouTube untuk memutar videonya di sini -->
+              <form class="yt-form" id="yt-form" autocomplete="off">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3.5" width="13" height="9" rx="2.5" /><path d="M6.8 6v4l3.4-2z" /></svg>
+                <input id="yt-url" placeholder="Tempel link YouTube untuk diputar di sini…" spellcheck="false" />
+                <button type="button" class="yt-clip" id="yt-clip" hidden></button>
+              </form>
+              <div class="yt-big" id="yt-big" hidden><div class="yt-slot" id="yt-slot-big"></div></div>
               <!-- Lirik: latar dari warna sampul, baris aktif terisi seperti karaoke -->
               <div class="lyrics-view" id="lyrics-view">
                 <div class="lyrics-head">
@@ -559,41 +580,6 @@
               </div>
             </section>
 
-            <section class="pane scroll" data-pane="weather" aria-label="Analisa cuaca">
-              <div class="wx-card">
-                <div class="pane-head"><span class="page-kicker">12 jam ke depan</span><span class="page-kicker" id="wx-peak"></span></div>
-                <div class="wx-chart" id="wx-chart" tabindex="0" role="img" aria-label="Grafik suhu dan peluang hujan 12 jam ke depan"></div>
-                <table class="sr-only" id="wx-table"></table>
-              </div>
-              <div class="wx-facts" id="weather-details"></div>
-              <ul class="weather-advice" id="weather-advice"></ul>
-            </section>
-
-            <section class="pane scroll camera-pane" data-pane="camera" aria-label="Filter & hasil foto">
-              <div class="block">
-                <div class="pane-head"><span class="page-kicker">Filter</span></div>
-                <div class="cam-chips" id="cam-filters" role="radiogroup" aria-label="Filter"></div>
-              </div>
-              <div class="block">
-                <div class="pane-head"><span class="page-kicker">Bingkai</span></div>
-                <div class="cam-frames" id="cam-frames" role="radiogroup" aria-label="Warna bingkai"></div>
-              </div>
-              <div class="block">
-                <div class="pane-head"><span class="page-kicker">Hasil terakhir</span><button type="button" class="link" id="cam-folder">Buka folder</button></div>
-                <div class="cam-gallery" id="cam-gallery"></div>
-              </div>
-            </section>
-
-            <section class="pane scroll" data-pane="wallpaper" aria-label="Koleksi wallpaper">
-              <div class="pane-head"><span class="page-kicker" id="wall-kicker">Koleksi wallpaper</span><button type="button" class="link" id="wall-restore" hidden>Kembalikan wallpaper asli</button></div>
-              <div class="wall-slideshow">
-                <label><span>Slideshow</span><select id="wall-every"><option value="0">Mati</option><option value="5">Tiap 5 menit</option><option value="15">Tiap 15 menit</option><option value="30">Tiap 30 menit</option><option value="60">Tiap 1 jam</option><option value="180">Tiap 3 jam</option><option value="1440">Sehari sekali</option></select></label>
-                <label class="wall-shuffle"><input type="checkbox" id="wall-shuffle" /><span>Acak</span></label>
-              </div>
-              <div class="wall-grid" id="wall-grid"></div>
-              <p class="wall-hint">Klik gambar untuk memasang. Seret gambar dari Explorer ke sini untuk menambah.</p>
-              <p class="wall-error" id="wall-error" hidden></p>
-            </section>
           </div>
         </div>
 
@@ -648,5 +634,7 @@
     <script src="buddy.js"></script>
     <script src="sounds.js"></script>
     <script src="app.js"></script>
+    <!-- Pemutar YouTube: dibuat sekali, posisinya mengikuti slot kecil (island) atau besar (detail) -->
+    <div class="yt-box" id="yt-box" hidden></div>
   </body>
 </html>

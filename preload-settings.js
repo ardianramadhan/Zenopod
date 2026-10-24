@@ -21,6 +21,11 @@ contextBridge.exposeInMainWorld('settings', {
   voiceDownload: () => ipcRenderer.invoke('settings:voice-download'),
   voiceTest: (text) => ipcRenderer.invoke('settings:voice-test', text),
   onVoiceStatus: (callback) => ipcRenderer.on('settings:voice-status', (_event, status) => callback(status)),
+  wallpapers: () => ipcRenderer.invoke('kapsul:wallpapers'),
+  wallpaperPick: () => ipcRenderer.invoke('kapsul:wallpaper-pick'),
+  wallpaperUse: (id) => ipcRenderer.invoke('kapsul:wallpaper-use', id),
+  wallpaperRemove: (id) => ipcRenderer.invoke('kapsul:wallpaper-remove', id),
+  wallpaperSlideshow: (minutes, shuffle) => ipcRenderer.invoke('kapsul:wallpaper-slideshow', minutes, shuffle),
   onChanged: (callback) => ipcRenderer.on('settings:changed', () => callback()),
   onSection: (callback) => ipcRenderer.on('settings:section', (_event, section) => callback(section)),
 });

@@ -18,9 +18,18 @@ const path = require('node:path');
 // ZENOPOD_DATA_DIR = folder lain (untuk mencoba versi kode di samping versi terpasang).
 app.setPath('userData', process.env.ZENOPOD_DATA_DIR || path.join(app.getPath('appData'), 'kapsul'));
 
-// Windows: kamera Studio lewat jalur biasa, bukan D3D11. Layanan kamera Chromium tetap hidup
-// setelah Studio ditutup; jalur D3D11 membuatnya memakan ±75 MB, jalur biasa ±17 MB.
-if (process.platform === 'win32') app.commandLine.appendSwitch('disable-features', 'MediaFoundationD3D11VideoCapture');
+// UI: gc() tersedia di renderer supaya sampah saat startup dibersihkan sebelum heap sempat membengkak
+// (heap yang sudah membesar tidak dikembalikan ke sistem; lihat renderer/app.js bagian akhir).
+app.commandLine.appendSwitch('js-flags', '--expose-gc');
+
+// Proses utama: polling sistem, bridge, statistik membuat sampah kecil terus-menerus (naik-turun 90–170 MB).
+// GC berkala menjaga puncaknya tetap rendah.
+{
+  const v8 = require('node:v8');
+  v8.setFlagsFromString('--expose-gc');
+  const runGc = require('node:vm').runInNewContext('gc');
+  setInterval(() => runGc(), 2 * 60_000).unref();
+}
 
 const { CONFIG_FILE, DEFAULT_OFFSET, normalize, readConfig, writeConfig } = require('./lib/config');
 const paths = require('./lib/paths');
@@ -274,6 +283,7 @@ function createWindow() {
   win.once('ready-to-show', () => {
     win.showInactive();
     guardTopmost();
+    if (config.panelPinned) setTimeout(() => setExpanded(true), 600);
   });
 
   // Klik di luar widget = tutup panel (kecuali selama dialog pilih file dari panel terbuka).
@@ -332,7 +342,10 @@ function watchCursor() {
   }, 200);
 }
 
-function setExpanded(next, { focus = false } = {}) {
+// Dikunci terbuka: penutupan otomatis (kursor keluar, klik di luar, setelah membuka aplikasi) diabaikan.
+// Penutupan yang disengaja (Esc, shortcut, ikon tray, ambil teks layar) memakai { force: true }.
+function setExpanded(next, { focus = false, force = false } = {}) {
+  if (!next && config.panelPinned && !force) return;
   // Hover/klik selama digeser diabaikan (panel akan melompat ke posisi lama).
   if (drag) return;
   if (!win || next === expanded) {
@@ -536,6 +549,7 @@ function publicState() {
     ticker: config.ticker,
     lyrics: config.lyrics,
     clockMode: config.clockMode,
+    panelPinned: config.panelPinned,
     battery: config.battery,
     userName: config.user.name,
     shortcut: shortcutKeys(shortcut),
@@ -548,7 +562,7 @@ function registerShortcut() {
   if (shortcut) globalShortcut.unregister(shortcut);
   shortcut = null;
   try {
-    if (globalShortcut.register(config.shortcut, () => setExpanded(!expanded, { focus: true }))) {
+    if (globalShortcut.register(config.shortcut, () => setExpanded(!expanded, { focus: true, force: true }))) {
       shortcut = config.shortcut;
     } else {
       console.warn(`Shortcut ${config.shortcut} sudah dipakai aplikasi lain.`);
@@ -2600,7 +2614,7 @@ function registerOcrShortcut() {
 
 async function startSnip() {
   if (snipWin) return snipWin.focus();
-  setExpanded(false);
+  setExpanded(false, { force: true });
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const size = { width: Math.round(display.bounds.width * display.scaleFactor), height: Math.round(display.bounds.height * display.scaleFactor) };
   // Kapsul disembunyikan sebentar supaya tidak ikut tertangkap.
@@ -3267,12 +3281,18 @@ function createTray() {
   tray = new Tray(appIcon(IS_MAC ? 18 : 16));
   tray.setToolTip('Zenopod');
   tray.setContextMenu(buildTrayMenu());
-  tray.on('click', () => setExpanded(!expanded, { focus: true }));
+  tray.on('click', () => setExpanded(!expanded, { focus: true, force: true }));
 }
 
 // ---------- IPC kapsul ----------
 
-ipcMain.on('kapsul:expand', (_event, next, focus) => setExpanded(Boolean(next), { focus: Boolean(focus) }));
+// Dari panel: menutup = aksi yang disengaja (Esc, tanya dari kotak cari, menu daya), jadi tembus kunci.
+ipcMain.on('kapsul:expand', (_event, next, focus) => setExpanded(Boolean(next), { focus: Boolean(focus), force: true }));
+ipcMain.on('kapsul:pin', (_event, on) => {
+  saveConfig({ ...config, panelPinned: Boolean(on) });
+  send('kapsul:pinned', config.panelPinned);
+  if (config.panelPinned && !expanded) setExpanded(true);
+});
 ipcMain.on('kapsul:launch', (_event, index) => {
   const item = items[Number(index)];
   if (item) {
@@ -3319,41 +3339,6 @@ ipcMain.on('kapsul:dev-refresh', () => {
   pollGit();
 });
 ipcMain.on('kapsul:clip', (_event, action, id) => clipCommand(String(action), id ? String(id) : null));
-
-// ---------- Studio foto (kamera) ----------
-// Foto disusun di tampilan (canvas) lalu disimpan sebagai PNG di Gambar/Zenopod.
-
-const photosDir = () => path.join(app.getPath('pictures'), 'Zenopod');
-const PHOTO_EXT = /\.(png|jpe?g)$/i;
-
-function listPhotos() {
-  let names = [];
-  try {
-    names = fs.readdirSync(photosDir()).filter((n) => PHOTO_EXT.test(n));
-  } catch {
-    return [];
-  }
-  return names
-    .map((name) => {
-      const full = path.join(photosDir(), name);
-      try {
-        return { name, at: fs.statSync(full).mtimeMs, full };
-      } catch {
-        return null;
-      }
-    })
-    .filter(Boolean)
-    .sort((a, b) => b.at - a.at)
-    .slice(0, 12)
-    .map(({ name, at, full }) => {
-      const image = nativeImage.createFromPath(full);
-      const thumb = image.isEmpty() ? '' : image.resize({ height: 220, quality: 'good' }).toDataURL();
-      return { name, at, thumb };
-    });
-}
-
-// Hanya file di folder foto (nama dari tampilan tidak dipercaya begitu saja).
-const photoPath = (name) => path.join(photosDir(), path.basename(String(name)));
 
 // ---------- Wallpaper dari island ----------
 const wallpaperDir = () => path.join(app.getPath('userData'), 'wallpapers');
@@ -3418,7 +3403,8 @@ async function slideshowTick() {
     next = Math.floor(Math.random() * (items.length - 1));
     if (next >= at && at >= 0) next++;
   }
-  send('kapsul:wallpaper-state', await useWallpaper(items[next].id));
+  await useWallpaper(items[next].id);
+  settingsWin?.webContents.send('settings:changed');
 }
 
 ipcMain.handle('kapsul:wallpapers', () => wallpaperState());
@@ -3427,10 +3413,11 @@ ipcMain.handle('kapsul:wallpaper-add', async (_event, dataUrl) => {
   if (!result.ok) return { ...wallpaperState(), error: result.error };
   return useWallpaper(result.id);
 });
-ipcMain.handle('kapsul:wallpaper-pick', async () => {
+ipcMain.handle('kapsul:wallpaper-pick', async (event) => {
   keepOpenForDialog = true;
   try {
-    const picked = await dialog.showOpenDialog(win, {
+    const owner = BrowserWindow.fromWebContents(event.sender) ?? win;
+    const picked = await dialog.showOpenDialog(owner, {
       title: 'Pilih gambar wallpaper',
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Gambar', extensions: ['jpg', 'jpeg', 'png', 'webp', 'bmp'] }],
@@ -3455,7 +3442,7 @@ ipcMain.handle('kapsul:wallpaper-pick', async () => {
     return error ? { ...state, error } : state;
   } finally {
     keepOpenForDialog = false;
-    win?.focus();
+    BrowserWindow.fromWebContents(event.sender)?.focus();
   }
 });
 ipcMain.handle('kapsul:wallpaper-slideshow', (_event, minutes, shuffle) => {
@@ -3475,34 +3462,6 @@ ipcMain.handle('kapsul:wallpaper-remove', (_event, id) => {
   return wallpaperState();
 });
 
-ipcMain.handle('kapsul:photos', () => listPhotos());
-ipcMain.handle('kapsul:photo-save', (_event, dataUrl) => {
-  const match = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl ?? ''));
-  if (!match || match[1].length > 40 * 1024 * 1024) return { ok: false };
-  const pad = (n) => String(n).padStart(2, '0');
-  const d = new Date();
-  const name = `Studio ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}.png`;
-  try {
-    fs.mkdirSync(photosDir(), { recursive: true });
-    fs.writeFileSync(path.join(photosDir(), name), Buffer.from(match[1], 'base64'));
-  } catch (error) {
-    return { ok: false, error: error.message };
-  }
-  statsAdd('photos');
-  return { ok: true, name, photos: listPhotos() };
-});
-ipcMain.on('kapsul:photo', (_event, action, name) => {
-  if (action === 'folder-root') {
-    fs.mkdirSync(photosDir(), { recursive: true });
-    shell.openPath(photosDir());
-    return;
-  }
-  const full = photoPath(name);
-  if (!fs.existsSync(full)) return;
-  if (action === 'open') shell.openPath(full);
-  if (action === 'folder') shell.showItemInFolder(full);
-  if (action === 'copy') clipboard.writeImage(nativeImage.createFromPath(full));
-});
 ipcMain.on('kapsul:todo', (_event, action, payload) => todoCommand(String(action), payload ?? {}));
 ipcMain.on('kapsul:position', (_event, position) => setPosition(String(position)));
 ipcMain.on('kapsul:drag-start', () => dragStart());
@@ -3544,6 +3503,22 @@ ipcMain.handle('kapsul:ask', async (_event, question) => {
 });
 ipcMain.on('kapsul:quick-set', (_event, what, value) => quickSet(String(what), value));
 ipcMain.on('kapsul:drink', () => drinkWater());
+// Mini player YouTube: judul & channel lewat oEmbed (tanpa API key), dan buka video di browser.
+const YT_ID = /^[\w-]{11}$/;
+ipcMain.handle('kapsul:yt-info', async (_event, id) => {
+  if (!YT_ID.test(String(id))) return null;
+  try {
+    const res = await fetch(`https://www.youtube.com/oembed?format=json&url=${encodeURIComponent(`https://www.youtube.com/watch?v=${id}`)}`, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { title: String(data.title ?? ''), author: String(data.author_name ?? '') };
+  } catch {
+    return null;
+  }
+});
+ipcMain.on('kapsul:yt-open', (_event, id, seconds) => {
+  if (YT_ID.test(String(id))) shell.openExternal(`https://www.youtube.com/watch?v=${id}${seconds ? `&t=${Math.floor(seconds)}s` : ''}`);
+});
 // Pengaturan minum langsung dari section Minum: sekali minum, target, pengingat (nyala & jarak).
 ipcMain.on('kapsul:water-settings', (_event, patch = {}) => {
   const w = config.wellness;
@@ -3628,6 +3603,10 @@ app.whenReady().then(async () => {
   else app.setAppUserModelId('local.kapsul');
   // Mikrofon hanya untuk jendela Zenopod sendiri (perintah suara).
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => callback(permission === 'media'));
+  // Mini player YouTube: embed menolak diputar tanpa Referer (halaman island berasal dari file://).
+  session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/*'] }, (details, callback) => {
+    callback({ requestHeaders: { ...details.requestHeaders, Referer: 'https://zenopod.app/' } });
+  });
   session.defaultSession.setPermissionCheckHandler((_wc, permission) => permission === 'media');
   createWindow();
   createTray();

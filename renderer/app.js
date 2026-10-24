@@ -8,50 +8,6 @@ let connectedDevices = { bluetooth: [], usb: [], drives: [] };
 // Slot kanan ikut menampilkan cuaca (slot kiri lalu memakai ikon Wi-Fi, bukan cuaca lagi).
 let rightIsWeather = false;
 
-// Studio foto: pilihan grid/filter/bingkai & status kamera (logika di bagian Studio foto).
-const CAM_LAYOUTS = {
-  single: { label: 'Tunggal', shots: 1, cols: 1 },
-  duo: { label: 'Duo', shots: 2, cols: 2 },
-  grid: { label: '2×2', shots: 4, cols: 2 },
-  strip3: { label: 'Strip 3', shots: 3, cols: 1 },
-  strip4: { label: 'Strip 4', shots: 4, cols: 1 },
-};
-const CAM_FILTERS = {
-  normal: { label: 'Normal', css: 'none' },
-  bw: { label: 'Hitam putih', css: 'grayscale(1) contrast(1.1)' },
-  warm: { label: 'Hangat', css: 'sepia(0.22) saturate(1.25) hue-rotate(-6deg)' },
-  cool: { label: 'Dingin', css: 'saturate(1.05) hue-rotate(10deg) brightness(1.04)' },
-  vintage: { label: 'Vintage', css: 'sepia(0.45) contrast(0.92) brightness(1.06) saturate(0.85)' },
-};
-const CAM_FRAMES = {
-  white: { label: 'Putih', bg: '#ffffff', ink: '#18181b' },
-  black: { label: 'Hitam', bg: '#111114', ink: '#f4f4f5' },
-  cream: { label: 'Krem', bg: '#f3ece0', ink: '#3f3a33' },
-  pink: { label: 'Merah muda', bg: '#f9d5e5', ink: '#5b2140' },
-  blue: { label: 'Biru', bg: '#cfe3fb', ink: '#18324f' },
-};
-
-const camPref = (key, fallback, valid) => {
-  try {
-    const value = localStorage.getItem(`kapsul.cam.${key}`);
-    return value in valid ? value : fallback;
-  } catch {
-    return fallback;
-  }
-};
-const camera = {
-  stream: null,
-  starting: false,
-  busy: false,
-  error: '',
-  layout: camPref('layout', 'strip4', CAM_LAYOUTS),
-  filter: camPref('filter', 'normal', CAM_FILTERS),
-  frame: camPref('frame', 'white', CAM_FRAMES),
-  zeno: camPref('zeno', 'on', { on: 1, off: 1 }),
-  poses: [], // pose Zeno per foto (diacak saat menjepret)
-  photos: [],
-};
-
 const shell = $('shell');
 const appsEl = $('apps');
 
@@ -147,6 +103,7 @@ function setDetail(value, { sync = true } = {}) {
   $('detail-btn').title = value ? 'Sembunyikan detail' : 'Tampilkan detail';
   $('detail-btn').setAttribute('aria-label', $('detail-btn').title);
   if (sync) window.kapsul.detail(value);
+  queueMicrotask(() => typeof placeYouTube === 'function' && placeYouTube());
   // Lirik di island hanya saat panel bawah tertutup (panel bawah sudah menampilkan lirik).
   queueMicrotask(renderIslandLyrics);
   if (value) {
@@ -171,7 +128,7 @@ const SECTION_FOR_SLIDE = {
   'claude-wait': 'work',
   meeting: 'device',
   offline: 'device',
-  weather: 'weather',
+  weather: 'home',
   reminder: 'time',
   todos: 'time',
   habits: 'time',
@@ -214,7 +171,6 @@ window.kapsul.onExpanded((value) => {
     renderSearch();
   }
   if (value) renderPage();
-  syncCamera();
   renderBuddy();
   if (value) window.kapsul.media('refresh');
 });
@@ -943,6 +899,10 @@ window.kapsul.onState((state) => {
   if (noNotifs && inboxMode === 'notifs') setInboxMode('clips');
   // Section Kerja: saat Claude bekerja, atau kalau ada server/project yang dipantau.
   devEnabled = Boolean(state.devEnabled);
+  if (typeof state.panelPinned === 'boolean') queueMicrotask(() => {
+    panelPinned = state.panelPinned;
+    renderPin();
+  });
   if (state.water) {
     waterSettings = state.water;
     renderWater();
@@ -1695,7 +1655,6 @@ function renderTodos() {
   closeDueEditor();
   renderCalendar();
   renderRings();
-  queueMicrotask(renderSummary);
   list.replaceChildren();
   const open = todoItems.filter((t) => !t.done).sort(byDue);
   const done = todoItems.filter((t) => t.done).sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0));
@@ -1888,14 +1847,10 @@ const PAGES = [
   { id: 'chat', label: 'Chat', sound: 'pop' },
   { id: 'work', label: 'Kerja', sound: 'tick' },
   { id: 'device', label: 'Perangkat', sound: 'tick' },
-  { id: 'weather', label: 'Cuaca', sound: 'today' },
-  { id: 'camera', label: 'Studio foto', sound: 'shutter' },
-  { id: 'wallpaper', label: 'Wallpaper', sound: 'swipe' },
 ];
 
 // Cuaca hanya kalau kota sudah dipilih; Kerja saat Claude bekerja atau ada server/project dipantau.
 function pageAvailable(page) {
-  if (page.id === 'weather') return Boolean(weatherNow);
   if (page.id === 'work') return claudeState.active.length > 0 || devEnabled;
   return true;
 }
@@ -1912,10 +1867,8 @@ function pageMood() {
   const page = PAGES[pageIndex].id;
   if (page === 'home') return (petState?.hunger ?? 100) < 25 ? 'hungry' : 'greet';
   if (page === 'chat') return chatState.busy ? 'think' : pendingFiles.length ? 'hungry' : 'happy';
-  if (page === 'camera') return camera.busy ? 'surprised' : 'wink';
   if (page === 'music') return media.playing ? 'music' : 'listen';
   if (page === 'time') return 'clock';
-  if (page === 'weather') return weatherNow?.look?.mood ?? 'idle';
   if (page === 'focus') return focusState.running && focusState.phase !== 'focus' ? 'stretch' : 'focus';
   if (page === 'device') return systemNow?.online === false ? 'cry' : battery?.charging ? 'charging' : lowBattery() ? 'lowbat' : 'smug';
   if (page === 'inbox') return notifs.items.length ? 'surprised' : 'happy';
@@ -1925,6 +1878,18 @@ function pageMood() {
 
 const sectionIndex = (id) => PAGES.findIndex((p) => p.id === id);
 const goToSection = (id, options) => goToPage(sectionIndex(id), options);
+
+// Section yang tidak sedang dibuka "tidur": tidak di-layout, digambar, atau dianimasikan (content-visibility,
+// lihat style.css .asleep). Section lama baru tidur setelah animasi geser selesai.
+let sleepTimer = null;
+function sleepSections() {
+  for (const track of [$('hero-track'), $('deck-track')]) {
+    for (const [i, el] of [...track.children].entries()) el.classList.toggle('asleep', i !== pageIndex);
+  }
+}
+function wakeSection(index) {
+  for (const track of [$('hero-track'), $('deck-track')]) track.children[index]?.classList.remove('asleep');
+}
 
 function placeTracks(offsetPx = 0) {
   const x = `translateX(calc(${-pageIndex * 100}% + ${offsetPx}px))`;
@@ -1952,6 +1917,10 @@ function goToPage(index, { sound = true } = {}) {
   for (let i = 0; i < PAGES.length && !pageAvailable(PAGES[next]); i++) next = (next + step + PAGES.length) % PAGES.length;
   const changed = next !== pageIndex;
   pageIndex = next;
+  wakeSection(next);
+  clearTimeout(sleepTimer);
+  if (changed) sleepTimer = setTimeout(sleepSections, 450);
+  else sleepSections();
   try {
     localStorage.setItem('kapsul.section', PAGES[next].id);
   } catch {
@@ -1979,15 +1948,13 @@ function goToPage(index, { sound = true } = {}) {
   for (const [i, page] of [...$('hero-track').children].entries()) page.inert = i !== next;
   applyCostume();
   renderPage();
-  syncCamera();
   // Ditunda: goToPage juga dipanggil saat skrip baru dimuat (sebelum state lirik dideklarasikan).
   queueMicrotask(renderIslandLyrics);
   if (changed) {
     bigBuddy.morph();
     if (sound) {
       sfx('swipe');
-      const wet = PAGES[next].id === 'weather' && weatherNow?.look?.costume === 'umbrella';
-      setTimeout(() => sfx(wet ? 'rain' : PAGES[next].sound), 140);
+      setTimeout(() => sfx(PAGES[next].sound), 140);
     }
   }
   renderBuddy();
@@ -2131,92 +2098,16 @@ function actionChip(label, onClick, { icon = null, primary = false, title = null
 function renderHome(now) {
   const period = periodNow(now);
   const firstName = (profile.userName || '').split(/\s+/)[0];
-  $('greet-period').textContent = `Selamat ${period}${firstName ? ',' : '!'}`;
-  $('greet-name').textContent = firstName;
+  // "Selamat Pagi Kang"
+  $('greet-name').textContent = `Selamat ${period.charAt(0).toUpperCase()}${period.slice(1)}${firstName ? ` ${firstName}` : ''}`;
   renderQuickApps();
   renderPet();
   // Ditunda: renderHome juga terpanggil saat skrip dimuat, sebelum state section lain dideklarasikan.
-  queueMicrotask(renderSummary);
+  queueMicrotask(renderWeather);
+  queueMicrotask(renderHomeDevices);
+  queueMicrotask(renderOverview);
 }
 
-// ---------- Ringkasan Beranda: satu kartu per section ----------
-// Semua kartu sama bentuknya: label + ikon, satu nilai utama, lalu bar tipis (yang punya target) atau keterangan.
-const SUM_ICONS = {
-  focus: '<circle cx="8" cy="9" r="5.2" /><path d="M6.5 1.8h3M8 9V6" />',
-  water: '<path d="M8 2.3c2.1 2.7 4 4.9 4 7.2a4 4 0 0 1-8 0c0-2.3 1.9-4.5 4-7.2z" />',
-  tasks: '<rect x="2.5" y="2.5" width="11" height="11" rx="3" /><path d="M5.5 8.2l1.8 1.8 3.4-3.8" />',
-  screen: '<rect x="2" y="3" width="12" height="8" rx="1.5" /><path d="M6 13.5h4" />',
-  music: '<path d="M6 12V3.5l7-1.5V10.5" /><circle cx="4.5" cy="12" r="1.6" /><circle cx="11.5" cy="10.5" r="1.6" />',
-  agenda: '<rect x="2.5" y="3.5" width="11" height="10" rx="2" /><path d="M2.5 7h11M5.5 2v3M10.5 2v3" />',
-};
-
-function renderSummary() {
-  const box = $('sum-grid');
-  if (!box) return;
-  const t = statsToday ?? {};
-  const now = Date.now();
-  const focusMin = Math.round((t.focusMs ?? 0) / 60_000);
-  const focusGoal = Math.max(1, focusSettings.focusMinutes * focusSettings.cycles);
-  const tasks = todayTodos();
-  const nextDue = todoItems.filter((x) => !x.done && x.due).sort(byDue)[0];
-  const screen = screenState?.today;
-  const event = (calendarEvents ?? []).find((e) => e.end > now);
-  const cards = [
-    { id: 'focus', icon: 'focus', label: 'Fokus', value: `${focusMin} m`, ratio: focusMin / focusGoal, sub: `dari ${focusGoal} m · ${t.focus ?? 0} sesi` },
-    { id: 'water', icon: 'water', label: 'Minum', value: `${waterLiters(t.waterMl ?? 0)} L`, ratio: (t.waterMl ?? 0) / waterSettings.target, sub: `dari ${waterLiters(waterSettings.target)} L` },
-    {
-      id: 'time',
-      icon: 'tasks',
-      label: 'Tugas',
-      value: `${tasks.done}/${tasks.total}`,
-      ratio: tasks.total ? tasks.done / tasks.total : 0,
-      sub: nextDue ? `${dueLabel(nextDue.due, { short: true }).text} · ${nextDue.text}` : tasks.total ? 'selesai hari ini' : 'belum ada tugas',
-    },
-    { id: 'device', icon: 'screen', label: 'Waktu layar', value: screen?.totalMs >= 60_000 ? minutesText(screen.totalMs) : '0 m', sub: screen?.apps?.[0]?.name ? `terlama: ${screen.apps[0].name}` : 'belum ada' },
-    {
-      id: 'music',
-      icon: 'music',
-      label: media.title && media.playing ? 'Sedang diputar' : 'Musik',
-      value: media.title || (statsMusic?.listenMs >= 60_000 ? minutesText(statsMusic.listenMs) : '–'),
-      small: Boolean(media.title),
-      sub: media.title ? media.artist || media.app || '' : statsMusic?.listenMs ? 'didengar hari ini' : 'belum ada lagu',
-    },
-    {
-      id: 'time',
-      icon: 'agenda',
-      label: 'Berikutnya',
-      value: event ? (event.allDay ? 'Hari ini' : eventTime(event, now)) : nextReminder ? nextReminder.when.replace(/^Hari ini /, '') : '–',
-      sub: event ? event.title : nextReminder ? nextReminder.title : 'jadwal kosong',
-    },
-  ];
-  box.replaceChildren();
-  for (const card of cards) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'sum-card';
-    b.innerHTML = `<span class="sum-head"><span class="sum-label"></span><svg viewBox="0 0 16 16" aria-hidden="true">${SUM_ICONS[card.icon]}</svg></span>`;
-    b.querySelector('.sum-label').textContent = card.label;
-    const value = document.createElement('b');
-    value.className = `sum-value${card.small ? ' small' : ''}`;
-    value.textContent = card.value;
-    b.append(value);
-    if (card.ratio !== undefined) {
-      const bar = document.createElement('i');
-      bar.className = 'sum-bar';
-      const fill = document.createElement('span');
-      fill.style.width = `${Math.min(100, Math.max(0, card.ratio * 100)).toFixed(1)}%`;
-      bar.append(fill);
-      b.append(bar);
-    }
-    const sub = document.createElement('span');
-    sub.className = 'sum-sub';
-    sub.textContent = card.sub;
-    b.append(sub);
-    b.title = `${card.label}: ${card.value}${card.sub ? ` · ${card.sub}` : ''}`;
-    b.addEventListener('click', () => goToSection(card.id));
-    box.append(b);
-  }
-}
 
 // 4 aplikasi pertama sebagai "dadu" 2×2: tiap beberapa detik keempatnya bergeser searah jarum jam
 // (aplikasi ke-5 dst. ikut bergiliran masuk). Kotak dibangun ulang hanya saat daftar aplikasi berubah.
@@ -2392,9 +2283,32 @@ function renderTodoIsland() {
   }
 }
 
+// Kalimat santai di bawah sapaan Beranda, sesuai cuaca sekarang.
+function weatherLine(w) {
+  const night = w.isDay === false;
+  if (w.kind === 'storm') return 'Ada petir, di dalam aja dulu';
+  if (w.kind === 'rain') return /gerimis/i.test(w.text) ? 'Gerimis nih, sedia payung ya' : 'Hujan nih, sedia payung ya';
+  if (w.kind === 'fog') return 'Berkabut, hati-hati di jalan';
+  if (!night && w.temperature >= 33) return 'Panas banget hari ini, banyak minum ya';
+  if (w.kind === 'clear') return night ? 'Langit cerah malam ini' : 'Cuaca cerah nih hari ini';
+  if (/cerah/i.test(w.text)) return night ? 'Sedikit berawan malam ini' : 'Agak berawan, tetap nyaman';
+  return night ? 'Berawan malam ini' : 'Berawan nih hari ini';
+}
+
 function renderWeather() {
   const w = weatherNow;
+  $('home-wx').hidden = !w;
+  $('home-wx-badge').hidden = !w;
   if (!w) return;
+  // Kartu atas Beranda: ikon + suhu + kondisi singkat.
+  const badgeKey = `${w.kind}|${w.isDay}`;
+  if ($('hw-icon').dataset.key !== badgeKey) {
+    $('hw-icon').dataset.key = badgeKey;
+    $('hw-icon').innerHTML = weatherSvg(w.kind, { day: w.isDay !== false, mini: true });
+  }
+  $('hw-temp').textContent = `${w.temperature}°`;
+  $('hw-cond').textContent = weatherLine(w);
+  $('home-wx-badge').title = [w.text, w.city, w.max != null ? `${w.min}°–${w.max}°` : '', w.advice?.[0]?.text].filter(Boolean).join(' · ');
   const scene = $('weather-scene');
   const sceneKey = `${w.kind}|${w.code}|${w.isDay}`;
   // Gambar ulang hanya saat cuaca berganti, supaya animasinya tidak mulai dari awal.
@@ -2441,23 +2355,6 @@ function renderWeather() {
       return cell;
     }),
   );
-
-  // Saran lain (yang pertama sudah tampil di island)
-  const more = (w.advice ?? []).slice(1);
-  $('weather-advice').hidden = !more.length;
-  $('weather-advice').replaceChildren(
-    ...more.map((tip) => {
-      const li = document.createElement('li');
-      li.className = `tip-${tip.icon}`;
-      const icon = document.createElement('span');
-      icon.className = 'tick-icon';
-      icon.innerHTML = PILL_ICONS[ADVICE_ICONS[tip.icon] ?? 'check'];
-      const text = document.createElement('span');
-      text.textContent = tip.text;
-      li.append(icon, text);
-      return li;
-    }),
-  );
 }
 
 // ---------- Grafik cuaca: suhu (garis) + peluang hujan (batang), satu sumbu x ----------
@@ -2470,6 +2367,9 @@ function renderWeatherChart() {
   const w = weatherNow;
   if (!w || !box.clientWidth) return;
   const points = [{ hour: 'Kini', temperature: w.temperature, rain: null, kind: w.kind, isDay: w.isDay, text: w.text, now: true }, ...(w.hours ?? [])];
+  // Tanpa prakiraan per jam (cuma titik "Kini"): grafik tidak digambar.
+  box.hidden = points.length < 2;
+  if (points.length < 2) return;
   const W = box.clientWidth;
   const pad = 12;
   const iconY = 2;
@@ -2713,6 +2613,7 @@ function renderDeviceTop() {
     box.classList.toggle('charging', battery.charging);
     box.classList.toggle('low', lowBattery());
   }
+  renderHomeDevices();
   renderSystem();
 }
 
@@ -2844,11 +2745,6 @@ function renderPage() {
   const now = new Date();
   if (page === 'home') renderHome(now);
   else if (page === 'chat') renderChat();
-  else if (page === 'camera') renderCamera();
-  else if (page === 'wallpaper') {
-    if (!wallLoaded) loadWallpapers();
-    else renderWallpapers();
-  }
   else if (page === 'music') {
     renderLyrics();
     queueMicrotask(renderIslandLyrics);
@@ -2859,7 +2755,7 @@ function renderPage() {
     queueMicrotask(renderTodoIsland);
     renderAgenda();
     renderHabits();
-  } else if (page === 'weather') renderWeather();
+  }
   else if (page === 'focus') renderFocusSummary();
   else if (page === 'water') renderWaterPage();
   else if (page === 'device') renderDeviceTop();
@@ -2879,388 +2775,6 @@ setInterval(() => {
   if (open && PAGES[pageIndex].id === 'focus' && !focusState.running) renderFocusSummary();
 }, 1000);
 
-// ---------- Studio foto (kamera) ----------
-// Kamera hanya menyala selama panel terbuka di section Studio. Jepret = hitung mundur 3-2-1,
-// beberapa foto berturut-turut sesuai grid, lalu disusun di canvas (bingkai + tanggal) dan disimpan.
-
-function saveCamPref(key, value) {
-  camera[key] = value;
-  try {
-    localStorage.setItem(`kapsul.cam.${key}`, value);
-  } catch {
-    // tanpa penyimpanan
-  }
-  renderCamera();
-}
-
-const cameraWanted = () => open && PAGES[pageIndex]?.id === 'camera';
-
-async function syncCamera() {
-  if (cameraWanted()) {
-    if (camera.stream || camera.starting) return;
-    camera.starting = true;
-    camera.error = '';
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
-      // Section sudah ditinggal selagi kamera menyala: langsung matikan lagi.
-      if (!cameraWanted()) stream.getTracks().forEach((t) => t.stop());
-      else {
-        camera.stream = stream;
-        $('cam-video').srcObject = stream;
-        await $('cam-video').play().catch(() => {});
-      }
-    } catch (error) {
-      camera.error = /NotFound|DevicesNotFound/i.test(error?.name) ? 'Kamera tidak ditemukan' : /NotAllowed|Permission/i.test(error?.name) ? 'Akses kamera ditolak' : 'Kamera sedang dipakai aplikasi lain';
-    } finally {
-      camera.starting = false;
-      renderCamera();
-    }
-    if (!camera.photos.length) loadPhotos();
-  } else if (camera.stream) {
-    camera.stream.getTracks().forEach((t) => t.stop());
-    camera.stream = null;
-    $('cam-video').srcObject = null;
-  }
-}
-
-async function loadPhotos() {
-  camera.photos = (await window.kapsul.photos().catch(() => [])) ?? [];
-  renderCameraGallery();
-}
-
-// Ikon grid: kotak-kotak kecil sesuai susunan foto.
-function layoutIcon(id) {
-  const { shots, cols } = CAM_LAYOUTS[id];
-  const rows = Math.ceil(shots / cols);
-  // Tunggal: lebar 4:3; strip: sempit memanjang; duo & 2×2: persegi.
-  const w = shots === 1 ? 14 : cols === 1 ? 8 : 14;
-  const h = shots === 1 ? 10.5 : 14;
-  const gap = 1.2;
-  const cw = (w - gap * (cols - 1)) / cols;
-  const ch = (h - gap * (rows - 1)) / rows;
-  let rects = '';
-  for (let i = 0; i < shots; i++) {
-    const x = (16 - w) / 2 + (i % cols) * (cw + gap);
-    const y = (16 - h) / 2 + Math.floor(i / cols) * (ch + gap);
-    rects += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" rx="0.8" />`;
-  }
-  return `<svg viewBox="0 0 16 16" aria-hidden="true">${rects}</svg>`;
-}
-
-function renderCamera() {
-  const layout = CAM_LAYOUTS[camera.layout];
-  $('cam-title').textContent = `Studio · ${layout.label}`;
-  $('cam-video').style.filter = CAM_FILTERS[camera.filter].css;
-  const msg = camera.error || (camera.starting ? 'Menyalakan kamera…' : '');
-  $('cam-msg').hidden = !msg;
-  $('cam-msg').textContent = msg;
-  $('cam-shutter').disabled = camera.busy || !camera.stream;
-  const withZeno = camera.zeno === 'on';
-  $('cam-zeno').setAttribute('aria-pressed', String(withZeno));
-  $('cam-zeno').title = withZeno ? 'Foto bareng Zeno: nyala' : 'Foto bareng Zeno: mati';
-  $('cam-buddy').hidden = !withZeno || !camera.stream;
-
-  const box = $('cam-layouts');
-  if (box.childElementCount !== Object.keys(CAM_LAYOUTS).length) {
-    box.replaceChildren(
-      ...Object.entries(CAM_LAYOUTS).map(([id, l]) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.dataset.layout = id;
-        b.setAttribute('role', 'radio');
-        b.title = `${l.label} · ${l.shots} foto`;
-        b.setAttribute('aria-label', b.title);
-        b.innerHTML = layoutIcon(id);
-        b.addEventListener('click', () => !camera.busy && saveCamPref('layout', id));
-        return b;
-      }),
-    );
-  }
-  for (const b of box.children) b.setAttribute('aria-checked', String(b.dataset.layout === camera.layout));
-
-  const chips = (el, list, key) => {
-    if (el.childElementCount !== Object.keys(list).length) {
-      el.replaceChildren(
-        ...Object.entries(list).map(([id, item]) => {
-          const b = document.createElement('button');
-          b.type = 'button';
-          b.dataset.id = id;
-          b.setAttribute('role', 'radio');
-          b.title = item.label;
-          if (key === 'frame') {
-            b.className = 'cam-swatch';
-            b.style.background = item.bg;
-            b.setAttribute('aria-label', item.label);
-          } else {
-            b.className = 'cam-chip';
-            b.textContent = item.label;
-          }
-          b.addEventListener('click', () => saveCamPref(key, id));
-          return b;
-        }),
-      );
-    }
-    for (const b of el.children) b.setAttribute('aria-checked', String(b.dataset.id === camera[key]));
-  };
-  chips($('cam-filters'), CAM_FILTERS, 'filter');
-  chips($('cam-frames'), CAM_FRAMES, 'frame');
-}
-
-function renderCameraGallery() {
-  const box = $('cam-gallery');
-  box.replaceChildren();
-  if (!camera.photos.length) {
-    const empty = document.createElement('p');
-    empty.className = 'cam-empty';
-    empty.textContent = 'Belum ada foto. Pilih grid, lalu tekan tombol jepret. Hasilnya disimpan di Gambar › Zenopod.';
-    box.append(empty);
-    return;
-  }
-  for (const photo of camera.photos) {
-    const item = document.createElement('div');
-    item.className = 'cam-thumb';
-    const open = document.createElement('button');
-    open.type = 'button';
-    open.className = 'cam-thumb-open';
-    open.title = `Buka ${photo.name}`;
-    const img = document.createElement('img');
-    img.src = photo.thumb;
-    img.alt = photo.name;
-    open.append(img);
-    open.addEventListener('click', () => window.kapsul.photo('open', photo.name));
-    const copy = document.createElement('button');
-    copy.type = 'button';
-    copy.className = 'cam-thumb-copy';
-    copy.title = 'Salin gambar';
-    copy.setAttribute('aria-label', 'Salin gambar');
-    copy.innerHTML = '<svg viewBox="0 0 16 16"><rect x="5" y="5" width="8.5" height="8.5" rx="1.6" /><path d="M10.5 5V3.6A1.1 1.1 0 0 0 9.4 2.5H3.6A1.1 1.1 0 0 0 2.5 3.6v5.8a1.1 1.1 0 0 0 1.1 1.1H5" /></svg>';
-    copy.addEventListener('click', () => {
-      window.kapsul.photo('copy', photo.name);
-      say(['Gambar disalin!'], 1600);
-      sfx('tick');
-    });
-    item.append(open, copy);
-    box.append(item);
-  }
-}
-
-// ---------- Foto bareng Zeno ----------
-// Pose diacak per foto; pratinjau menampilkan pose berikutnya supaya bisa ikut bergaya.
-const CAM_POSES = ['happy', 'wink', 'laugh', 'starstruck', 'love', 'smug', 'greet', 'surprised', 'kiss'];
-const camBuddy = window.createBuddy();
-$('cam-buddy').append(camBuddy.el);
-camBuddy.setMood('happy');
-
-function pickPoses(count) {
-  const pool = [...CAM_POSES].sort(() => Math.random() - 0.5);
-  return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
-}
-
-function showPose(mood) {
-  camBuddy.setCostume(seasonalCostume);
-  camBuddy.setMood(mood);
-  camBuddy.jump?.();
-}
-
-// SVG Zeno → gambar untuk canvas. Gaya dari buddy.css disalin jadi atribut (gambar SVG tidak membaca
-// CSS halaman); bagian yang tersembunyi dibuang.
-const SVG_PROPS = ['fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'fill-opacity', 'stroke-opacity', 'font-size', 'font-weight', 'font-family'];
-
-function buddyImage(mood, size = 520) {
-  const holder = document.createElement('div');
-  holder.style.cssText = 'position:fixed;left:-9999px;top:0;width:120px;height:120px;pointer-events:none';
-  const zeno = window.createBuddy();
-  zeno.setCostume(seasonalCostume);
-  zeno.setMood(mood);
-  zeno.el.style.width = '120px';
-  zeno.el.style.height = '120px';
-  holder.append(zeno.el);
-  document.body.append(holder);
-  const clone = zeno.el.cloneNode(true);
-  const source = [zeno.el, ...zeno.el.querySelectorAll('*')];
-  const target = [clone, ...clone.querySelectorAll('*')];
-  const drop = [];
-  source.forEach((el, i) => {
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none' || cs.visibility === 'hidden') {
-      if (i) drop.push(target[i]);
-      return;
-    }
-    if (el.tagName === 'defs' || el.closest('defs')) return;
-    for (const prop of SVG_PROPS) {
-      const value = cs.getPropertyValue(prop);
-      if (value) target[i].setAttribute(prop, value);
-    }
-    target[i].removeAttribute('class');
-  });
-  drop.forEach((el) => el.remove());
-  holder.remove();
-  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  clone.setAttribute('width', String(size));
-  clone.setAttribute('height', String(size));
-  clone.removeAttribute('style');
-  const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(clone))}`;
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = url;
-  });
-}
-
-// Tempel Zeno di pojok bawah foto (kiri/kanan bergantian), sedikit miring, dengan bayangan lembut.
-async function addZeno(canvas, mood, index) {
-  const img = await buddyImage(mood);
-  if (!img) return;
-  const ctx = canvas.getContext('2d');
-  const size = canvas.height * 0.46;
-  const right = index % 2 === 0;
-  const x = right ? canvas.width - size * 0.92 : -size * 0.08;
-  const y = canvas.height - size * 0.86;
-  ctx.save();
-  ctx.translate(x + size / 2, y + size / 2);
-  ctx.rotate(((right ? -1 : 1) * 7 * Math.PI) / 180);
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
-  ctx.shadowBlur = size * 0.08;
-  ctx.shadowOffsetY = size * 0.03;
-  ctx.drawImage(img, -size / 2, -size / 2, size, size);
-  ctx.restore();
-}
-
-const camWait = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// Satu bingkai 4:3 dari video, dicerminkan seperti pratinjau (selfie).
-function grabFrame() {
-  const video = $('cam-video');
-  const W = 960;
-  const H = 720;
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext('2d');
-  const vw = video.videoWidth || W;
-  const vh = video.videoHeight || H;
-  const scale = Math.max(W / vw, H / vh);
-  const sw = W / scale;
-  const sh = H / scale;
-  ctx.translate(W, 0);
-  ctx.scale(-1, 1);
-  ctx.filter = CAM_FILTERS[camera.filter].css;
-  ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, W, H);
-  return canvas;
-}
-
-// Susun foto dalam bingkai: padding, jarak antar foto, dan tanggal di bawah.
-function composePhotos(frames) {
-  const { cols } = CAM_LAYOUTS[camera.layout];
-  const frame = CAM_FRAMES[camera.frame];
-  const rows = Math.ceil(frames.length / cols);
-  const fw = frames[0].width;
-  const fh = frames[0].height;
-  const pad = 48;
-  const gap = 24;
-  const footer = 96;
-  const canvas = document.createElement('canvas');
-  canvas.width = pad * 2 + cols * fw + (cols - 1) * gap;
-  canvas.height = pad * 2 + rows * fh + (rows - 1) * gap + footer;
-  const ctx = canvas.getContext('2d');
-  ctx.fillStyle = frame.bg;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  frames.forEach((f, i) => {
-    const x = pad + (i % cols) * (fw + gap);
-    const y = pad + Math.floor(i / cols) * (fh + gap);
-    ctx.save();
-    ctx.beginPath();
-    ctx.roundRect(x, y, fw, fh, 14);
-    ctx.clip();
-    ctx.drawImage(f, x, y);
-    ctx.restore();
-  });
-  ctx.fillStyle = frame.ink;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const date = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
-  ctx.font = '600 34px "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif';
-  ctx.fillText(`${profile.buddyName || 'Zeno'} Studio`, canvas.width / 2, canvas.height - pad - footer / 2 + 14);
-  ctx.globalAlpha = 0.6;
-  ctx.font = '500 22px "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif';
-  ctx.fillText(date, canvas.width / 2, canvas.height - pad - footer / 2 + 52);
-  ctx.globalAlpha = 1;
-  return canvas;
-}
-
-function flash() {
-  const el = $('cam-flash');
-  el.classList.remove('on');
-  void el.offsetWidth;
-  el.classList.add('on');
-}
-
-async function shoot() {
-  if (camera.busy || !camera.stream) return;
-  camera.busy = true;
-  renderCamera();
-  renderBuddy();
-  const { shots } = CAM_LAYOUTS[camera.layout];
-  const frames = [];
-  const withZeno = camera.zeno === 'on';
-  camera.poses = pickPoses(shots);
-  const count = $('cam-count');
-  const progress = $('cam-progress');
-  try {
-    for (let i = 0; i < shots; i++) {
-      progress.hidden = shots === 1;
-      progress.textContent = `${i + 1}/${shots}`;
-      if (withZeno) showPose(camera.poses[i]);
-      // Foto pertama 3 detik, berikutnya 2 detik (waktu ganti gaya).
-      for (let n = i === 0 ? 3 : 2; n > 0; n--) {
-        if (!camera.stream) throw new Error('stopped');
-        count.hidden = false;
-        count.textContent = String(n);
-        count.classList.remove('pop');
-        void count.offsetWidth;
-        count.classList.add('pop');
-        sfx('tick');
-        await camWait(1000);
-      }
-      count.hidden = true;
-      if (!camera.stream) throw new Error('stopped');
-      const frame = grabFrame();
-      if (withZeno) await addZeno(frame, camera.poses[i], i);
-      frames.push(frame);
-      flash();
-      sfx('shutter');
-      await camWait(350);
-    }
-    const result = await window.kapsul.savePhoto(composePhotos(frames).toDataURL('image/png'));
-    if (result?.ok) {
-      camera.photos = result.photos ?? camera.photos;
-      renderCameraGallery();
-      react('starstruck', 2200);
-      say([`Cekrek! ${shots > 1 ? `${shots} foto` : 'Fotonya'} tersimpan`, 'Keren! Tersimpan di Gambar › Zenopod'], 2600);
-      sfx('success');
-    } else {
-      say(['Gagal menyimpan fotonya'], 2400);
-    }
-  } catch {
-    // dibatalkan (section ditinggal / panel ditutup)
-  } finally {
-    count.hidden = true;
-    progress.hidden = true;
-    camera.busy = false;
-    showPose('happy');
-    renderCamera();
-    renderBuddy();
-  }
-}
-
-$('cam-shutter').addEventListener('click', shoot);
-$('cam-zeno').addEventListener('click', () => {
-  saveCamPref('zeno', camera.zeno === 'on' ? 'off' : 'on');
-  sfx(camera.zeno === 'on' ? 'pop' : 'blip');
-});
-$('cam-folder').addEventListener('click', () => window.kapsul.photo('folder-root'));
-
 // ---------- Kostum, cuaca & baterai ----------
 
 let weatherNow = null;
@@ -3271,7 +2785,7 @@ function applyCostume() {
   peekBuddy.setCostume(seasonalCostume);
   // Slide cuaca di kapsul: payung / kacamata hitam sebentar.
   buddy.setCostume((centered ? null : pillSlide?.costume) ?? seasonalCostume);
-  const onWeather = PAGES[pageIndex]?.id === 'weather';
+  const onWeather = false; // cuaca kini di detail Beranda, Zeno besar tidak ganti kostum
   bigBuddy.setCostume(onWeather ? (weatherNow?.look?.costume ?? seasonalCostume) : seasonalCostume);
 }
 
@@ -3454,9 +2968,77 @@ function renderDeviceList() {
   }
 }
 
+// Beranda: kotak baterai per perangkat. Laptop ini dulu, lalu Bluetooth / USB / flashdisk.
+// Cincin = sisa baterai (flashdisk: ruang terpakai); merah saat baterai ≤ 20%.
+const LAPTOP_ICON = '<svg viewBox="0 0 16 16"><rect x="2.5" y="3" width="11" height="7.5" rx="1.4" /><path d="M1.5 13h13" /></svg>';
+
+function renderHomeDevices() {
+  const box = $('home-devs');
+  if (!box) return;
+  const tiles = [];
+  if (battery && hasBattery) {
+    const pct = Math.round(battery.level * 100);
+    tiles.push({ name: 'Laptop ini', icon: LAPTOP_ICON, bat: true, ratio: pct / 100, value: `${pct}%`, low: pct <= 20 && !battery.charging, charging: battery.charging });
+  }
+  for (const d of connectedDevices.bluetooth) {
+    const kind = d.kind === 'input' ? 'mouse' : d.kind;
+    tiles.push({ name: d.name, icon: DEVICE_ICONS[kind] ?? DEVICE_ICONS.other, bat: d.battery != null, ratio: d.battery != null ? d.battery / 100 : null, value: d.battery != null ? `${d.battery}%` : 'Tersambung', low: d.battery != null && d.battery <= 20 });
+  }
+  for (const d of connectedDevices.usb.filter((x) => x.kind !== 'storage')) {
+    tiles.push({ name: d.name, icon: DEVICE_ICONS[d.kind] ?? DEVICE_ICONS.other, bat: d.battery != null, ratio: d.battery != null ? d.battery / 100 : null, value: d.battery != null ? `${d.battery}%` : 'USB' });
+  }
+  for (const d of connectedDevices.drives) {
+    const used = d.size ? 1 - d.free / d.size : null;
+    tiles.push({ name: d.name || `Drive ${d.letter}`, icon: DEVICE_ICONS.storage, ratio: used, value: bytesText(d.free), note: 'kosong' });
+  }
+  $('home-dev-count').textContent = tiles.length > 1 ? `${tiles.length}` : '';
+  // Kartu atas Beranda: maksimal 3 perangkat yang punya info baterai, ikon + persen.
+  const chips = $('hw-devs');
+  chips.replaceChildren();
+  for (const t of tiles.filter((x) => x.bat).slice(0, 3)) {
+    const chip = document.createElement('span');
+    chip.className = `hw-dev${t.low ? ' low' : ''}`;
+    chip.title = `${t.name}: ${t.value}${t.charging ? ' · mengisi' : ''}`;
+    chip.innerHTML = t.icon;
+    chip.append(t.value);
+    chips.append(chip);
+  }
+  box.replaceChildren();
+  if (!tiles.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'Belum ada perangkat Bluetooth atau USB yang tersambung.';
+    box.append(empty);
+    return;
+  }
+  for (const t of tiles.slice(0, 8)) {
+    const tile = document.createElement('div');
+    tile.className = `home-dev${t.low ? ' low' : ''}${t.charging ? ' charging' : ''}`;
+    tile.title = `${t.name}: ${t.value}${t.note ? ` ${t.note}` : ''}${t.charging ? ' · mengisi' : ''}`;
+    const ring = document.createElement('span');
+    ring.className = 'home-dev-ring';
+    const svg = svgEl('svg', { viewBox: '0 0 120 120', 'aria-hidden': 'true' });
+    ringMeter(svg, t.ratio ?? 0, '');
+    svg.removeAttribute('aria-label');
+    if (t.ratio == null) svg.classList.add('none');
+    const icon = document.createElement('span');
+    icon.className = 'home-dev-icon';
+    icon.innerHTML = t.icon;
+    ring.append(svg, icon);
+    const name = document.createElement('span');
+    name.className = 'home-dev-name';
+    name.textContent = t.name;
+    const value = document.createElement('b');
+    value.textContent = t.value;
+    tile.append(ring, value, name);
+    box.append(tile);
+  }
+}
+
 window.kapsul.onDevices((state) => {
   connectedDevices = { bluetooth: state?.bluetooth ?? [], usb: state?.usb ?? [], drives: state?.drives ?? [] };
   renderDeviceList();
+  renderHomeDevices();
 });
 renderDeviceList();
 
@@ -4063,7 +3645,6 @@ $('drop-wallpaper').addEventListener('click', () => {
   const picked = dropFiles;
   closeDropChoice();
   if (!picked) return;
-  goToSection('wallpaper', { sound: false });
   addWallpaperFiles(picked.files);
 });
 $('drop-chat').addEventListener('click', () => {
@@ -4078,151 +3659,10 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !$('drop-choice').hidden) closeDropChoice();
 });
 
-// ---------- Wallpaper dari island ----------
-// Geser (scroll/seret/panah) = pindah gambar dan langsung dipasang sebagai wallpaper desktop.
-let wall = { items: [], current: null, hasOriginal: false };
-let wallIndex = 0;
-let wallLoaded = false;
-let wallApplyTimer = null;
-const WALL_STEP = 98; // lebar thumbnail 92px + celah 6px (style.css .wall-thumb)
-
-async function loadWallpapers() {
-  applyWallState(await window.kapsul.wallpapers());
-}
-
-function applyWallState(state) {
-  if (!state) return;
-  wall = state;
-  wallLoaded = true;
-  const at = wall.items.findIndex((w) => w.id === wall.current);
-  if (at >= 0) wallIndex = at;
-  wallIndex = Math.min(wallIndex, Math.max(0, wall.items.length - 1));
-  $('wall-error').hidden = !state.error;
-  $('wall-error').textContent = state.error ?? '';
-  renderWallpapers();
-}
-
-function renderWallpapers() {
-  const track = $('wall-track');
-  track.replaceChildren();
-  $('wall-count').textContent = wall.items.length ? `${wallIndex + 1}/${wall.items.length}` : '';
-  // Slideshow nyala: tanda kecil "▶ 15 m" di island; pengaturannya di detail.
-  const every = wall.slideshow ?? 0;
-  $('wall-show').hidden = !every || wall.items.length < 2;
-  $('wall-show').textContent = `▶ ${every >= 1440 ? '1 hari' : every >= 60 ? `${every / 60} j` : `${every} m`}`;
-  $('wall-show').title = `Slideshow tiap ${every >= 1440 ? 'hari' : every >= 60 ? `${every / 60} jam` : `${every} menit`}${wall.shuffle ? ', acak' : ''}`;
-  $('wall-every').value = String(every);
-  $('wall-shuffle').checked = Boolean(wall.shuffle);
-  $('wall-shuffle').disabled = !every;
-  if (!wall.items.length) {
-    const empty = document.createElement('button');
-    empty.type = 'button';
-    empty.className = 'wall-empty';
-    empty.innerHTML = '<svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg>';
-    empty.append('Unggah gambar untuk wallpaper');
-    empty.addEventListener('click', pickWallpaper);
-    track.append(empty);
-  }
-  wall.items.forEach((item, i) => {
-    const thumb = document.createElement('button');
-    thumb.type = 'button';
-    thumb.className = 'wall-thumb';
-    thumb.classList.toggle('focus', i === wallIndex);
-    thumb.classList.toggle('on', item.id === wall.current);
-    thumb.style.backgroundImage = item.thumb ? `url("${item.thumb}")` : '';
-    thumb.setAttribute('aria-label', `Wallpaper ${i + 1}${item.id === wall.current ? ' (terpasang)' : ''}`);
-    thumb.addEventListener('click', () => moveWall(i - wallIndex, { now: true }));
-    track.append(thumb);
-  });
-  // Gambar terpilih selalu di tengah deretan.
-  track.style.translate = `${-wallIndex * WALL_STEP}px 0`;
-  renderWallGrid();
-}
-
-function renderWallGrid() {
-  const grid = $('wall-grid');
-  grid.replaceChildren();
-  $('wall-kicker').textContent = `Koleksi wallpaper · ${wall.items.length}`;
-  $('wall-restore').hidden = !wall.hasOriginal;
-  const add = document.createElement('button');
-  add.type = 'button';
-  add.className = 'wall-cell add';
-  add.innerHTML = '<svg viewBox="0 0 12 12"><path d="M6 2.5v7M2.5 6h7" /></svg><span>Unggah</span>';
-  add.addEventListener('click', pickWallpaper);
-  grid.append(add);
-  for (const item of wall.items) {
-    const cell = document.createElement('div');
-    cell.className = 'wall-cell';
-    cell.classList.toggle('on', item.id === wall.current);
-    cell.style.backgroundImage = item.thumb ? `url("${item.thumb}")` : '';
-    const use = document.createElement('button');
-    use.type = 'button';
-    use.className = 'wall-use';
-    use.setAttribute('aria-label', 'Pasang wallpaper ini');
-    use.addEventListener('click', async () => applyWallState(await window.kapsul.wallpaperUse(item.id)));
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'notif-x wall-remove';
-    remove.setAttribute('aria-label', 'Hapus dari koleksi');
-    remove.innerHTML = '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" /></svg>';
-    remove.addEventListener('click', async () => applyWallState(await window.kapsul.wallpaperRemove(item.id)));
-    cell.append(use, remove);
-    grid.append(cell);
-  }
-}
-
-// Pindah n gambar; dipasang setelah geseran berhenti sebentar (supaya scroll cepat tidak memasang semuanya).
-function moveWall(delta, { now = false } = {}) {
-  if (!wall.items.length) return;
-  const next = Math.max(0, Math.min(wall.items.length - 1, wallIndex + delta));
-  const changed = next !== wallIndex;
-  wallIndex = next;
-  renderWallpapers();
-  if (changed) sfx('swipe');
-  clearTimeout(wallApplyTimer);
-  const id = wall.items[wallIndex].id;
-  if (id === wall.current) return;
-  wallApplyTimer = setTimeout(async () => applyWallState(await window.kapsul.wallpaperUse(id)), now ? 0 : 450);
-}
-
-async function pickWallpaper() {
-  applyWallState(await window.kapsul.wallpaperPick());
-  react('happy', 1200);
-}
-
-// Geser: roda mouse/touchpad, seret, atau tombol panah.
-let wheelSum = 0;
-$('wall-strip').addEventListener('wheel', (event) => {
-  event.preventDefault();
-  wheelSum += Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-  if (Math.abs(wheelSum) < 60) return;
-  moveWall(Math.sign(wheelSum));
-  wheelSum = 0;
-}, { passive: false });
-let wallDrag = null;
-$('wall-strip').addEventListener('pointerdown', (event) => {
-  wallDrag = { x: event.clientX, moved: 0 };
-});
-window.addEventListener('pointerup', (event) => {
-  if (!wallDrag) return;
-  const dx = event.clientX - wallDrag.x;
-  wallDrag = null;
-  if (Math.abs(dx) > 30) moveWall(dx < 0 ? 1 : -1);
-});
-$('wall-strip').addEventListener('keydown', (event) => {
-  if (event.key === 'ArrowRight') moveWall(1, { now: true });
-  else if (event.key === 'ArrowLeft') moveWall(-1, { now: true });
-});
-$('wall-add').addEventListener('click', pickWallpaper);
-$('wall-every').addEventListener('change', async () => applyWallState(await window.kapsul.wallpaperSlideshow(Number($('wall-every').value), $('wall-shuffle').checked)));
-$('wall-shuffle').addEventListener('change', async () => applyWallState(await window.kapsul.wallpaperSlideshow(Number($('wall-every').value), $('wall-shuffle').checked)));
-// Slideshow mengganti gambar dari main: deretan di island ikut bergeser.
-window.kapsul.onWallpapers?.((state) => applyWallState(state));
-$('wall-all').addEventListener('click', () => setDetail(true));
-$('wall-restore').addEventListener('click', async () => applyWallState(await window.kapsul.wallpaperUse('original')));
-
-// Gambar diseret ke island saat section Wallpaper terbuka = tambahkan ke koleksi (bukan lampiran chat).
+// ---------- Gambar dilepas → wallpaper ----------
+// Koleksi & slideshow ada di Pengaturan › Wallpaper; dari island cukup tambahkan & langsung pasang.
 async function addWallpaperFiles(files) {
+  let added = 0;
   for (const file of [...files].filter((f) => f.type.startsWith('image/')).slice(0, 10)) {
     const dataUrl = await new Promise((resolve) => {
       const reader = new FileReader();
@@ -4230,8 +3670,13 @@ async function addWallpaperFiles(files) {
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
     });
-    if (dataUrl) applyWallState(await window.kapsul.wallpaperAdd(dataUrl));
+    const state = dataUrl ? await window.kapsul.wallpaperAdd(dataUrl) : null;
+    if (state && !state.error) added++;
   }
+  if (added) {
+    react('happy', 1500);
+    sfx('pop');
+  } else react('confused', 1500);
 }
 
 // ---------- Cari aplikasi ----------
@@ -4713,9 +4158,9 @@ const shortDate = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'sho
 
 // Donat waktu layar: 4 aplikasi terlama + "Lainnya" (abu-abu). Celah 2px antar irisan.
 const SCREEN_SLOTS = ['#3987e5', 'rgba(57, 135, 229, 0.66)', 'rgba(57, 135, 229, 0.4)'];
-function renderScreenDonut(today) {
-  const svg = $('screen-donut');
-  const legend = $('screen-legend');
+function renderScreenDonut(today, svgId = 'screen-donut', legendId = 'screen-legend') {
+  const svg = $(svgId);
+  const legend = $(legendId);
   svg.replaceChildren();
   legend.replaceChildren();
   const total = today.totalMs || 0;
@@ -4800,6 +4245,7 @@ function renderScreen() {
 window.kapsul.onScreen((data) => {
   screenState = data;
   renderScreen();
+  if (PAGES[pageIndex]?.id === 'home') renderOverview();
 });
 
 window.kapsul.onStats((data) => {
@@ -5882,3 +5328,357 @@ renderMusicReport();
 goToPage(pageIndex, { sound: false });
 setTimeout(emote, 6000);
 window.kapsul.ready();
+
+// ---------- Hemat memori ----------
+// Startup (membangun semua section) membuang banyak objek sekaligus; tanpa GC cepat, heap Blink
+// membesar ke ±150 MB dan tidak menyusut lagi. GC beberapa kali di awal, lalu sesekali saat panel tertutup.
+if (typeof window.gc === 'function') {
+  for (const ms of [2000, 5000, 10000, 20000, 40000, 70000]) setTimeout(() => window.gc(), ms);
+  setInterval(() => {
+    if (!open) window.gc();
+  }, 3 * 60_000);
+}
+
+$('home-wx-badge').addEventListener('click', () => {
+  setDetail(true);
+  setTimeout(() => $('home-wx').scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 260);
+});
+
+// ---------- Overview (detail Beranda) ----------
+// KPI hari ini (vs target & rata-rata 7 hari), tren 7 hari per ukuran, waktu layar hari ini.
+let ovMetric = 'focus';
+try {
+  ovMetric = ['focus', 'screen', 'water'].includes(localStorage.getItem('kapsul.ovMetric')) ? localStorage.getItem('kapsul.ovMetric') : 'focus';
+} catch {
+  // tanpa penyimpanan
+}
+
+const avgOf = (list) => (list.length ? list.reduce((a, b) => a + b, 0) / list.length : 0);
+// "↑20% vs 7 hari" / "↓15% vs 7 hari" (dibanding rata-rata 6 hari sebelumnya).
+function vsAverage(today, before) {
+  const avg = avgOf(before);
+  if (!avg) return '';
+  const diff = Math.round(((today - avg) / avg) * 100);
+  return diff === 0 ? '= rata-rata 7 hari' : `${diff > 0 ? '↑' : '↓'}${Math.abs(diff)}% vs 7 hari`;
+}
+
+function renderOverview() {
+  const box = $('ov-kpis');
+  if (!box) return;
+  const t = statsToday ?? {};
+  const week = statsWeek.length ? statsWeek : [];
+  const prev = week.slice(0, -1);
+  const focusMin = Math.round((t.focusMs ?? 0) / 60_000);
+  const focusGoal = Math.max(1, focusSettings.focusMinutes * focusSettings.cycles);
+  const water = t.waterMl ?? 0;
+  const tasks = todayTodos();
+  const screenDays = screenState?.week ?? [];
+  const screenToday = screenState?.today?.totalMs ?? 0;
+  // Tiap target dengan grafik yang cocok: donat (fokus, tugas), gelas bersegmen (minum), sparkline 7 hari (layar).
+  const glasses = Math.max(1, Math.round(waterSettings.target / waterSettings.ml));
+  const kpis = [
+    { label: 'Fokus', viz: 'ring', value: `${focusMin} m`, ratio: focusMin / focusGoal, sub: vsAverage(focusMin, prev.map((d) => Math.round((d.focusMs ?? 0) / 60_000))) || `target ${focusGoal} m`, go: 'focus' },
+    { label: 'Minum', viz: 'glasses', value: `${waterLiters(water)} L`, filled: Math.min(glasses, Math.floor(water / waterSettings.ml)), glasses, sub: `target ${waterLiters(waterSettings.target)} L`, go: 'water' },
+    { label: 'Tugas', viz: 'ring', value: `${tasks.done}/${tasks.total}`, ratio: tasks.total ? tasks.done / tasks.total : 0, sub: tasks.total ? (tasks.done === tasks.total ? 'semua selesai' : `${tasks.total - tasks.done} tersisa`) : 'belum ada', go: 'time' },
+    { label: 'Layar', viz: 'spark', value: screenToday >= 60_000 ? minutesText(screenToday) : '0 m', days: screenDays.length ? screenDays.map((d) => d.ms ?? 0) : [screenToday], sub: vsAverage(screenToday, screenDays.slice(0, -1).map((d) => d.ms ?? 0)) || 'hari ini', go: 'device' },
+  ];
+  box.replaceChildren();
+  for (const k of kpis) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `ov-kpi viz-${k.viz}`;
+    const label = document.createElement('span');
+    label.className = 'sum-label';
+    label.textContent = k.label;
+    const viz = document.createElement('span');
+    viz.className = 'ov-viz';
+    if (k.viz === 'ring') {
+      const svg = svgEl('svg', { viewBox: '0 0 120 120', 'aria-hidden': 'true' });
+      ringMeter(svg, k.ratio, '');
+      svg.removeAttribute('aria-label');
+      const pct = document.createElement('small');
+      pct.textContent = `${Math.min(999, Math.round(k.ratio * 100))}%`;
+      viz.append(svg, pct);
+    } else if (k.viz === 'glasses') {
+      // Satu segmen = sekali minum; terisi = sudah diminum.
+      for (let i = 0; i < Math.min(k.glasses, 12); i++) {
+        const g = document.createElement('i');
+        if (i < k.filled) g.className = 'on';
+        viz.append(g);
+      }
+    } else {
+      const max = Math.max(1, ...k.days);
+      k.days.forEach((ms, i) => {
+        const bar = document.createElement('i');
+        bar.style.height = `${Math.max(8, (100 * ms) / max)}%`;
+        if (i === k.days.length - 1) bar.className = 'on';
+        viz.append(bar);
+      });
+    }
+    const value = document.createElement('b');
+    value.className = 'sum-value';
+    value.textContent = k.value;
+    const sub = document.createElement('span');
+    sub.className = 'sum-sub';
+    sub.textContent = k.sub;
+    b.append(label, viz, value, sub);
+    b.title = `${k.label}: ${k.value} · ${k.sub}`;
+    b.addEventListener('click', () => goToSection(k.go));
+    box.append(b);
+  }
+
+  // Tren 7 hari: satu ukuran sekaligus (satuan berbeda tidak ditumpuk dalam satu sumbu).
+  for (const btn of $('ov-seg').querySelectorAll('[data-metric]')) btn.setAttribute('aria-checked', String(btn.dataset.metric === ovMetric));
+  let days;
+  let opts;
+  if (ovMetric === 'screen') {
+    days = screenDays.length ? screenDays : [{ key: '', ms: screenToday }];
+    opts = { value: (d) => Math.round((d.ms ?? 0) / 60_000), label: (n) => (n >= 60 ? `${(n / 60).toLocaleString('id-ID', { maximumFractionDigits: 1 })} j` : `${n} m`), tip: (d) => `${minutesText(d.ms ?? 0)} waktu layar`, floor: 60 };
+  } else if (ovMetric === 'water') {
+    days = week.length ? week : [{ key: '', waterMl: water }];
+    opts = { value: (d) => d.waterMl ?? 0, label: (n) => waterLiters(n), tip: (d) => `${waterLiters(d.waterMl ?? 0)} L diminum`, floor: waterSettings.target };
+  } else {
+    days = week.length ? week : [{ key: '', focus: t.focus ?? 0, focusMs: t.focusMs ?? 0 }];
+    opts = { value: (d) => Math.round((d.focusMs ?? 0) / 60_000), label: (n) => String(n), tip: (d, n) => `${n} menit · ${d.focus ?? 0} sesi`, floor: 30 };
+  }
+  const { minutes: values, avg, best } = renderBars($('ov-bars'), days, { ...opts, mini: true });
+  const unit = (n) => opts.label(Math.round(n));
+  $('ov-note').textContent = values.some((v) => v > 0)
+    ? `Rata-rata ${unit(avg)}/hari · tertinggi ${best === values.length - 1 ? 'hari ini' : dayName(days[best].key)} (${unit(values[best])})`
+    : 'Belum ada data minggu ini.';
+
+  // Waktu layar hari ini
+  $('ov-screen').hidden = !screenState;
+  if (screenState) {
+    $('ov-screen-total').textContent = screenToday >= 60_000 ? minutesText(screenToday) : '';
+    renderScreenDonut(screenState.today, 'ov-donut', 'ov-legend');
+  }
+}
+
+for (const btn of $('ov-seg').querySelectorAll('[data-metric]')) {
+  btn.addEventListener('click', () => {
+    ovMetric = btn.dataset.metric;
+    try {
+      localStorage.setItem('kapsul.ovMetric', ovMetric);
+    } catch {
+      // tanpa penyimpanan
+    }
+    renderOverview();
+  });
+}
+
+// ---------- Kunci island ----------
+let panelPinned = false;
+function renderPin() {
+  const btn = $('pin-btn');
+  btn.setAttribute('aria-pressed', String(panelPinned));
+  btn.classList.toggle('on', panelPinned);
+  btn.title = panelPinned ? 'Island terkunci terbuka · klik untuk membuka kunci' : 'Kunci island agar tetap terbuka';
+  btn.setAttribute('aria-label', btn.title);
+  shell.classList.toggle('pinned', panelPinned);
+}
+$('pin-btn').addEventListener('click', () => {
+  panelPinned = !panelPinned;
+  renderPin();
+  sfx(panelPinned ? 'tick' : 'blip');
+  window.kapsul.pin(panelPinned);
+});
+window.kapsul.onPinned?.((on) => {
+  panelPinned = Boolean(on);
+  renderPin();
+});
+
+// ---------- Mini player YouTube ----------
+// Iframe dibuat sekali per video dan tidak dipindah di DOM (pindah = video dimuat ulang); posisinya
+// mengikuti slot kecil di island Musik atau slot besar di detail. Ditutup = iframe dibuang (memori dilepas).
+let yt = null; // { id, start, title, author }
+let ytFrame = null;
+
+function youtubeId(text) {
+  const s = String(text ?? '').trim();
+  const m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/.exec(s);
+  if (!m) return null;
+  const t = /[?&](?:t|start)=(\d+)/.exec(s);
+  return { id: m[1], start: t ? Number(t[1]) : 0 };
+}
+
+async function playYouTube(link) {
+  const found = youtubeId(link);
+  if (!found) return false;
+  closeYouTube();
+  yt = { ...found, title: 'Memuat video…', author: '', playing: true, muted: false, time: 0, duration: 0 };
+  ytFrame = document.createElement('iframe');
+  // Read-only: tanpa kontrol & keyboard YouTube, video tidak bisa diklik; kontrol lewat IFrame API (postMessage).
+  ytFrame.src = `https://www.youtube-nocookie.com/embed/${found.id}?autoplay=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&cc_load_policy=0&rel=0&playsinline=1&enablejsapi=1&start=${found.start}`;
+  ytFrame.addEventListener('load', () => ytSend('listening'));
+  ytFrame.allow = 'autoplay; encrypted-media; picture-in-picture';
+  ytFrame.title = 'Video YouTube';
+  $('yt-box').replaceChildren(ytFrame);
+  $('yt-box').hidden = false;
+  $('yt-url').value = '';
+  renderYouTube();
+  if (!open) window.kapsul.expand(true);
+  goToSection('music', { sound: false });
+  react('happy', 1200);
+  const info = await window.kapsul.ytInfo(found.id);
+  if (yt?.id === found.id) {
+    yt.title = info?.title || 'Video YouTube';
+    yt.author = info?.author || '';
+    renderYouTube();
+  }
+  return true;
+}
+
+// Perintah ke pemutar: 'playVideo', 'pauseVideo', 'mute', 'unMute' (atau 'listening' untuk minta status).
+function ytSend(func) {
+  const target = ytFrame?.contentWindow;
+  if (!target) return;
+  const message = func === 'listening' ? { event: 'listening', id: 1, channel: 'widget' } : { event: 'command', func, args: [], id: 1, channel: 'widget' };
+  target.postMessage(JSON.stringify(message), 'https://www.youtube-nocookie.com');
+}
+
+// Status dari pemutar (main/jeda, waktu, durasi, bisu) untuk tombol & keterangan waktu di luar video.
+window.addEventListener('message', (event) => {
+  if (event.origin !== 'https://www.youtube-nocookie.com' || !yt || event.source !== ytFrame?.contentWindow) return;
+  let data;
+  try {
+    data = JSON.parse(event.data);
+  } catch {
+    return;
+  }
+  // Video melarang diputar di luar YouTube (kode 101/150) atau tidak ada: beri tahu & tawarkan browser.
+  if (data?.event === 'onError') {
+    yt.error = [101, 150, 153].includes(Number(data.info)) ? 'Pemilik video tidak mengizinkan diputar di luar YouTube' : 'Video tidak bisa diputar';
+    renderYouTube();
+    return;
+  }
+  const info = data?.info;
+  if (!info || typeof info !== 'object') return;
+  if (typeof info.playerState === 'number') yt.playing = info.playerState === 1 || info.playerState === 3;
+  if (typeof info.currentTime === 'number') yt.time = info.currentTime;
+  if (typeof info.duration === 'number' && info.duration > 0) yt.duration = info.duration;
+  if (typeof info.muted === 'boolean') yt.muted = info.muted;
+  renderYtControls();
+});
+
+const ytClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function renderYtControls() {
+  if (!yt) return;
+  const play = $('yt-play-btn');
+  play.classList.toggle('paused', !yt.playing);
+  play.title = yt.playing ? 'Jeda' : 'Putar';
+  play.setAttribute('aria-label', play.title);
+  const mute = $('yt-mute-btn');
+  mute.classList.toggle('muted', yt.muted);
+  mute.title = yt.muted ? 'Nyalakan suara' : 'Bisukan';
+  mute.setAttribute('aria-label', mute.title);
+  $('yt-time').textContent = yt.duration ? `${ytClock(yt.time)} / ${ytClock(yt.duration)}` : '';
+}
+
+$('yt-play-btn').addEventListener('click', () => {
+  if (!yt) return;
+  yt.playing = !yt.playing;
+  ytSend(yt.playing ? 'playVideo' : 'pauseVideo');
+  renderYtControls();
+});
+$('yt-mute-btn').addEventListener('click', () => {
+  if (!yt) return;
+  yt.muted = !yt.muted;
+  ytSend(yt.muted ? 'mute' : 'unMute');
+  renderYtControls();
+});
+
+function closeYouTube() {
+  ytFrame?.remove();
+  ytFrame = null;
+  yt = null;
+  $('yt-box').hidden = true;
+  renderYouTube();
+}
+
+function renderYouTube() {
+  const on = Boolean(yt);
+  $('media').classList.toggle('yt-on', on);
+  $('yt-mini').hidden = !on;
+  $('yt-big').hidden = !on;
+  if (on) {
+    $('yt-title').textContent = yt.title;
+    $('yt-title').title = yt.title;
+    $('yt-author').textContent = yt.error ?? yt.author;
+    $('yt-mini').classList.toggle('error', Boolean(yt.error));
+    renderYtControls();
+  }
+  placeYouTube();
+}
+
+// Kotak pemutar mengikuti slot yang sedang terlihat (detail terbuka = besar, selain itu = kecil di island).
+function placeYouTube() {
+  const box = $('yt-box');
+  if (!yt) return;
+  const onMusic = open && PAGES[pageIndex]?.id === 'music';
+  const slot = $(detail ? 'yt-slot-big' : 'yt-slot-small');
+  const r = slot.getBoundingClientRect();
+  const visible = onMusic && r.width > 0 && r.height > 0;
+  // Tidak terlihat (section lain / panel tertutup): suara tetap jalan, kotaknya disembunyikan.
+  box.classList.toggle('away', !visible);
+  if (!visible) return;
+  Object.assign(box.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px` });
+}
+
+// Ikuti perubahan tata letak: pindah section, buka/tutup detail, ukuran jendela, scroll panel detail.
+new ResizeObserver(() => placeYouTube()).observe($('yt-slot-big'));
+new ResizeObserver(() => placeYouTube()).observe($('yt-slot-small'));
+for (const el of [$('hero-track'), $('deck-track')]) el.addEventListener('transitionend', () => placeYouTube());
+document.querySelector('.pane[data-pane="music"]').addEventListener('scroll', () => placeYouTube(), { passive: true });
+setInterval(() => {
+  if (yt) placeYouTube();
+}, 500);
+
+$('yt-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (!youtubeId($('yt-url').value)) {
+    $('yt-url').classList.add('bad');
+    setTimeout(() => $('yt-url').classList.remove('bad'), 900);
+    return;
+  }
+  playYouTube($('yt-url').value);
+});
+$('yt-url').addEventListener('paste', () => setTimeout(() => youtubeId($('yt-url').value) && playYouTube($('yt-url').value), 0));
+$('yt-big-btn').addEventListener('click', () => setDetail(!detail));
+$('yt-open-btn').addEventListener('click', () => {
+  if (!yt) return;
+  window.kapsul.ytOpen(yt.id, yt.start);
+  closeYouTube();
+});
+$('yt-close-btn').addEventListener('click', closeYouTube);
+
+// Link YouTube terakhir di clipboard: tawarkan satu klik untuk diputar.
+function renderYtClip() {
+  const latest = clipItems.find((c) => c.type !== 'image');
+  const found = latest && youtubeId(latest.text);
+  const btn = $('yt-clip');
+  btn.hidden = !found || found.id === yt?.id;
+  if (found) {
+    btn.textContent = 'Putar link dari clipboard';
+    btn.onclick = () => playYouTube(latest.text);
+  }
+}
+window.kapsul.onClips((items) => {
+  clipItems = items ?? [];
+  renderYtClip();
+});
+
+// Link YouTube diseret ke island (dari address bar / halaman browser) = langsung diputar.
+document.addEventListener('dragover', (event) => {
+  const types = [...(event.dataTransfer?.types ?? [])];
+  if (!types.includes('Files') && (types.includes('text/uri-list') || types.includes('text/plain'))) event.preventDefault();
+});
+document.addEventListener('drop', (event) => {
+  const types = [...(event.dataTransfer?.types ?? [])];
+  if (types.includes('Files')) return;
+  const text = event.dataTransfer.getData('text/uri-list') || event.dataTransfer.getData('text/plain');
+  if (youtubeId(text)) {
+    event.preventDefault();
+    playYouTube(text);
+  }
+});

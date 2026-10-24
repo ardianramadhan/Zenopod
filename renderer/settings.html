@@ -39,6 +39,7 @@
           <button type="button" data-section="guide" data-keywords="tutorial cara pakai interaksi klik elus tahan bantuan help"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" /><path d="M6.3 6.2a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1v.4M8 11.6v.1" /></svg>Panduan</button>
           <button type="button" data-section="profile" data-keywords="nama maskot ulang tahun sapaan"><svg viewBox="0 0 16 16"><circle cx="8" cy="5.6" r="2.6" /><path d="M3 13.5c.6-2.6 2.6-4 5-4s4.4 1.4 5 4" /></svg>Profil</button>
           <button type="button" data-section="display" data-keywords="lirik lagu posisi gaya notch pill dynamic island kostum tombol pintas shortcut windows mulai autostart versi pembaruan update kapsul"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="9" rx="1.6" /><path d="M6 14h4" /></svg>Tampilan</button>
+          <button type="button" data-section="wallpaper" data-keywords="wallpaper latar desktop gambar slideshow"><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.6" /><path d="M2.4 11.6 6 8.2l2.6 2.4 1.8-1.6 3.2 2.8" /><circle cx="10.6" cy="6" r="1.1" /></svg>Wallpaper</button>
           <button type="button" data-section="sound" data-keywords="volume efek bunyi"><svg viewBox="0 0 16 16"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M11 5.5a3.5 3.5 0 0 1 0 5" /></svg>Suara</button>
 
           <div class="nav-group">Panel</div>
@@ -733,6 +734,45 @@
         </section>
 
         <!-- Tampilan -->
+        <!-- Wallpaper -->
+        <section data-panel="wallpaper" hidden>
+          <header>
+            <h1>Wallpaper</h1>
+            <p>Koleksi gambar untuk wallpaper desktop. Klik gambar untuk memasang, atau seret gambar ke island lalu pilih "Jadikan wallpaper".</p>
+          </header>
+          <div class="card row">
+            <div>
+              <div class="row-title">Slideshow</div>
+              <div class="row-sub">Ganti wallpaper otomatis dari koleksi ini.</div>
+            </div>
+            <select id="wp-every">
+              <option value="0">Mati</option>
+              <option value="5">Tiap 5 menit</option>
+              <option value="15">Tiap 15 menit</option>
+              <option value="30">Tiap 30 menit</option>
+              <option value="60">Tiap 1 jam</option>
+              <option value="180">Tiap 3 jam</option>
+              <option value="1440">Sehari sekali</option>
+            </select>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Urutan acak</div>
+              <div class="row-sub">Slideshow memilih gambar secara acak, bukan berurutan.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="wp-shuffle" /><span></span></label>
+          </div>
+          <div class="card">
+            <div class="wp-head">
+              <span id="wp-count"></span>
+              <button type="button" class="btn" id="wp-restore" hidden>Kembalikan wallpaper asli</button>
+              <button type="button" class="btn primary" id="wp-add">Unggah gambar</button>
+            </div>
+            <div class="wp-grid" id="wp-grid"></div>
+            <p class="small" id="wp-error" hidden></p>
+          </div>
+        </section>
+
         <section data-panel="display" hidden>
           <header>
             <h1>Tampilan</h1>
