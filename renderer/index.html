@@ -75,6 +75,9 @@
             <button type="button" role="tab" data-section="music" aria-label="Musik" title="Musik">
               <svg class="ti ti-music" viewBox="0 0 16 16" aria-hidden="true"><g class="note"><path d="M6 12V3.5l7-1.5V10.5" /><circle cx="4.5" cy="12" r="1.6" /><circle cx="11.5" cy="10.5" r="1.6" /></g></svg>
             </button>
+            <button type="button" role="tab" data-section="video" aria-label="Video" title="Video YouTube">
+              <svg class="ti ti-video" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3.5" width="13" height="9" rx="2.5" /><path d="M6.8 6v4l3.4-2z" /></svg>
+            </button>
             <button type="button" role="tab" data-section="inbox" id="tab-notifs" aria-label="Kotak masuk" title="Kotak masuk (notifikasi & klip)">
               <svg class="ti ti-bell" viewBox="0 0 16 16" aria-hidden="true"><g class="bell"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3z" /></g><path class="clapper" d="M6.5 14h3" /></svg>
               <span class="count corner" id="notif-count" hidden></span>
@@ -198,24 +201,43 @@
                     <span id="np-total">0:00</span>
                   </div>
                 </div>
-                <!-- Mini player YouTube: video di kiri (iframe di #yt-box mengikuti slot ini), judul & tombol di kanan -->
+                <!-- Lirik berjalan di island (hanya lagu dengan lirik tersinkron) -->
+                <div class="np-lyrics" id="np-lyrics" aria-hidden="true"><ol id="np-lyric-list"></ol></div>
+              </div>
+              <!-- Video YouTube: pemutar kecil, atau kolom tempel link kalau belum ada video -->
+              <div class="page video-page" data-page="video" aria-label="Video">
+                <form class="yt-empty" id="yt-empty" autocomplete="off">
+                  <span class="page-kicker">Tonton YouTube di sini</span>
+                  <div class="yt-empty-row">
+                    <input id="yt-url-island" placeholder="Tempel link YouTube…" spellcheck="false" />
+                    <button type="submit" class="yt-btn main" title="Putar" aria-label="Putar"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.8 8z" /></svg></button>
+                  </div>
+                  <button type="button" class="yt-clip" id="yt-clip-island" hidden>Putar link dari clipboard</button>
+                </form>
+                <!-- Pemutar: video di kiri (iframe di #yt-box mengikuti slot ini), judul & tombol di kanan -->
                 <div class="yt-mini" id="yt-mini" hidden>
                   <div class="yt-slot" id="yt-slot-small"></div>
                   <div class="yt-info">
                     <b class="yt-title" id="yt-title"></b>
-                    <span class="yt-author" id="yt-author"></span>
-                    <span class="yt-time" id="yt-time"></span>
+                    <!-- Channel & waktu satu baris supaya kartu island tidak terlalu tinggi -->
+                    <span class="yt-sub"><span class="yt-author" id="yt-author"></span><span class="yt-time" id="yt-time"></span></span>
+                    <!-- Jalur putar: klik / seret untuk lompat; ±10 detik di kiri-kanan -->
+                    <div class="yt-seek">
+                      <button type="button" class="yt-skip" id="yt-back-btn" title="Mundur 10 detik" aria-label="Mundur 10 detik">−10</button>
+                      <span class="yt-track" id="yt-track"><b id="yt-fill"></b><em id="yt-tip"></em></span>
+                      <button type="button" class="yt-skip" id="yt-fwd-btn" title="Maju 10 detik" aria-label="Maju 10 detik">+10</button>
+                    </div>
                     <div class="yt-actions">
+                      <button type="button" class="yt-btn yt-list-only" id="yt-prev-btn" title="Video sebelumnya" aria-label="Video sebelumnya"><svg viewBox="0 0 16 16"><path d="M4 3.5v9M12.5 3.5v9L6 8z" /></svg></button>
                       <button type="button" class="yt-btn main" id="yt-play-btn" title="Jeda" aria-label="Jeda"><svg viewBox="0 0 16 16" class="i-pause"><path d="M5 3.5v9M11 3.5v9" /></svg><svg viewBox="0 0 16 16" class="i-play"><path d="M5 3.2v9.6L12.8 8z" /></svg></button>
+                      <button type="button" class="yt-btn yt-list-only" id="yt-next-btn" title="Video berikutnya" aria-label="Video berikutnya"><svg viewBox="0 0 16 16"><path d="M12 3.5v9M3.5 3.5v9L10 8z" /></svg></button>
                       <button type="button" class="yt-btn" id="yt-mute-btn" title="Bisukan" aria-label="Bisukan"><svg viewBox="0 0 16 16" class="i-sound"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M11 5.5a3.5 3.5 0 0 1 0 5" /></svg><svg viewBox="0 0 16 16" class="i-muted"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M10.8 6.2l3.4 3.6M14.2 6.2l-3.4 3.6" /></svg></button>
-                      <button type="button" class="yt-btn" id="yt-big-btn" title="Perbesar" aria-label="Perbesar"><svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9" /></svg></button>
+                      <button type="button" class="yt-btn" id="yt-big-btn" title="Perbesar (mode bioskop)" aria-label="Perbesar (mode bioskop)"><svg viewBox="0 0 16 16"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9" /></svg></button>
                       <button type="button" class="yt-btn" id="yt-open-btn" title="Buka di browser" aria-label="Buka di browser"><svg viewBox="0 0 16 16"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 9.5v3a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3" /></svg></button>
                       <button type="button" class="yt-btn" id="yt-close-btn" title="Tutup video" aria-label="Tutup video"><svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
                     </div>
                   </div>
                 </div>
-                <!-- Lirik berjalan di island (hanya lagu dengan lirik tersinkron) -->
-                <div class="np-lyrics" id="np-lyrics" aria-hidden="true"><ol id="np-lyric-list"></ol></div>
               </div>
               <div class="page inbox-page" data-page="inbox" aria-label="Kotak masuk">
                 <div class="page-kicker" id="inbox-title"></div>
@@ -426,13 +448,6 @@
             </section>
 
             <section class="pane lyrics-pane" data-pane="music" aria-label="Lirik & ringkasan musik">
-              <!-- Tempel / seret link YouTube untuk memutar videonya di sini -->
-              <form class="yt-form" id="yt-form" autocomplete="off">
-                <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3.5" width="13" height="9" rx="2.5" /><path d="M6.8 6v4l3.4-2z" /></svg>
-                <input id="yt-url" placeholder="Tempel link YouTube untuk diputar di sini…" spellcheck="false" />
-                <button type="button" class="yt-clip" id="yt-clip" hidden></button>
-              </form>
-              <div class="yt-big" id="yt-big" hidden><div class="yt-slot" id="yt-slot-big"></div></div>
               <!-- Lirik: latar dari warna sampul, baris aktif terisi seperti karaoke -->
               <div class="lyrics-view" id="lyrics-view">
                 <div class="lyrics-head">
@@ -459,6 +474,22 @@
               </div>
             </section>
 
+            <section class="pane scroll" data-pane="video" aria-label="Video YouTube">
+              <!-- Tempel / seret link YouTube untuk memutar videonya di sini -->
+              <form class="yt-form" id="yt-form" autocomplete="off">
+                <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3.5" width="13" height="9" rx="2.5" /><path d="M6.8 6v4l3.4-2z" /></svg>
+                <input id="yt-url" placeholder="Tempel link YouTube untuk diputar di sini…" spellcheck="false" />
+                <button type="button" class="yt-clip" id="yt-clip" hidden></button>
+              </form>
+              <!-- Playlist: semua video (judul dari oEmbed), yang diputar disorot; klik = lompat ke video itu -->
+              <div class="yt-queue-block" id="yt-queue-block" hidden>
+                <div class="pane-head"><span class="page-kicker" id="yt-queue-kicker">Daftar putar</span></div>
+                <ol class="yt-queue" id="yt-queue"></ol>
+              </div>
+              <div class="pane-head"><span class="page-kicker">Terakhir ditonton</span><button type="button" class="link" id="yt-history-clear" hidden>Hapus</button></div>
+              <div class="yt-history" id="yt-history"></div>
+              <p class="wall-hint yt-hint">Seret link YouTube dari browser ke island, atau salin link-nya lalu buka section ini. Tombol perbesar membuka video di jendela mengambang yang bisa diseret dan diubah ukurannya.</p>
+            </section>
             <section class="pane" data-pane="inbox" aria-label="Notifikasi & klip">
               <div class="pane-head">
                 <div class="focus-modes" role="tablist" aria-label="Kotak masuk">
@@ -631,10 +662,29 @@
     </div>
     <!-- Gaya notch: sambungan ke tepi atas layar (lengkung + tutup bilah menu macOS) -->
     <span class="notch-cap" aria-hidden="true"></span>
+    <!-- Pemutar YouTube: dibuat sekali, posisinya mengikuti slot kecil (island) atau besar (detail) -->
+    <div class="yt-box" id="yt-box" hidden>
+      <!-- Mode bioskop: bar kontrol di atas video (muncul saat kursor di atas island) -->
+      <div class="yt-stage" id="yt-stage">
+        <div class="yt-stage-bar">
+          <span class="yt-stage-meta"><b id="yt-stage-title"></b><span id="yt-stage-time"></span></span>
+          <span class="yt-stage-btns">
+            <button type="button" class="yt-sbtn yt-list-only" id="yt-stage-prev" title="Video sebelumnya" aria-label="Video sebelumnya"><svg viewBox="0 0 16 16"><path d="M4 3.5v9M12.5 3.5v9L6 8z" /></svg></button>
+            <button type="button" class="yt-sbtn skip" id="yt-stage-back" title="Mundur 10 detik (←)" aria-label="Mundur 10 detik"><svg viewBox="0 0 16 16"><path d="M3 8a5 5 0 1 0 1.5-3.6" /><path d="M4.2 1.8v2.9h2.9" /></svg><small>10</small></button>
+            <button type="button" class="yt-sbtn main" id="yt-stage-play" title="Jeda" aria-label="Jeda"><svg viewBox="0 0 16 16" class="i-pause"><path d="M5 3.5h2v9H5zM9 3.5h2v9H9z" /></svg><svg viewBox="0 0 16 16" class="i-play"><path d="M5 3.2v9.6L12.8 8z" /></svg></button>
+            <button type="button" class="yt-sbtn skip" id="yt-stage-fwd" title="Maju 10 detik (→)" aria-label="Maju 10 detik"><svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6" /><path d="M11.8 1.8v2.9H8.9" /></svg><small>10</small></button>
+            <button type="button" class="yt-sbtn yt-list-only" id="yt-stage-next" title="Video berikutnya" aria-label="Video berikutnya"><svg viewBox="0 0 16 16"><path d="M12 3.5v9M3.5 3.5v9L10 8z" /></svg></button>
+            <button type="button" class="yt-sbtn" id="yt-stage-mute" title="Bisukan" aria-label="Bisukan"><svg viewBox="0 0 16 16" class="i-sound"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M11 5.5a3.5 3.5 0 0 1 0 5" /></svg><svg viewBox="0 0 16 16" class="i-muted"><path d="M2.5 6h2.5L8.5 3v10L5 10H2.5z" /><path d="M10.8 6.2l3.4 3.6M14.2 6.2l-3.4 3.6" /></svg></button>
+            <button type="button" class="yt-sbtn" id="yt-stage-exit" title="Kecilkan (Esc)" aria-label="Kecilkan"><svg viewBox="0 0 16 16"><path d="M13.5 2.5 9.5 6.5M9.5 3v3.5H13M2.5 13.5l4-4M6.5 13V9.5H3" /></svg></button>
+            <button type="button" class="yt-sbtn" id="yt-stage-close" title="Tutup video" aria-label="Tutup video"><svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
+          </span>
+        </div>
+        <span class="yt-track yt-stage-track" id="yt-stage-track"><b id="yt-stage-progress"></b><em id="yt-stage-tip"></em></span>
+        <span class="yt-stage-grip" id="yt-stage-grip" title="Seret untuk mengubah ukuran" aria-hidden="true"></span>
+      </div>
+    </div>
     <script src="buddy.js"></script>
     <script src="sounds.js"></script>
     <script src="app.js"></script>
-    <!-- Pemutar YouTube: dibuat sekali, posisinya mengikuti slot kecil (island) atau besar (detail) -->
-    <div class="yt-box" id="yt-box" hidden></div>
   </body>
 </html>

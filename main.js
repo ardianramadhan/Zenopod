@@ -60,6 +60,10 @@ const SIZE = {
   // Dibuka: hanya kartu atas (seperti island melebar); detail di bawahnya opsional.
   compact: { width: 468, height: 152 },
   expanded: { width: 468, height: 468 },
+  // Mode bioskop: island sendiri jadi layar video 16:9 (lebar diatur pengguna).
+  get theater() {
+    return theaterSize();
+  },
 };
 
 let win = null;
@@ -138,6 +142,16 @@ function notchInset(display = screen.getPrimaryDisplay()) {
 
 function boundsFor(state) {
   const { width, height } = SIZE[state];
+  // Mode bioskop yang sudah dipindah: di posisi pilihan pengguna (tetap di dalam layar).
+  if (state === 'theater' && config.theaterPos) {
+    const { workArea: wa } = screen.getDisplayNearestPoint(config.theaterPos);
+    return {
+      x: Math.round(Math.max(wa.x, Math.min(config.theaterPos.x, wa.x + wa.width - width))),
+      y: Math.round(Math.max(wa.y, Math.min(config.theaterPos.y, wa.y + wa.height - height))),
+      width,
+      height,
+    };
+  }
   if (isCustom()) {
     const l = customLayout();
     const x = l.align === 'left' ? l.px : l.px + SIZE.collapsed.width - width;
@@ -250,7 +264,7 @@ function presetPillX(preset, wa) {
 }
 
 function currentState() {
-  if (expanded) return detail ? 'expanded' : 'compact';
+  if (expanded) return theater ? 'theater' : detail ? 'expanded' : 'compact';
   if (currentPeek) return currentPeek.actions?.length ? 'peekTall' : 'peek';
   return 'collapsed';
 }
@@ -345,7 +359,8 @@ function watchCursor() {
 // Dikunci terbuka: penutupan otomatis (kursor keluar, klik di luar, setelah membuka aplikasi) diabaikan.
 // Penutupan yang disengaja (Esc, shortcut, ikon tray, ambil teks layar) memakai { force: true }.
 function setExpanded(next, { focus = false, force = false } = {}) {
-  if (!next && config.panelPinned && !force) return;
+  // Mode bioskop juga tidak tertutup otomatis (video ditonton sambil bekerja di jendela lain).
+  if (!next && (config.panelPinned || theater) && !force) return;
   // Hover/klik selama digeser diabaikan (panel akan melompat ke posisi lama).
   if (drag) return;
   if (!win || next === expanded) {
@@ -370,6 +385,11 @@ function setExpanded(next, { focus = false, force = false } = {}) {
   } else {
     clearInterval(cursorTimer);
     detail = false;
+    if (theater) {
+      theater = false;
+      sendTheater();
+      if (config.theaterPos) win.setBounds(boundsFor('collapsed'));
+    }
     send('kapsul:expanded', false);
     resize();
     if (peekQueue.length) setTimeout(nextPeek, 260);
@@ -3514,6 +3534,69 @@ ipcMain.handle('kapsul:yt-info', async (_event, id) => {
     return { title: String(data.title ?? ''), author: String(data.author_name ?? '') };
   } catch {
     return null;
+  }
+});
+// ---------- Mode bioskop (video memenuhi island, Zeno disembunyikan) ----------
+let theater = false;
+let theaterFrom = null; // lebar saat mulai diubah lewat gagang sudut
+const THEATER_MIN = 360;
+const THEATER_MAX = 1280;
+
+// Ukuran jendela: lebar dibatasi layar, tinggi mengikuti 16:9 (+ 12px tepi transparan jendela).
+function theaterSize(width = config.theaterWidth) {
+  const area = screen.getPrimaryDisplay().workArea;
+  const w = Math.round(Math.max(THEATER_MIN, Math.min(Number(width) || 640, THEATER_MAX, area.width - 24, ((area.height - 24) * 16) / 9)));
+  return { width: w, height: Math.round(((w - 12) * 9) / 16) + 12 };
+}
+
+const sendTheater = () => send('kapsul:theater', { on: theater, free: Boolean(config.theaterPos) });
+
+ipcMain.on('kapsul:theater', (_event, on) => {
+  if (Boolean(on) === theater) return;
+  theater = Boolean(on);
+  sendTheater();
+  if (theater && !expanded) setExpanded(true, { force: true });
+  // Keluar dari posisi bebas: langsung kembali ke island (tanpa menyusut dulu di tempat video).
+  else if (win && !theater && config.theaterPos) win.setBounds(boundsFor(currentState()));
+  else if (win) resize();
+});
+// Seret video: jendela ikut kursor; dilepas = posisi disimpan (island kecil tetap di tempatnya).
+let theaterMoveFrom = null;
+ipcMain.on('kapsul:theater-move', (_event, phase, dx, dy, moved) => {
+  if (!theater || !win) return;
+  if (phase === 'start') {
+    theaterMoveFrom = win.getBounds();
+    return;
+  }
+  if (!theaterMoveFrom) return;
+  if (phase === 'move') {
+    win.setBounds({ ...theaterMoveFrom, x: Math.round(theaterMoveFrom.x + (Number(dx) || 0)), y: Math.round(theaterMoveFrom.y + (Number(dy) || 0)) });
+    return;
+  }
+  theaterMoveFrom = null;
+  if (!moved) return;
+  const { x, y } = win.getBounds();
+  config = { ...config, theaterPos: { x, y } };
+  saveConfig(config);
+  win.setBounds(boundsFor('theater'));
+  sendTheater();
+});
+// Gagang sudut: dx = geseran horizontal kursor sejak mulai. Island di tengah melebar ke dua sisi (x2),
+// island di kanan melebar ke kiri (gagang di sudut kiri bawah).
+ipcMain.on('kapsul:theater-resize', (_event, phase, dx) => {
+  if (!theater || !win) return;
+  if (phase === 'start') {
+    theaterFrom = theaterSize().width;
+    return;
+  }
+  if (theaterFrom == null) return;
+  const factor = config.theaterPos ? 1 : ({ center: 2, right: -1 }[align()] ?? 1);
+  const width = theaterSize(theaterFrom + factor * (Number(dx) || 0)).width;
+  config = { ...config, theaterWidth: width };
+  win.setBounds(boundsFor('theater'));
+  if (phase === 'end') {
+    theaterFrom = null;
+    saveConfig(config);
   }
 });
 ipcMain.on('kapsul:yt-open', (_event, id, seconds) => {

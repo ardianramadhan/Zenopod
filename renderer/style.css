@@ -10308,16 +10308,6 @@ bingkai {
   -webkit-line-clamp: 1;
 }
 
-/* Video sedang di detail: slot kecil memberi petunjuk */
-.shell.detail #yt-slot-small::after {
-  content: 'Diputar di bawah ↓';
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 10.5px;
-  color: var(--muted);
-}
 
 /* Video aktif: halaman Musik jadi satu baris penuh (grid sampul/judul/lirik tidak dipakai) */
 .media.yt-on .np {
@@ -10386,4 +10376,547 @@ bingkai {
 .yt-mini.error #yt-mute-btn,
 .yt-mini.error .yt-time {
   display: none;
+}
+
+/* ---------- Section Video ---------- */
+.video-page {
+  justify-content: center;
+  padding-right: 4px;
+}
+
+.video-page .yt-mini {
+  height: 100%;
+}
+
+.yt-empty {
+  display: grid;
+  gap: 6px;
+}
+
+.yt-empty[hidden] {
+  display: none;
+}
+
+.yt-empty-row {
+  display: flex;
+  gap: 6px;
+}
+
+.yt-empty-row input {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.yt-empty-row input:focus {
+  border-color: var(--accent);
+}
+
+.yt-empty-row input.bad {
+  border-color: #f87171;
+}
+
+.yt-empty-row .yt-btn {
+  width: 30px;
+  height: 26px;
+}
+
+.yt-empty .yt-clip {
+  justify-self: start;
+}
+
+.yt-history {
+  display: grid;
+  gap: 4px;
+}
+
+.yt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.yt-row:hover {
+  background: var(--surface-hover);
+}
+
+.yt-row svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  fill: var(--muted);
+}
+
+.yt-row span {
+  display: grid;
+  min-width: 0;
+}
+
+.yt-row b {
+  font-size: 12.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yt-row small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.yt-hint {
+  margin-top: 8px;
+}
+
+/* ---------- Playlist YouTube ---------- */
+.yt-list-only {
+  display: none !important;
+}
+
+.yt-mini.list .yt-list-only {
+  display: grid !important;
+}
+
+/* 7 tombol (dengan sebelumnya/berikutnya) muat di kolom kanan island (~164px) */
+.yt-mini.list .yt-btn {
+  width: 20px;
+}
+
+.yt-mini.list .yt-actions {
+  gap: 3px;
+}
+
+.yt-queue-block[hidden] {
+  display: none;
+}
+
+.yt-queue {
+  display: grid;
+  gap: 2px;
+  max-height: 220px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.yt-q {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.yt-q:hover {
+  background: var(--surface);
+}
+
+.yt-q.now {
+  background: rgba(57, 135, 229, 0.16);
+}
+
+.yt-q small {
+  flex: none;
+  width: 18px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.yt-q.now small {
+  color: #7cb4f5;
+}
+
+.yt-q span {
+  display: grid;
+  min-width: 0;
+}
+
+.yt-q b {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yt-q i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ---------- Mode bioskop: island = layar video ---------- */
+.shell.open.theater {
+  width: calc(100vw - 12px);
+  height: calc(100vh - 12px);
+  border-radius: 18px;
+  background: #000;
+}
+
+.shell.theater > * {
+  visibility: hidden;
+}
+
+.yt-box.stage {
+  border-radius: 18px;
+}
+
+/* Selama gagang diseret: kotak mengikuti tanpa animasi supaya tidak tertinggal. */
+.yt-box.sizing,
+.shell.theater:has(~ .yt-box.sizing) {
+  transition: none;
+}
+
+.yt-stage {
+  display: none;
+}
+
+.yt-box.stage .yt-stage {
+  position: absolute;
+  inset: 0;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.yt-box.stage:hover .yt-stage,
+.yt-box.sizing .yt-stage {
+  opacity: 1;
+}
+
+.yt-stage-bar {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 28px 14px 12px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
+}
+
+.yt-stage-meta {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+  color: #f4f4f5;
+}
+
+.yt-stage-meta b {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yt-stage-meta span {
+  font-size: 11px;
+  color: #d4d4d8;
+  font-variant-numeric: tabular-nums;
+}
+
+.yt-stage-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.yt-sbtn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  cursor: pointer;
+}
+
+.yt-sbtn:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.yt-sbtn.main {
+  background: #fff;
+  color: #0b0b10;
+}
+
+.yt-sbtn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.yt-sbtn.main svg {
+  fill: currentColor;
+}
+
+.yt-sbtn .i-play,
+.yt-sbtn.paused .i-pause,
+.yt-sbtn .i-muted,
+.yt-sbtn.muted .i-sound {
+  display: none;
+}
+
+.yt-sbtn.paused .i-play,
+.yt-sbtn.muted .i-muted {
+  display: block;
+}
+
+.yt-stage .yt-list-only {
+  display: none !important;
+}
+
+.yt-stage.list .yt-list-only {
+  display: grid !important;
+}
+
+/* Gagang ubah ukuran: sudut kanan bawah (island di kanan layar: kiri bawah) */
+.yt-stage-grip {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  background:
+    linear-gradient(135deg, transparent 55%, rgba(255, 255, 255, 0.7) 55%, rgba(255, 255, 255, 0.7) 62%, transparent 62%, transparent 72%, rgba(255, 255, 255, 0.7) 72%, rgba(255, 255, 255, 0.7) 79%, transparent 79%);
+}
+
+body[data-align="right"] .yt-stage:not(.free) .yt-stage-grip {
+  right: auto;
+  left: 0;
+  cursor: nesw-resize;
+  transform: scaleX(-1);
+}
+
+/* Bar tidak menutupi gagang */
+.yt-stage-bar {
+  padding-right: 24px;
+}
+
+body[data-align="right"] .yt-stage:not(.free) .yt-stage-bar {
+  padding-left: 24px;
+  padding-right: 14px;
+}
+
+/* ---------- Jalur putar & lompat 10 detik ---------- */
+.yt-seek {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.yt-skip {
+  flex: none;
+  height: 14px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 9.5px/14px inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.yt-skip:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* Area klik 12px, garis terlihat 3px (menebal saat diarahkan / diseret) */
+.yt-track {
+  position: relative;
+  flex: 1;
+  height: 12px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.yt-track::before,
+.yt-track b {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 3px;
+  border-radius: 2px;
+  translate: 0 -50%;
+  transition: height 0.12s;
+}
+
+.yt-track::before {
+  content: "";
+  right: 0;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.yt-track b {
+  width: 0;
+  background: #3987e5;
+}
+
+.yt-track:hover::before,
+.yt-track:hover b,
+.yt-track.seeking::before,
+.yt-track.seeking b {
+  height: 5px;
+}
+
+.yt-track em {
+  position: absolute;
+  bottom: 13px;
+  translate: -50% 0;
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: #0b0b10;
+  color: #f4f4f5;
+  font: 600 10px/14px inherit;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.yt-track:hover em,
+.yt-track.seeking em {
+  opacity: 1;
+}
+
+.yt-track em:empty {
+  display: none;
+}
+
+/* Mode bioskop: jalur putar di atas baris tombol */
+.yt-stage-track {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 46px;
+  height: 14px;
+}
+
+.yt-stage-track::before {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.yt-stage-bar {
+  padding-top: 52px;
+}
+
+.yt-sbtn.skip {
+  display: flex;
+  gap: 1px;
+  width: auto;
+  padding: 0 7px;
+}
+
+.yt-sbtn.skip small {
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Seret video untuk memindah */
+.yt-box.stage .yt-stage {
+  cursor: grab;
+}
+
+.yt-stage.moving {
+  cursor: grabbing !important;
+}
+
+.yt-stage button,
+.yt-stage .yt-track {
+  cursor: pointer;
+}
+
+.yt-stage .yt-stage-grip {
+  cursor: nwse-resize;
+}
+
+body[data-align="right"] .yt-stage:not(.free) .yt-stage-grip {
+  cursor: nesw-resize;
+}
+
+/* Channel · waktu dalam satu baris */
+.yt-sub {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.yt-sub .yt-author {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.yt-sub .yt-time {
+  flex: none;
+}
+
+.yt-sub .yt-author:not(:empty) + .yt-time::before {
+  content: "·";
+  margin-right: 6px;
+}
+
+/* Island: rapatkan baris supaya tombol tidak menempel ke titik penunjuk section */
+.yt-mini .yt-seek {
+  margin-top: 0;
+}
+
+.yt-mini .yt-track {
+  height: 10px;
+}
+
+.yt-mini .yt-actions {
+  margin-top: 1px;
+}
+
+.yt-mini .yt-skip {
+  height: 10px;
+  line-height: 10px;
+}
+
+.yt-mini .yt-btn {
+  height: 20px;
 }

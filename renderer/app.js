@@ -16,6 +16,7 @@ let claudeState = { active: [] };
 let focusState = { phase: null, running: false, endsAt: null, remaining: 0, cycle: 1, done: 0 };
 let focusSettings = { focusMinutes: 25, cycles: 4 };
 let open = false;
+let theater = false; // mode bioskop: island jadi layar video
 let peekState = null;
 let lastPeek = { kind: null, at: 0 };
 let calendarEvents = null; // null = kalender belum disambungkan
@@ -178,6 +179,8 @@ window.kapsul.onExpanded((value) => {
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (!$('power-sheet').hidden) return closePower();
+    // Mode bioskop menutupi isi panel: Esc pertama selalu kembali ke island biasa.
+    if (theater) return window.kapsul.theater(false);
     if (detail && !(event.target === $('app-search') && $('app-search').value)) return setDetail(false);
     if (event.target === $('app-search') && $('app-search').value) {
       $('app-search').value = '';
@@ -188,6 +191,14 @@ document.addEventListener('keydown', (event) => {
     return;
   }
   if (!open || event.target instanceof HTMLInputElement) return;
+  // Mode bioskop: ← / → = mundur / maju 10 detik, spasi = putar/jeda.
+  if (theater && yt) {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') return ytSeek(yt.time + (event.key === 'ArrowLeft' ? -10 : 10));
+    if (event.key === ' ') {
+      event.preventDefault();
+      return $('yt-play-btn').click();
+    }
+  }
   // Panel terbuka + ketik huruf = langsung cari aplikasi (di Beranda).
   if (/^[a-z]$/i.test(event.key) && !event.ctrlKey && !event.altKey && !event.metaKey && $('power-sheet').hidden) {
     goToSection('home', { sound: false });
@@ -1841,6 +1852,7 @@ const PAGES = [
   { id: 'home', label: 'Beranda', sound: 'hello' },
   { id: 'time', label: 'Waktu & jadwal', sound: 'ticktock' },
   { id: 'music', label: 'Musik', sound: 'note' },
+  { id: 'video', label: 'Video', sound: 'pop' },
   { id: 'inbox', label: 'Kotak masuk', sound: 'pop' },
   { id: 'focus', label: 'Fokus & timer', sound: 'tick' },
   { id: 'water', label: 'Minum air', sound: 'pop' },
@@ -5494,46 +5506,64 @@ window.kapsul.onPinned?.((on) => {
 let yt = null; // { id, start, title, author }
 let ytFrame = null;
 
+// Link video (id), link playlist (list, tanpa id), atau keduanya (video di dalam playlist, + index).
 function youtubeId(text) {
   const s = String(text ?? '').trim();
+  if (!/youtube\.com|youtu\.be/.test(s)) return null;
   const m = /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/.exec(s);
-  if (!m) return null;
+  const list = /[?&]list=([\w-]{10,})/.exec(s)?.[1] ?? null;
+  if (!m && !list) return null;
   const t = /[?&](?:t|start)=(\d+)/.exec(s);
-  return { id: m[1], start: t ? Number(t[1]) : 0 };
+  const index = /[?&]index=(\d+)/.exec(s);
+  return { id: m?.[1] ?? null, list, index: index ? Math.max(0, Number(index[1]) - 1) : 0, start: t ? Number(t[1]) : 0 };
+}
+
+const YT_PARAMS = 'autoplay=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&cc_load_policy=0&rel=0&playsinline=1&enablejsapi=1';
+// URL embed: video tunggal, video di dalam playlist, atau playlist saja (videoseries).
+function ytEmbedUrl({ id, list, index = 0, start = 0, muted = false }) {
+  const base = 'https://www.youtube-nocookie.com/embed/';
+  const extra = `${YT_PARAMS}&start=${Math.floor(start)}${muted ? '&mute=1' : ''}`;
+  if (list && id) return `${base}${id}?list=${list}&index=${index}&${extra}`;
+  if (list) return `${base}videoseries?list=${list}&index=${index}&${extra}`;
+  return `${base}${id}?${extra}`;
 }
 
 async function playYouTube(link) {
   const found = youtubeId(link);
   if (!found) return false;
   closeYouTube();
-  yt = { ...found, title: 'Memuat video…', author: '', playing: true, muted: false, time: 0, duration: 0 };
+  yt = { ...found, title: 'Memuat video…', author: '', playing: true, muted: false, time: 0, duration: 0, playlist: [], titles: {} };
   ytFrame = document.createElement('iframe');
   // Read-only: tanpa kontrol & keyboard YouTube, video tidak bisa diklik; kontrol lewat IFrame API (postMessage).
-  ytFrame.src = `https://www.youtube-nocookie.com/embed/${found.id}?autoplay=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&cc_load_policy=0&rel=0&playsinline=1&enablejsapi=1&start=${found.start}`;
+  ytFrame.src = ytEmbedUrl(found);
   ytFrame.addEventListener('load', () => ytSend('listening'));
   ytFrame.allow = 'autoplay; encrypted-media; picture-in-picture';
   ytFrame.title = 'Video YouTube';
-  $('yt-box').replaceChildren(ytFrame);
+  $('yt-box').querySelector('iframe')?.remove();
+  $('yt-box').prepend(ytFrame);
   $('yt-box').hidden = false;
   $('yt-url').value = '';
   renderYouTube();
   if (!open) window.kapsul.expand(true);
-  goToSection('music', { sound: false });
+  goToSection('video', { sound: false });
   react('happy', 1200);
-  const info = await window.kapsul.ytInfo(found.id);
-  if (yt?.id === found.id) {
-    yt.title = info?.title || 'Video YouTube';
-    yt.author = info?.author || '';
-    renderYouTube();
+  if (found.id) {
+    const info = await window.kapsul.ytInfo(found.id);
+    if (yt?.id === found.id) {
+      yt.title = info?.title || 'Video YouTube';
+      yt.author = info?.author || '';
+      renderYouTube();
+      rememberVideo(yt);
+    }
   }
   return true;
 }
 
 // Perintah ke pemutar: 'playVideo', 'pauseVideo', 'mute', 'unMute' (atau 'listening' untuk minta status).
-function ytSend(func) {
+function ytSend(func, args = []) {
   const target = ytFrame?.contentWindow;
   if (!target) return;
-  const message = func === 'listening' ? { event: 'listening', id: 1, channel: 'widget' } : { event: 'command', func, args: [], id: 1, channel: 'widget' };
+  const message = func === 'listening' ? { event: 'listening', id: 1, channel: 'widget' } : { event: 'command', func, args, id: 1, channel: 'widget' };
   target.postMessage(JSON.stringify(message), 'https://www.youtube-nocookie.com');
 }
 
@@ -5558,8 +5588,82 @@ window.addEventListener('message', (event) => {
   if (typeof info.currentTime === 'number') yt.time = info.currentTime;
   if (typeof info.duration === 'number' && info.duration > 0) yt.duration = info.duration;
   if (typeof info.muted === 'boolean') yt.muted = info.muted;
+  // Playlist: daftar id & posisi; video berganti (berikutnya/sebelumnya) → judul ikut berganti.
+  if (Array.isArray(info.playlist) && info.playlist.length) {
+    const changed = info.playlist.join() !== yt.playlist.join();
+    yt.playlist = info.playlist.filter((x) => /^[\w-]{11}$/.test(x));
+    if (changed) loadQueueTitles();
+  }
+  if (typeof info.playlistIndex === 'number' && info.playlistIndex >= 0) yt.index = info.playlistIndex;
+  const vd = info.videoData;
+  if (vd?.video_id && vd.video_id !== yt.id) {
+    yt.id = vd.video_id;
+    yt.title = vd.title || yt.titles[vd.video_id]?.title || 'Video YouTube';
+    yt.author = vd.author || yt.titles[vd.video_id]?.author || '';
+    yt.time = 0;
+    renderYouTube();
+    if (yt.title !== 'Video YouTube') rememberVideo(yt);
+  } else if (vd?.title && yt.title === 'Memuat video…') {
+    yt.title = vd.title;
+    yt.author = vd.author || yt.author;
+    renderYouTube();
+    rememberVideo(yt);
+  }
   renderYtControls();
+  renderQueue();
 });
+
+// Judul tiap video di playlist (oEmbed lewat main), paling banyak 50 pertama, bertahap.
+async function loadQueueTitles() {
+  const list = yt?.playlist ?? [];
+  for (const vid of list.slice(0, 50)) {
+    if (!yt || yt.playlist !== list) return;
+    if (yt.titles[vid]) continue;
+    const info = await window.kapsul.ytInfo(vid);
+    if (!yt) return;
+    yt.titles[vid] = info ?? { title: '', author: '' };
+    renderQueue();
+  }
+}
+
+function renderQueue() {
+  const on = Boolean(yt?.playlist?.length > 1);
+  $('yt-queue-block').hidden = !on;
+  $('yt-mini').classList.toggle('list', on);
+  if (!on) return;
+  $('yt-queue-kicker').textContent = `Daftar putar · ${yt.index + 1}/${yt.playlist.length}`;
+  const box = $('yt-queue');
+  const key = `${yt.playlist.join()}|${yt.index}|${Object.keys(yt.titles).length}`;
+  if (box.dataset.key === key) return;
+  box.dataset.key = key;
+  box.replaceChildren();
+  yt.playlist.forEach((vid, i) => {
+    const li = document.createElement('li');
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `yt-q${i === yt.index ? ' now' : ''}`;
+    const num = document.createElement('small');
+    num.textContent = i === yt.index ? '▶' : String(i + 1);
+    const text = document.createElement('span');
+    const t = document.createElement('b');
+    t.textContent = yt.titles[vid]?.title || 'Memuat judul…';
+    const s = document.createElement('i');
+    s.textContent = yt.titles[vid]?.author || '';
+    text.append(t, s);
+    b.append(num, text);
+    b.addEventListener('click', () => {
+      ytSend('playVideoAt', [i]);
+      yt.index = i;
+      renderQueue();
+    });
+    li.append(b);
+    box.append(li);
+  });
+  box.querySelector('.now')?.scrollIntoView({ block: 'nearest' });
+}
+
+$('yt-prev-btn').addEventListener('click', () => ytSend('previousVideo'));
+$('yt-next-btn').addEventListener('click', () => ytSend('nextVideo'));
 
 const ytClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function renderYtControls() {
@@ -5573,6 +5677,139 @@ function renderYtControls() {
   mute.title = yt.muted ? 'Nyalakan suara' : 'Bisukan';
   mute.setAttribute('aria-label', mute.title);
   $('yt-time').textContent = yt.duration ? `${ytClock(yt.time)} / ${ytClock(yt.duration)}` : '';
+  // Selama jalur putar diseret, isinya mengikuti kursor (bukan posisi video).
+  if (!$('yt-track').classList.contains('seeking')) $('yt-fill').style.width = ytPercent();
+  if (theater) renderStage();
+}
+
+const ytPercent = () => (yt?.duration ? `${((100 * yt.time) / yt.duration).toFixed(2)}%` : '0');
+
+// Lompat ke detik tertentu (jalur putar, ±10 detik, panah kiri/kanan di mode bioskop).
+function ytSeek(seconds) {
+  if (!yt?.duration) return;
+  yt.time = Math.max(0, Math.min(yt.duration - 0.5, seconds));
+  ytSend('seekTo', [yt.time, true]);
+  renderYtControls();
+}
+
+// Jalur putar: arahkan kursor = lihat waktunya, klik / seret = lompat ke sana.
+function seekTrack(track, fill, tip) {
+  let seeking = false;
+  const ratio = (event) => {
+    const r = track.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (event.clientX - r.left) / r.width));
+  };
+  const hint = (event) => {
+    if (!yt?.duration) return;
+    tip.textContent = ytClock(ratio(event) * yt.duration);
+    tip.style.left = `${(ratio(event) * 100).toFixed(2)}%`;
+  };
+  track.addEventListener('pointerdown', (event) => {
+    if (!yt?.duration || event.button !== 0) return;
+    event.stopPropagation();
+    seeking = true;
+    track.setPointerCapture(event.pointerId);
+    track.classList.add('seeking');
+    fill.style.width = `${(ratio(event) * 100).toFixed(2)}%`;
+    hint(event);
+  });
+  track.addEventListener('pointermove', (event) => {
+    hint(event);
+    if (seeking) fill.style.width = `${(ratio(event) * 100).toFixed(2)}%`;
+  });
+  const end = (event) => {
+    if (!seeking) return;
+    seeking = false;
+    track.classList.remove('seeking');
+    if (event.type === 'pointerup') ytSeek(ratio(event) * yt.duration);
+  };
+  track.addEventListener('pointerup', end);
+  track.addEventListener('pointercancel', end);
+}
+seekTrack($('yt-track'), $('yt-fill'), $('yt-tip'));
+seekTrack($('yt-stage-track'), $('yt-stage-progress'), $('yt-stage-tip'));
+for (const [id, step] of [['yt-back-btn', -10], ['yt-fwd-btn', 10], ['yt-stage-back', -10], ['yt-stage-fwd', 10]]) {
+  $(id).addEventListener('click', () => yt && ytSeek(yt.time + step));
+}
+
+// ---------- Mode bioskop: island = layar video, Zeno & isi panel disembunyikan ----------
+function renderStage() {
+  $('yt-stage-title').textContent = yt.title;
+  $('yt-stage-time').textContent = $('yt-time').textContent;
+  $('yt-stage-play').classList.toggle('paused', !yt.playing);
+  $('yt-stage-play').title = yt.playing ? 'Jeda' : 'Putar';
+  $('yt-stage-mute').classList.toggle('muted', yt.muted);
+  $('yt-stage-mute').title = yt.muted ? 'Nyalakan suara' : 'Bisukan';
+  $('yt-stage').classList.toggle('list', yt.playlist?.length > 1);
+  if (!$('yt-stage-track').classList.contains('seeking')) $('yt-stage-progress').style.width = ytPercent();
+}
+window.kapsul.onTheater((state) => {
+  theater = Boolean(state?.on);
+  shell.classList.toggle('theater', theater);
+  // Sudah dipindah bebas: melebar ke kanan, gagang di kanan bawah (tidak ikut sisi island).
+  $('yt-stage').classList.toggle('free', Boolean(state?.free));
+  $('yt-box').classList.toggle('stage', theater);
+  if (theater && yt) renderStage();
+  placeYouTube();
+});
+new ResizeObserver(() => placeYouTube()).observe(shell);
+$('yt-stage-prev').addEventListener('click', () => ytSend('previousVideo'));
+$('yt-stage-next').addEventListener('click', () => ytSend('nextVideo'));
+$('yt-stage-play').addEventListener('click', () => $('yt-play-btn').click());
+$('yt-stage-mute').addEventListener('click', () => $('yt-mute-btn').click());
+$('yt-stage-exit').addEventListener('click', () => window.kapsul.theater(false));
+$('yt-stage-close').addEventListener('click', () => $('yt-close-btn').click());
+// Seret video = pindahkan ke mana saja di layar; klik tanpa geser = putar/jeda.
+{
+  const stage = $('yt-stage');
+  let from = null;
+  stage.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || event.target.closest('button, .yt-track, .yt-stage-grip')) return;
+    from = { x: event.screenX, y: event.screenY, moved: false };
+    stage.setPointerCapture(event.pointerId);
+    window.kapsul.theaterMove('start', 0, 0);
+  });
+  stage.addEventListener('pointermove', (event) => {
+    if (!from) return;
+    const dx = event.screenX - from.x;
+    const dy = event.screenY - from.y;
+    if (!from.moved && Math.hypot(dx, dy) < 4) return;
+    from.moved = true;
+    stage.classList.add('moving');
+    window.kapsul.theaterMove('move', dx, dy);
+  });
+  const end = (event) => {
+    if (!from) return;
+    const { moved } = from;
+    from = null;
+    stage.classList.remove('moving');
+    window.kapsul.theaterMove('end', 0, 0, moved);
+    if (!moved && event.type === 'pointerup') $('yt-play-btn').click();
+  };
+  stage.addEventListener('pointerup', end);
+  stage.addEventListener('pointercancel', end);
+}
+// Gagang sudut: lebar island diubah di main (tinggi ikut 16:9).
+{
+  const grip = $('yt-stage-grip');
+  let from = null;
+  grip.addEventListener('pointerdown', (event) => {
+    from = event.screenX;
+    grip.setPointerCapture(event.pointerId);
+    $('yt-box').classList.add('sizing');
+    window.kapsul.theaterResize('start', 0);
+  });
+  grip.addEventListener('pointermove', (event) => {
+    if (from != null) window.kapsul.theaterResize('move', event.screenX - from);
+  });
+  const end = (event) => {
+    if (from == null) return;
+    window.kapsul.theaterResize('end', event.screenX - from);
+    from = null;
+    $('yt-box').classList.remove('sizing');
+  };
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
 }
 
 $('yt-play-btn').addEventListener('click', () => {
@@ -5589,18 +5826,20 @@ $('yt-mute-btn').addEventListener('click', () => {
 });
 
 function closeYouTube() {
+  if (theater) window.kapsul.theater(false);
   ytFrame?.remove();
   ytFrame = null;
   yt = null;
   $('yt-box').hidden = true;
+  $('yt-queue-block').hidden = true;
+  $('yt-mini').classList.remove('list');
   renderYouTube();
 }
 
 function renderYouTube() {
   const on = Boolean(yt);
-  $('media').classList.toggle('yt-on', on);
   $('yt-mini').hidden = !on;
-  $('yt-big').hidden = !on;
+  $('yt-empty').hidden = on;
   if (on) {
     $('yt-title').textContent = yt.title;
     $('yt-title').title = yt.title;
@@ -5615,9 +5854,8 @@ function renderYouTube() {
 function placeYouTube() {
   const box = $('yt-box');
   if (!yt) return;
-  const onMusic = open && PAGES[pageIndex]?.id === 'music';
-  const slot = $(detail ? 'yt-slot-big' : 'yt-slot-small');
-  const r = slot.getBoundingClientRect();
+  const onMusic = open && (theater || PAGES[pageIndex]?.id === 'video');
+  const r = (theater ? shell : $('yt-slot-small')).getBoundingClientRect();
   const visible = onMusic && r.width > 0 && r.height > 0;
   // Tidak terlihat (section lain / panel tertutup): suara tetap jalan, kotaknya disembunyikan.
   box.classList.toggle('away', !visible);
@@ -5626,10 +5864,8 @@ function placeYouTube() {
 }
 
 // Ikuti perubahan tata letak: pindah section, buka/tutup detail, ukuran jendela, scroll panel detail.
-new ResizeObserver(() => placeYouTube()).observe($('yt-slot-big'));
 new ResizeObserver(() => placeYouTube()).observe($('yt-slot-small'));
 for (const el of [$('hero-track'), $('deck-track')]) el.addEventListener('transitionend', () => placeYouTube());
-document.querySelector('.pane[data-pane="music"]').addEventListener('scroll', () => placeYouTube(), { passive: true });
 setInterval(() => {
   if (yt) placeYouTube();
 }, 500);
@@ -5644,7 +5880,23 @@ $('yt-form').addEventListener('submit', (event) => {
   playYouTube($('yt-url').value);
 });
 $('yt-url').addEventListener('paste', () => setTimeout(() => youtubeId($('yt-url').value) && playYouTube($('yt-url').value), 0));
-$('yt-big-btn').addEventListener('click', () => setDetail(!detail));
+// Perbesar = mode bioskop: island membesar jadi layar video (tanpa Zeno), ukurannya bisa diubah.
+$('yt-big-btn').addEventListener('click', () => {
+  if (yt) window.kapsul.theater(true);
+});
+// Kolom tempel di island (belum ada video).
+$('yt-empty').addEventListener('submit', (event) => {
+  event.preventDefault();
+  const value = $('yt-url-island').value;
+  if (!youtubeId(value)) {
+    $('yt-url-island').classList.add('bad');
+    setTimeout(() => $('yt-url-island').classList.remove('bad'), 900);
+    return;
+  }
+  playYouTube(value);
+  $('yt-url-island').value = '';
+});
+$('yt-url-island').addEventListener('paste', () => setTimeout(() => youtubeId($('yt-url-island').value) && playYouTube($('yt-url-island').value), 0));
 $('yt-open-btn').addEventListener('click', () => {
   if (!yt) return;
   window.kapsul.ytOpen(yt.id, yt.start);
@@ -5662,6 +5914,8 @@ function renderYtClip() {
     btn.textContent = 'Putar link dari clipboard';
     btn.onclick = () => playYouTube(latest.text);
   }
+  $('yt-clip-island').hidden = btn.hidden;
+  $('yt-clip-island').onclick = btn.onclick;
 }
 window.kapsul.onClips((items) => {
   clipItems = items ?? [];
@@ -5682,3 +5936,58 @@ document.addEventListener('drop', (event) => {
     playYouTube(text);
   }
 });
+
+// Riwayat video (8 terakhir) di detail Video; klik = putar lagi.
+let ytHistory = [];
+try {
+  ytHistory = JSON.parse(localStorage.getItem('kapsul.ytHistory') || '[]').filter((v) => /^[\w-]{11}$/.test(v?.id));
+} catch {
+  ytHistory = [];
+}
+function rememberVideo(v) {
+  ytHistory = [{ id: v.id, list: v.list ?? null, title: v.title, author: v.author, at: Date.now() }, ...ytHistory.filter((x) => x.id !== v.id)].slice(0, 8);
+  try {
+    localStorage.setItem('kapsul.ytHistory', JSON.stringify(ytHistory));
+  } catch {
+    // tanpa penyimpanan
+  }
+  renderYtHistory();
+}
+function renderYtHistory() {
+  const list = $('yt-history');
+  list.replaceChildren();
+  $('yt-history-clear').hidden = !ytHistory.length;
+  if (!ytHistory.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = 'Belum ada video yang ditonton.';
+    list.append(empty);
+    return;
+  }
+  for (const v of ytHistory) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'yt-row';
+    b.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.8 8z" /></svg>';
+    const text = document.createElement('span');
+    const t = document.createElement('b');
+    t.textContent = v.title || 'Video YouTube';
+    const s = document.createElement('small');
+    s.textContent = v.author || '';
+    text.append(t, s);
+    b.append(text);
+    b.title = `Putar: ${v.title}`;
+    b.addEventListener('click', () => playYouTube(`https://www.youtube.com/watch?v=${v.id}${v.list ? `&list=${v.list}` : ''}`));
+    list.append(b);
+  }
+}
+$('yt-history-clear').addEventListener('click', () => {
+  ytHistory = [];
+  try {
+    localStorage.removeItem('kapsul.ytHistory');
+  } catch {
+    // tanpa penyimpanan
+  }
+  renderYtHistory();
+});
+renderYtHistory();
