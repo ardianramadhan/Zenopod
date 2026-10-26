@@ -148,6 +148,7 @@ window.kapsul.onExpanded((value) => {
   const wasCentered = centered;
   open = value;
   shell.classList.toggle('open', value);
+  renderPillFocus();
   if (!value) setDetail(false, { sync: false });
   // Panel dibuka tak lama setelah notifikasi tampil = langsung ke Kotak masuk.
   if (value && lastPeek.kind === 'notification' && Date.now() - lastPeek.at < 4000) {
@@ -413,9 +414,32 @@ function updateCentered() {
   if (centered && !resting) renderRestSlots();
 }
 
+// Kapsul selama sesi fokus/istirahat: cincin progres + hitung mundur di tengah, tanpa Zeno & teks lain.
+function renderPillFocus() {
+  const { phase, running } = focusState;
+  const timer = activeTimer();
+  const on = (Boolean(phase) || Boolean(timer)) && !open;
+  shell.classList.toggle('focus-live', on);
+  const box = $('pill-focus');
+  box.hidden = !on;
+  if (!on) return;
+  const total = timer ? timer.total || 1 : focusTotal();
+  const remaining = timer ? Math.max(0, timer.endsAt - Date.now()) : Math.max(0, focusRemaining());
+  const time = clock(remaining);
+  if ($('pf-time').textContent !== time) $('pf-time').textContent = time;
+  const progress = Math.max(0, Math.min(1, 1 - remaining / total));
+  $('pf-bar').style.strokeDasharray = `${(100 * progress).toFixed(2)} 100`;
+  $('pf-bar').style.opacity = progress > 0.005 ? '1' : '0';
+  box.classList.toggle('rest', Boolean(phase) && phase !== 'focus');
+  box.classList.toggle('paused', Boolean(phase) && !running);
+  box.classList.toggle('final', timer ? remaining < 10_000 : phase === 'focus' && running && remaining < 60_000);
+  box.setAttribute('aria-label', timer ? `${timer.label}, sisa ${time}` : `${PHASE[phase]}${running ? '' : ' dijeda'}, sisa ${time}`);
+}
+
 setInterval(() => {
   updateResting();
   updateCentered();
+  renderPillFocus();
 }, 1000);
 
 // ---------- Maskot ----------
@@ -426,6 +450,9 @@ const bigBuddy = window.createBuddy();
 const peekBuddy = window.createBuddy();
 $('buddy-slot').replaceWith(buddy.el);
 $('buddy-big').append(bigBuddy.el);
+// Section Musik: Zeno kecil di kotak sampul (Zeno besar disembunyikan supaya lirik dapat ruang).
+const artBuddy = window.createBuddy();
+document.querySelector('.np-art').append(artBuddy.el);
 $('peek-slot').append(peekBuddy.el);
 
 const IDLE_SLEEP_MS = 3 * 60 * 1000;
@@ -451,7 +478,14 @@ function sleepy() {
 // Panel: musik > senang; disentuh kursor = menyapa.
 // Claude bekerja = berpikir; Claude menunggu jawaban = kaget memanggil.
 // Fokus = berkacamata, istirahat = peregangan.
+// Section Minum: layar Zeno besar terisi air sesuai target hari ini.
+const waterRatio = () => (statsToday?.waterMl ?? 0) / (waterSettings.target || 2000);
+
 function renderBuddy() {
+  bigBuddy.setWater(PAGES[pageIndex]?.id === 'water' ? waterRatio() : null);
+  // Fokus: layar Zeno = hitung mundur (diisi tickFocusIsland), section lain = wajah biasa.
+  if (PAGES[pageIndex]?.id === 'focus') queueMicrotask(tickFocusIsland);
+  else bigBuddy.setDisplay(null);
   const busy = claudeBusy();
   const tired = lowBattery() && !busy;
   const resting = (focusState.phase === 'break' || focusState.phase === 'long') && focusState.running;
@@ -468,6 +502,7 @@ function renderBuddy() {
   const slideMood = centered ? null : pillSlide?.mood;
   buddy.setMood(reaction ?? (claudeWaiting() ? 'surprised' : tired ? 'lowbat' : work ?? (userTyping ? 'typing' : sleepy() && !media.playing ? 'sleep' : (slideMood ?? (media.playing ? 'music' : 'idle')))));
   bigBuddy.setMood(reaction ?? (hoveringBig ? 'greet' : tired ? 'lowbat' : userTyping && !busy ? 'typing' : pageMood()));
+  artBuddy.setMood(reaction ?? (tired ? 'lowbat' : media.playing ? 'music' : 'listen'));
 }
 
 // Kamu sedang mengetik (dari bridge: ada input sementara kursor diam) → Zeno ikut mengetik.
@@ -1208,6 +1243,8 @@ const CONTROL_ICONS = {
   pause: '<svg viewBox="0 0 16 16"><path d="M5 3.5v9M11 3.5v9" /></svg>',
   stop: '<svg viewBox="0 0 16 16"><rect x="4" y="4" width="8" height="8" rx="1.6" /></svg>',
   skip: '<svg viewBox="0 0 16 16"><path d="M3.5 3.5v9L10 8zM12.5 3.5v9" /></svg>',
+  // Garis (bukan isian): chip mengisi path dengan warna teks, kecuali .line.
+  reset: '<svg viewBox="0 0 16 16"><path class="line" d="M3.2 8a4.8 4.8 0 1 0 1.4-3.4" /><path class="line" d="M4.2 2.2v2.6h2.6" /></svg>',
   timer: '<svg viewBox="0 0 16 16"><circle cx="8" cy="9" r="5" /><path d="M6.5 2h3M8 9V6.5" /></svg>',
 };
 
@@ -1223,6 +1260,7 @@ const focusTotal = () => focusState.total || phaseLength(focusState.phase ?? 'fo
 
 // Struktur tab (dipanggil saat status berubah); angka & lingkaran diperbarui tickFocus().
 function renderFocus() {
+  renderPillFocus();
   const { phase, running, cycle } = focusState;
   const tab = $('focus-tab');
   const total = focusTotal();
@@ -1881,6 +1919,7 @@ function pageMood() {
   if (page === 'chat') return chatState.busy ? 'think' : pendingFiles.length ? 'hungry' : 'happy';
   if (page === 'music') return media.playing ? 'music' : 'listen';
   if (page === 'time') return 'clock';
+  if (page === 'water') return waterRatio() >= 1 ? 'happy' : 'idle';
   if (page === 'focus') return focusState.running && focusState.phase !== 'focus' ? 'stretch' : 'focus';
   if (page === 'device') return systemNow?.online === false ? 'cry' : battery?.charging ? 'charging' : lowBattery() ? 'lowbat' : 'smug';
   if (page === 'inbox') return notifs.items.length ? 'surprised' : 'happy';
@@ -2540,18 +2579,24 @@ function renderWeatherChart() {
 // Island Fokus: belum mulai = tombol mulai cepat; berjalan = hitung mundur + kontrol.
 let focusCardKey = null;
 
+// Timer cepat yang tampil di kartu Fokus & kapsul (hanya saat tidak ada sesi fokus/istirahat).
+const activeTimer = () => (focusState.phase ? null : (quickTimers[0] ?? null));
+
 function renderFocusSummary() {
   const { phase, running, cycle } = focusState;
+  const timer = activeTimer();
   const total = focusTotal();
   const remaining = Math.max(0, focusRemaining());
   const waiting = Boolean(phase) && !running && remaining >= total - 1000;
   const card = $('focus-island');
-  card.classList.toggle('idle', !phase);
-  card.classList.toggle('running', running);
+  card.classList.toggle('idle', !phase && !timer);
+  card.classList.toggle('running', running || Boolean(timer));
   card.classList.toggle('rest', phase === 'break' || phase === 'long');
   card.classList.toggle('paused', Boolean(phase) && !running);
 
-  $('focus-sum-title').textContent = !phase
+  $('focus-sum-title').textContent = timer
+    ? timer.label
+    : !phase
     ? 'Siap fokus?'
     : running
       ? `${PHASE[phase]}${phase === 'focus' ? ` · Sesi ${cycle}/${focusSettings.cycles}` : ''}`
@@ -2563,14 +2608,24 @@ function renderFocusSummary() {
   tickFocusIsland();
 
   // Tombol dibangun ulang hanya saat statusnya berubah (bukan tiap detik).
-  const key = `${phase}|${running}|${waiting}|${pickedMinutes()}`;
+  const key = `${phase}|${running}|${waiting}|${pickedMinutes()}|${timer?.id ?? ''}`;
   if (key === focusCardKey) return;
   focusCardKey = key;
   const box = $('focus-card-actions');
   box.replaceChildren();
   const act = (action, minutes) => () => window.kapsul.focus(action, minutes);
   const round = (icon, title, onClick, primary = false) => actionChip('', onClick, { icon, title, primary, round: true });
-  if (!phase) {
+  if (timer) {
+    // Timer berjalan: batalkan, atau ulang dari awal dengan durasi yang sama.
+    box.append(
+      round('stop', 'Batalkan timer', () => window.kapsul.timer('cancel', { id: timer.id }), true),
+      actionChip('Ulang', () => {
+        window.kapsul.timer('cancel', { id: timer.id });
+        window.kapsul.timer('start', { ms: timer.total, label: timer.label });
+      }, { icon: 'reset', title: 'Ulang timer dari awal' }),
+      actionChip(`Fokus ${pickedMinutes()}m`, act('focus', pickedMinutes()), { icon: 'play', title: `Mulai fokus ${pickedMinutes()} menit` }),
+    );
+  } else if (!phase) {
     const picked = pickedMinutes();
     box.append(round('play', `Mulai fokus ${picked} menit`, act('focus', picked), true));
     for (const m of FOCUS_PRESETS.filter((m) => m !== picked).slice(0, 2)) box.append(actionChip(`${m}m`, act('focus', m), { title: `Mulai fokus ${m} menit` }));
@@ -2590,21 +2645,65 @@ function renderFocusSummary() {
 }
 
 // Island Fokus: sisa waktu besar, garis progres (terisi seiring waktu berjalan), subjudul jam selesai.
+// Kanan kartu Fokus: menit fokus hari ini (termasuk sesi yang sedang jalan) vs target harian,
+// dan segmen sesi siklus ini (selesai = penuh, berjalan = terisi sesuai progres, berikutnya = abu).
+function renderFocusStats(t, phase, done) {
+  const cycles = Math.max(1, focusSettings.cycles || 4);
+  const goal = Math.max(1, focusSettings.focusMinutes * cycles);
+  const live = phase === 'focus' ? done * (focusTotal() / 60_000) : 0;
+  const minutes = Math.floor((t.focusMs ?? 0) / 60_000 + live);
+  const ratio = Math.min(1, minutes / goal);
+  $('fs-bar').style.strokeDasharray = `${(ratio * 100).toFixed(2)} 100`;
+  // Ujung garis bulat tetap menggambar titik di 0%: sembunyikan sampai ada menit fokus.
+  $('fs-bar').style.opacity = ratio > 0 ? '1' : '0';
+  $('fs-pct').textContent = String(minutes);
+  $('fs-min').textContent = String(minutes);
+  $('fs-goal').textContent = `/ ${goal} mnt`;
+
+  const box = $('fs-cycle');
+  if (box.children.length !== cycles) box.replaceChildren(...Array.from({ length: cycles }, () => document.createElement('i')));
+  // Sesi selesai di siklus ini: sebelum sesi berjalan = cycle − 1; saat istirahat = cycle.
+  const finished = !phase ? Math.min(cycles, t.focus ?? 0) : phase === 'focus' ? focusState.cycle - 1 : focusState.cycle;
+  [...box.children].forEach((seg, i) => {
+    const fill = i < finished ? 1 : phase === 'focus' && i === finished ? done : 0;
+    seg.style.setProperty('--fill', `${(fill * 100).toFixed(1)}%`);
+    seg.classList.toggle('now', phase === 'focus' && i === finished);
+  });
+  const label = !phase ? `${t.focus ?? 0} sesi hari ini` : `Sesi ${Math.min(cycles, focusState.cycle)} dari ${cycles}`;
+  $('fs-label').textContent = label;
+  box.parentElement.title = `${minutes} dari ${goal} menit fokus hari ini · ${label}`;
+}
+
 function tickFocusIsland() {
   const t = statsToday ?? {};
   const { phase, running } = focusState;
-  const total = phase ? focusTotal() : pickedMinutes() * 60_000;
-  const remaining = phase ? Math.max(0, focusRemaining()) : total;
-  const done = phase ? Math.max(0, Math.min(1, 1 - remaining / total)) : 0;
+  const timer = activeTimer();
+  const timerLeft = timer ? Math.max(0, timer.endsAt - Date.now()) : 0;
+  const total = phase ? focusTotal() : timer ? timer.total || timerLeft || 1 : pickedMinutes() * 60_000;
+  const remaining = phase ? Math.max(0, focusRemaining()) : timer ? timerLeft : total;
+  const done = phase || timer ? Math.max(0, Math.min(1, 1 - remaining / total)) : 0;
   $('focus-line-bar').style.width = `${(done * 100).toFixed(2)}%`;
   $('focus-island').classList.toggle('final', phase === 'focus' && running && remaining < 60_000);
 
-  const time = phase ? clock(remaining) : `${pickedMinutes()}:00`;
+  const time = phase || timer ? clock(remaining) : `${pickedMinutes()}:00`;
   if ($('focus-sum-time').textContent !== time) $('focus-sum-time').textContent = time;
+  // Angka hitung mundur tampil di layar Zeno besar (section Fokus).
+  if (PAGES[pageIndex]?.id === 'focus') {
+    const tone = timer ? (remaining < 10_000 ? 'final' : 'run') : !phase ? 'idle' : !running ? 'paused' : phase !== 'focus' ? 'rest' : remaining < 60_000 ? 'final' : 'run';
+    bigBuddy.setDisplay(time, done, tone);
+  }
 
-  let sub = !phase ? `${t.focus ?? 0} sesi selesai hari ini` : running ? `selesai ${endTime.format(Date.now() + remaining)}` : 'Tekan ▶ untuk lanjut';
-  const timer = quickTimers[0];
-  if (timer) sub += ` · ⏱ ${timer.label} ${clock(timer.endsAt - Date.now())}`;
+  renderFocusStats(t, phase, done);
+
+  let sub = timer
+    ? `selesai ${endTime.format(timer.endsAt)}${quickTimers.length > 1 ? ` · +${quickTimers.length - 1} timer lain` : ''}`
+    : !phase
+      ? `${t.focus ?? 0} sesi selesai hari ini`
+      : running
+        ? `selesai ${endTime.format(Date.now() + remaining)}`
+        : 'Tekan ▶ untuk lanjut';
+  // Sesi fokus berjalan + ada timer cepat: timernya tetap disebut di subjudul.
+  if (phase && quickTimers[0]) sub += ` · ⏱ ${clock(quickTimers[0].endsAt - Date.now())}`;
   if ($('focus-sum-sub').textContent !== sub) $('focus-sum-sub').textContent = sub;
 }
 
@@ -4455,6 +4554,7 @@ window.kapsul.onTimers((list) => {
   quickTimers = list ?? [];
   renderTimers();
   renderFocusSummary();
+  renderPillFocus();
   renderPillText();
 });
 
@@ -4477,8 +4577,6 @@ function renderWater() {
 }
 
 // ---------- Section Minum ----------
-const HOUR = new Intl.DateTimeFormat('id-ID', { hour: '2-digit' });
-
 function renderWaterPage() {
   const t = statsToday ?? {};
   const drank = t.waterMl ?? 0;
@@ -4494,34 +4592,8 @@ function renderWaterPage() {
   bell.setAttribute('aria-checked', String(waterSettings.remind !== false));
   bell.title = waterSettings.remind !== false ? `Pengingat nyala · tiap ${waterSettings.minutes ?? 60} menit` : 'Pengingat mati';
 
-  // ml per jam: 8 jam terakhir sampai jam sekarang.
-  const box = $('wt-chart');
-  box.replaceChildren();
-  const now = new Date();
-  const hours = Array.from({ length: 8 }, (_, i) => {
-    const d = new Date(now);
-    d.setHours(now.getHours() - 7 + i, 0, 0, 0);
-    return d.getTime();
-  });
-  const per = hours.map((h) => (t.waterLog ?? []).filter(([at]) => at >= h && at < h + 3_600_000).reduce((n, [, ml]) => n + ml, 0));
-  const max = Math.max(waterSettings.ml * 2, ...per);
-  const W = 150;
-  const H = 74;
-  const base = 60;
-  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, class: 'bars-svg', role: 'img', 'aria-label': hours.map((h, i) => `${HOUR.format(h)}: ${per[i]} ml`).join(', ') });
-  const slot = W / hours.length;
-  hours.forEach((h, i) => {
-    const cx = slot * i + slot / 2;
-    svg.append(svgEl('rect', { class: 'wt-col', x: cx - 5, y: 6, width: 10, height: base - 6, rx: 4 }));
-    const hgt = per[i] ? Math.max(4, ((base - 6) * per[i]) / max) : 0;
-    if (hgt) svg.append(svgEl('rect', { class: 'bar k-focus today', x: cx - 5, y: base - hgt, width: 10, height: hgt, rx: 4 }));
-    if (i % 3 === 1 || i === hours.length - 1) {
-      const label = svgEl('text', { class: `bars-day${i === hours.length - 1 ? ' today' : ''}`, x: cx, y: H - 3, 'text-anchor': 'middle' });
-      label.textContent = HOUR.format(h);
-      svg.append(label);
-    }
-  });
-  box.append(svg);
+  // Air di layar Zeno besar (section Minum).
+  renderBuddy();
 
   // Detail: 7 hari + pengaturan.
   const days = statsWeek.length ? statsWeek : [{ key: '', waterMl: drank }];
@@ -4750,6 +4822,7 @@ function renderIslandLyrics() {
   np.classList.toggle('with-lyrics', on);
   // Zeno besar disembunyikan di section Musik supaya lirik dapat ruang (Zeno tetap di kapsul).
   $('media').classList.toggle('lyric-mode', on && PAGES[pageIndex]?.id === 'music');
+  $('media').classList.toggle('music-mode', PAGES[pageIndex]?.id === 'music');
   $('media').classList.toggle('todo-mode', PAGES[pageIndex]?.id === 'time');
   if (on !== npLyricMode) {
     npLyricMode = on;
@@ -4773,8 +4846,13 @@ function renderIslandLyrics() {
   list.dataset.idx = String(idx);
   for (const [i, li] of [...list.children].entries()) li.classList.toggle('now', i === idx);
   // Baris aktif di urutan kedua (satu baris sebelumnya redup di atas). Baris boleh lebih dari
-  // satu baris teks, jadi posisinya diukur dari elemen sebenarnya.
-  const anchor = list.children[Math.max(0, idx - 1)];
+  // satu baris teks, jadi posisinya diukur dari elemen sebenarnya. Kalau baris sebelumnya + baris
+  // aktif tidak muat di area yang tidak memudar, baris aktif naik ke paling atas supaya utuh terlihat.
+  const now = list.children[idx];
+  const prev = list.children[idx - 1];
+  const room = list.parentElement.clientHeight * 0.82;
+  const fits = prev && now && now.offsetTop + now.offsetHeight - prev.offsetTop <= room;
+  const anchor = fits ? prev : now;
   list.style.transform = `translateY(${-(anchor?.offsetTop ?? 0)}px)`;
 }
 

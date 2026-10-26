@@ -18,6 +18,22 @@ const path = require('node:path');
 // ZENOPOD_DATA_DIR = folder lain (untuk mencoba versi kode di samping versi terpasang).
 app.setPath('userData', process.env.ZENOPOD_DATA_DIR || path.join(app.getPath('appData'), 'kapsul'));
 
+// Error yang lolos tidak boleh memunculkan dialog "A JavaScript error occurred" (Electron menampilkannya
+// untuk tiap error, jadi bisa muncul berkali-kali, terutama saat installer/pembaruan menutup aplikasi).
+// Dicatat ke errors.log di folder data (maks ~256 KB, yang lama jadi errors.log.old) untuk diagnosa.
+function logError(kind, error) {
+  try {
+    const file = path.join(app.getPath('userData'), 'errors.log');
+    if (fs.existsSync(file) && fs.statSync(file).size > 256 * 1024) fs.renameSync(file, file + '.old');
+    const detail = error instanceof Error ? error.stack || error.message : String(error);
+    fs.appendFileSync(file, `${new Date().toISOString()} v${app.getVersion()} ${kind} ${detail}\n`);
+  } catch {
+    // tidak bisa menulis log (folder terkunci saat uninstall): abaikan
+  }
+}
+process.on('uncaughtException', (error) => logError('uncaught', error));
+process.on('unhandledRejection', (reason) => logError('unhandled-rejection', reason));
+
 // UI: gc() tersedia di renderer supaya sampah saat startup dibersihkan sebelum heap sempat membengkak
 // (heap yang sudah membesar tidak dikembalikan ke sistem; lihat renderer/app.js bagian akhir).
 app.commandLine.appendSwitch('js-flags', '--expose-gc');
@@ -93,7 +109,10 @@ if (!primaryInstance) {
 // Log diagnosa, aktif bila KAPSUL_DEBUG berisi path file log.
 const debugLog = (msg) => process.env.KAPSUL_DEBUG && fs.appendFileSync(process.env.KAPSUL_DEBUG, `${new Date().toISOString()} ${msg}\n`);
 
-const send = (channel, payload) => win?.webContents.send(channel, payload);
+// Jendela bisa sudah dihancurkan (aplikasi sedang ditutup) sementara timer masih berjalan.
+const alive = (w) => Boolean(w && !w.isDestroyed() && !w.webContents.isDestroyed());
+const send = (channel, payload) => alive(win) && win.webContents.send(channel, payload);
+const sendSettingsChanged = () => alive(settingsWin) && settingsWin.webContents.send('settings:changed');
 
 const IS_MAC = process.platform === 'darwin';
 const RELEASES_URL = 'https://github.com/ardianramadhan/Zenopod/releases/latest';
@@ -344,7 +363,7 @@ function watchCursor() {
   clearInterval(cursorTimer);
   let outside = 0;
   cursorTimer = setInterval(() => {
-    if (!win || win.isFocused()) {
+    if (!alive(win) || win.isFocused()) {
       outside = 0;
       return;
     }
@@ -400,7 +419,7 @@ function setExpanded(next, { focus = false, force = false } = {}) {
 function feedCursor() {
   let last = '';
   setInterval(() => {
-    if (!win) return;
+    if (!alive(win)) return;
     const { x, y } = screen.getCursorScreenPoint();
     const b = win.getBounds();
     const key = `${x},${y}`;
@@ -537,7 +556,7 @@ async function loadConfig() {
     pollWeather();
     pollCalendarIfChanged();
   }
-  settingsWin?.webContents.send('settings:changed');
+  sendSettingsChanged();
 }
 
 function watchConfig() {
@@ -617,6 +636,11 @@ function startBridge() {
     windowsHide: true,
   });
   bridge.stdout.setEncoding('utf8');
+  // Helper bisa dimatikan dari luar (installer/pembaruan menutup proses): menulis ke pipa yang sudah
+  // tertutup = EPIPE. Tanpa listener, tiap error itu jadi dialog error terpisah.
+  const child = bridge;
+  child.on('error', (error) => debugLog('bridge error ' + error.message));
+  child.stdin.on('error', (error) => debugLog('bridge stdin ' + error.message));
 
   let buffer = '';
   bridge.stdout.on('data', (chunk) => {
@@ -638,6 +662,8 @@ function startBridge() {
   bridge.stderr.on('data', (chunk) => debugLog('stderr ' + String(chunk).trim().slice(0, 300)));
   bridge.on('exit', (code) => {
     debugLog('bridge exit ' + code);
+    // Bridge lama yang keluar setelah bridge baru jalan tidak boleh menghapus yang baru.
+    if (bridge !== child) return;
     bridge = null;
     // Helper mati (mis. error WinRT) = nyalakan lagi sebentar kemudian.
     if (!app.isQuitting) setTimeout(startBridge, 3000);
@@ -656,7 +682,7 @@ function handleBridge(message) {
     receiveNotifications(message);
   } else if (message.type === 'voices') {
     ttsVoices = Array.isArray(message.voices) ? message.voices : [message.voices].filter(Boolean);
-    settingsWin?.webContents.send('settings:changed');
+    sendSettingsChanged();
   } else if (message.type === 'foreground') {
     onForeground(message);
   } else if (message.type === 'privacy') {
@@ -1107,7 +1133,8 @@ function onBluetooth(devices) {
 }
 
 function bridgeCommand(command) {
-  bridge?.stdin.write(command + '\n');
+  if (!bridge?.stdin?.writable || bridge.killed) return;
+  bridge.stdin.write(command + '\n');
 }
 
 function mediaCommand(command) {
@@ -1150,7 +1177,7 @@ function rememberApps(list) {
   if (!added.length) return;
   const next = [...seen, ...added.map((item) => ({ name: item.appName, app: item.app }))];
   saveConfig({ ...config, notifications: { ...config.notifications, seen: next } });
-  settingsWin?.webContents.send('settings:changed');
+  sendSettingsChanged();
 }
 
 function receiveNotifications(message) {
@@ -1184,7 +1211,7 @@ function openNotification(id) {
   const item = notifications.items.find((n) => n.id === id);
   if (!item) return;
   if (item.app) {
-    spawn('explorer.exe', [`shell:AppsFolder\\${item.app}`], { detached: true, stdio: 'ignore' }).unref();
+    spawn('explorer.exe', [`shell:AppsFolder\\${item.app}`], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   }
   bridgeCommand(`dismiss ${id}`);
   setExpanded(false);
@@ -1498,8 +1525,8 @@ function devOpen(kind, index) {
     if (!dir) return;
     if (IS_MAC) {
       // Buka dengan VS Code kalau ada; kalau tidak, buka foldernya di Finder.
-      spawn('open', ['-a', 'Visual Studio Code', dir]).on('exit', (code) => code && shell.openPath(dir));
-    } else if (fs.existsSync(VSCODE)) spawn(VSCODE, [dir], { detached: true, stdio: 'ignore' }).unref();
+      spawn('open', ['-a', 'Visual Studio Code', dir]).on('error', () => shell.openPath(dir)).on('exit', (code) => code && shell.openPath(dir));
+    } else if (fs.existsSync(VSCODE)) spawn(VSCODE, [dir], { detached: true, stdio: 'ignore' }).on('error', () => shell.openPath(dir)).unref();
     else shell.openPath(dir);
   }
   setExpanded(false);
@@ -1513,7 +1540,7 @@ let costumeState = { costume: null, reason: '' };
 function updateCostume() {
   costumeState = season.costumeFor(config.costume, { birthday: config.user.birthday });
   send('kapsul:costume', costumeState);
-  settingsWin?.webContents.send('settings:changed');
+  sendSettingsChanged();
 }
 
 async function pollWeather() {
@@ -1697,7 +1724,7 @@ async function runVoiceCommand(heard) {
       const reminder = schedule.prepare({ id: crypto.randomUUID(), title: intent.title, date: intent.date, time: intent.time, repeat: 'none', note: '' });
       saveConfig({ ...config, reminders: [...config.reminders, reminder] });
       sendReminders();
-      settingsWin?.webContents.send('settings:changed');
+      sendSettingsChanged();
       const today = new Date().toDateString() === intent.when.toDateString();
       return reply(heard, `Siap, aku ingatkan “${intent.title}” ${today ? 'hari ini' : 'besok'} jam ${hhmm(intent.when)}.`, 'happy');
     }
@@ -1834,7 +1861,7 @@ const POWER_LABELS = { lock: 'Kunci layar', sleep: 'Tidur', restart: 'Mulai ulan
 const POWER_CONFIRM = new Set(['restart', 'shutdown', 'signout']);
 
 function power(action) {
-  const run = (cmd, args) => spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  const run = (cmd, args) => spawn(cmd, args, { detached: true, stdio: 'ignore', windowsHide: true }).on('error', (error) => debugLog('power ' + error.message)).unref();
   debugLog('power ' + action);
   if (IS_MAC) {
     // Kunci = layar tidur (terkunci bila "minta kata sandi" aktif); sisanya lewat System Events.
@@ -2018,7 +2045,7 @@ function runZenoTool(name, input) {
       if (repeat === 'none' && reminder.next < Date.now() - 60_000) return { ok: false, label: 'Pengingat gagal: waktunya sudah lewat', result: { error: 'waktu sudah lewat' } };
       saveConfig({ ...config, reminders: [...config.reminders, reminder] });
       sendReminders();
-      settingsWin?.webContents.send('settings:changed');
+      sendSettingsChanged();
       return { ok: true, label: `Pengingat · ${title} · ${formatTime(reminder.next)}`, result: { when: formatTime(reminder.next) } };
     }
     case 'start_timer': {
@@ -2345,7 +2372,7 @@ function sendStats() {
     const music = { listenMs: listen(today.songs), count: Object.keys(today.songs ?? {}).length, songs };
     const payload = { today: { ...today, songs: undefined, top }, pet: stats.pet(), week, music };
     send('kapsul:stats', payload);
-    settingsWin?.webContents.send('settings:changed');
+    sendSettingsChanged();
   }, 300);
 }
 
@@ -2549,7 +2576,7 @@ async function pollCalendar() {
     if (Object.keys(result.errors).length) debugLog('kalender: ' + JSON.stringify(result.errors));
   }
   sendCalendar();
-  settingsWin?.webContents.send('settings:changed');
+  sendSettingsChanged();
 }
 
 // Muat ulang hanya bila daftar kalender berubah (loadConfig dipanggil tiap kali config disimpan).
@@ -2832,7 +2859,7 @@ function habitDone(id, done = true) {
   }
   if (done) send('kapsul:pet-event', { type: 'habit' });
   sendHabits();
-  settingsWin?.webContents.send('settings:changed');
+  sendSettingsChanged();
   return habitList().find((h) => h.id === id) ?? null;
 }
 
@@ -2908,7 +2935,7 @@ function sendReminders() {
 function updateReminder(id, change) {
   saveConfig({ ...config, reminders: config.reminders.map((r) => (r.id === id ? change(r) : r)) });
   sendReminders();
-  settingsWin?.webContents.send('settings:changed');
+  sendSettingsChanged();
 }
 
 // Tenggat tugas: Zeno mengingatkan 30 menit sebelumnya, lalu sekali lagi saat waktunya tiba.
@@ -3109,7 +3136,7 @@ ipcMain.handle('settings:autostart', (_event, enabled) => {
 });
 
 ipcMain.handle('settings:voice-download', () => {
-  voice.download((status) => settingsWin?.webContents.send('settings:voice-status', status));
+  voice.download((status) => alive(settingsWin) && settingsWin.webContents.send('settings:voice-status', status));
   return voice.status();
 });
 
@@ -3424,7 +3451,7 @@ async function slideshowTick() {
     if (next >= at && at >= 0) next++;
   }
   await useWallpaper(items[next].id);
-  settingsWin?.webContents.send('settings:changed');
+  sendSettingsChanged();
 }
 
 ipcMain.handle('kapsul:wallpapers', () => wallpaperState());
@@ -3617,7 +3644,7 @@ ipcMain.on('kapsul:water-settings', (_event, patch = {}) => {
     },
   });
   send('kapsul:state', publicState());
-  settingsWin?.webContents.send('settings:changed');
+  sendSettingsChanged();
 });
 ipcMain.on('kapsul:pet', (_event, action, food) => {
   if (action === 'feed') feedPet(String(food));
@@ -3739,8 +3766,12 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true;
-  bridge?.stdin.end();
-  bridge?.kill();
+  try {
+    bridge?.stdin?.end();
+    bridge?.kill();
+  } catch (error) {
+    debugLog('bridge stop ' + error.message);
+  }
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());

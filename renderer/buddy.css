@@ -1709,17 +1709,18 @@
   }
 }
 
-/* Getaran kecil seperti sedang mengetik */
+/* Bekerja: tenang & fokus, badan bernapas pelan (layar yang sibuk menampilkan kode) */
 .buddy[data-mood="work"] .b-body {
-  animation: buddy-type 0.36s steps(2) infinite;
+  animation: buddy-work 3.2s ease-in-out infinite;
 }
 
-@keyframes buddy-type {
-  0% {
+@keyframes buddy-work {
+  0%,
+  100% {
     translate: 0 0;
   }
   50% {
-    translate: 0 0.35px;
+    translate: 0 -0.5px;
   }
 }
 
@@ -2067,15 +2068,15 @@
   transform: rotate(58deg);
 }
 
-/* Bekerja: dua tangan mengetik */
+/* Bekerja: tangan santai sedikit terbuka di samping badan, berayun pelan (tidak mengetik) */
 .buddy[data-mood="work"] .arm-l {
-  transform: rotate(-38deg);
-  animation: arm-type-l 0.36s steps(2) infinite;
+  transform: rotate(10deg);
+  animation: arm-work-l 3.2s ease-in-out infinite;
 }
 
 .buddy[data-mood="work"] .arm-r {
-  transform: rotate(38deg);
-  animation: arm-type-r 0.36s steps(2) 0.18s infinite;
+  transform: rotate(-10deg);
+  animation: arm-work-r 3.2s ease-in-out infinite;
 }
 
 /* Musik: tangan naik-turun mengikuti ketukan */
@@ -2216,15 +2217,15 @@
   }
 }
 
-@keyframes arm-type-l {
+@keyframes arm-work-l {
   50% {
-    transform: rotate(-30deg);
+    transform: rotate(16deg);
   }
 }
 
-@keyframes arm-type-r {
+@keyframes arm-work-r {
   50% {
-    transform: rotate(30deg);
+    transform: rotate(-16deg);
   }
 }
 
@@ -2300,6 +2301,7 @@
 .buddy[data-shape="robot"] .robot-bevel,
 .buddy[data-shape="robot"] .screen-rim,
 .buddy[data-shape="robot"] .screen,
+.buddy[data-shape="robot"] .b-water,
 .buddy[data-shape="robot"] .face-clip,
 .buddy[data-shape="robot"] .screen-layer,
 .buddy[data-shape="robot"] .band-clip,

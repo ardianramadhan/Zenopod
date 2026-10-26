@@ -19,6 +19,15 @@
         <span class="rest-slot left" id="rest-left" aria-hidden="true"></span>
         <span class="rest-slot right" id="rest-right" aria-hidden="true"></span>
         <span class="typing" id="typing" hidden><i></i><i></i><i></i></span>
+        <!-- Fokus berjalan: kapsul hanya cincin progres + hitung mundur di tengah (tanpa Zeno) -->
+        <span class="pill-focus" id="pill-focus" role="timer" hidden>
+          <svg class="pf-ring" viewBox="0 0 20 20" aria-hidden="true">
+            <circle class="pf-track" cx="10" cy="10" r="7.5" />
+            <circle class="pf-bar" id="pf-bar" cx="10" cy="10" r="7.5" pathLength="100" />
+            <path class="pf-pause" d="M8.2 7.2v5.6M11.8 7.2v5.6" />
+          </svg>
+          <b class="pf-time" id="pf-time"></b>
+        </span>
         <span class="eq" id="eq" hidden><i></i><i></i><i></i></span>
         <span class="dev-alert" id="pill-dev-alert" title="Ada server lokal yang mati" hidden></span>
         <span class="pill-battery" id="pill-battery" hidden>
@@ -256,6 +265,17 @@
                     <div class="focus-island-sub" id="focus-sum-sub"></div>
                     <div class="action-row" id="focus-card-actions"></div>
                   </div>
+                  <!-- Kanan: cincin menit fokus hari ini vs target + segmen sesi dalam satu siklus -->
+                  <div class="focus-stats" aria-label="Progres fokus hari ini">
+                    <svg class="fs-ring" viewBox="0 0 44 44" aria-hidden="true">
+                      <circle class="fs-track" cx="22" cy="22" r="18" />
+                      <circle class="fs-bar" id="fs-bar" cx="22" cy="22" r="18" pathLength="100" />
+                    </svg>
+                    <b class="fs-pct"><span id="fs-pct">0</span><small>mnt</small></b>
+                    <div class="fs-text"><b id="fs-min">0</b><span id="fs-goal">/ 100 mnt</span></div>
+                    <div class="fs-cycle" id="fs-cycle"></div>
+                    <span class="fs-label" id="fs-label"></span>
+                  </div>
                 </div>
               </div>
               <!-- Minum air: total hari ini + target, tombol minum, pengingat; kanan = ml per jam -->
@@ -264,12 +284,12 @@
                   <div class="wt-big"><b id="wt-now">0</b><span id="wt-goal">/ 2 L</span><button type="button" class="wt-bell" id="wt-remind" role="switch" aria-checked="true" title="Pengingat minum" aria-label="Pengingat minum"><svg viewBox="0 0 16 16"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3z" /><path d="M6.5 14h3" /></svg></button></div>
                   <div class="wt-sub" id="wt-sub"></div>
                   <i class="wt-bar"><span id="wt-fill"></span></i>
-                  <div class="wt-actions">
-                    <button type="button" class="wt-drink" id="wt-drink"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.3c2.1 2.7 4 4.9 4 7.2a4 4 0 0 1-8 0c0-2.3 1.9-4.5 4-7.2z" /></svg><span id="wt-drink-text">Minum</span></button>
-                    <button type="button" class="wt-gear" id="wt-settings" title="Atur minum" aria-label="Atur minum"><svg viewBox="0 0 16 16"><path d="M2.5 5h7M12 5h1.5M2.5 11h2M7 11h6.5" /><circle cx="10.5" cy="5" r="1.5" /><circle cx="5.5" cy="11" r="1.5" /></svg></button>
-                  </div>
                 </div>
-                <div class="wt-chart" id="wt-chart" aria-label="Minum per jam hari ini"></div>
+                <!-- Air ada di layar Zeno; kolom kanan = tombol catat minum -->
+                <div class="wt-actions">
+                  <button type="button" class="wt-drink" id="wt-drink"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.3c2.1 2.7 4 4.9 4 7.2a4 4 0 0 1-8 0c0-2.3 1.9-4.5 4-7.2z" /></svg><span id="wt-drink-text">Minum</span></button>
+                  <button type="button" class="wt-gear" id="wt-settings" title="Atur minum" aria-label="Atur minum"><svg viewBox="0 0 16 16"><path d="M2.5 5h7M12 5h1.5M2.5 11h2M7 11h6.5" /><circle cx="10.5" cy="5" r="1.5" /><circle cx="5.5" cy="11" r="1.5" /></svg></button>
+                </div>
               </div>
               <!-- Chat: kolom tanya, mikrofon, lampirkan file (bisa juga diseret ke island) -->
               <div class="page chat-page" data-page="chat" aria-label="Chat dengan Zeno">

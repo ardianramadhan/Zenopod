@@ -147,6 +147,16 @@
         <rect class="robot-bevel robot-only" x="6" y="8.5" width="28" height="26" rx="7.7" fill="none" stroke="url(#${id}-bevel)" stroke-width="1" />
         <rect class="screen-rim robot-only" x="8.2" y="10.2" width="23.6" height="21.6" rx="5.4" fill="url(#${id}-rim)" />
         <rect class="screen robot-only" x="9" y="11" width="22" height="20" rx="4.6" />
+        <!-- Air di dalam layar (section Minum): tingginya = progres target, permukaannya bergoyang -->
+        <g class="b-water robot-only" clip-path="url(#${id}-screen)">
+          <g class="b-water-level">
+            <path class="b-wave back" d="M-26 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 q2.25 -0.9 4.5 0 t4.5 0 V30 H-26 Z" />
+            <path class="b-wave front" d="M-26 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 q2 -0.75 4 0 t4 0 V30 H-26 Z" />
+            <circle class="b-bubble" cx="14" cy="0" r="0.7" />
+            <circle class="b-bubble" cx="21" cy="0" r="0.5" />
+            <circle class="b-bubble" cx="26.5" cy="0" r="0.6" />
+          </g>
+        </g>
 
         <g class="face-clip" clip-path="url(#${id}-clip)">
         <g class="b-face">
@@ -239,6 +249,13 @@
           <g data-part="x-typebar" class="typebar">
             <rect class="tb-ch c1" x="11.60" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c2" x="13.90" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c3" x="16.20" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c4" x="18.50" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c5" x="20.80" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c6" x="23.10" y="20" width="1.6" height="2" rx="0.5" /><rect class="tb-ch c7" x="25.40" y="20" width="1.6" height="2" rx="0.5" />
             <rect class="tb-caret" x="27.8" y="19.2" width="0.8" height="3.6" rx="0.3" />
+          </g>
+          <!-- Hitung mundur (section Fokus): angka di layar + garis progres tipis -->
+          <g class="b-display">
+            <rect class="b-display-bg" x="9" y="11" width="22" height="20" />
+            <text class="b-display-text" x="20" y="23.3" text-anchor="middle"></text>
+            <rect class="b-display-track" x="12.5" y="26.6" width="15" height="1.1" rx="0.55" />
+            <rect class="b-display-bar" x="12.5" y="26.6" width="0" height="1.1" rx="0.55" />
           </g>
           <rect class="screen-glass" x="9" y="11" width="22" height="20" rx="4.6" fill="url(#${id}-glass)" />
           <rect class="screen-inset" x="9" y="11" width="22" height="20" rx="4.6" fill="url(#${id}-inset)" />
@@ -503,6 +520,44 @@
       turnRobot(0, 0);
     }
 
+    // Air di layar: level 0–1 (null = tidak ada air). Layar setinggi 20 unit (y 11–31).
+    const waterLevel = svg.querySelector('.b-water-level');
+    const bubbles = [...svg.querySelectorAll('.b-bubble')];
+    function setWater(level) {
+      if (level == null) {
+        delete svg.dataset.water;
+        return;
+      }
+      const shown = Math.min(1, Math.max(0, level));
+      const surface = 31 - shown * 20;
+      svg.dataset.water = shown >= 1 ? 'full' : shown > 0 ? 'some' : 'none';
+      waterLevel.style.transform = `translateY(${surface.toFixed(2)}px)`;
+      // Gelembung mulai dari dasar layar, naik sampai tepat di bawah permukaan.
+      const depth = 31 - surface;
+      for (const bubble of bubbles) {
+        bubble.setAttribute('cy', (depth - 1).toFixed(2));
+        bubble.style.setProperty('--rise', `${-Math.max(0, depth - 3).toFixed(2)}px`);
+      }
+    }
+
+    // Layar jadi tampilan angka (mis. hitung mundur fokus): text null = kembali ke wajah.
+    // tone: 'run' | 'idle' | 'paused' | 'final' | 'rest'; progress 0–1 = garis di bawah angka.
+    const displayText = svg.querySelector('.b-display-text');
+    const displayBar = svg.querySelector('.b-display-bar');
+    function setDisplay(text, progress = 0, tone = 'run') {
+      if (text == null) {
+        delete svg.dataset.display;
+        return;
+      }
+      svg.dataset.display = tone;
+      if (displayText.textContent !== text) {
+        displayText.textContent = text;
+        // "25:00" muat 7; "1:30:00" perlu lebih kecil supaya tetap di dalam layar.
+        displayText.setAttribute('font-size', text.length > 5 ? '4.8' : '7');
+      }
+      displayBar.setAttribute('width', (15 * Math.min(1, Math.max(0, progress))).toFixed(2));
+    }
+
     function setCostume(name) {
       if (name) svg.dataset.costume = name;
       else delete svg.dataset.costume;
@@ -539,7 +594,7 @@
     // sedikit memipih di tepi (perspektif), pupil bergerak sedikit lebih jauh.
     // Robot menengok sebadan: muka depan (layar, wajah, kostum) bergeser & menyempit ke arah
     // tengokan, sisi kubus muncul di sisi berlawanan, tangan ikut bergeser.
-    const turnEls = () => svg.querySelectorAll('.sphere.robot-only, .robot-bevel, .screen-rim, .screen, .face-clip, .screen-layer, .band-clip, .gloss-dot.robot-only, :scope > .b-body > .cos');
+    const turnEls = () => svg.querySelectorAll('.sphere.robot-only, .robot-bevel, .screen-rim, .screen, .b-water, .face-clip, .screen-layer, .band-clip, .gloss-dot.robot-only, :scope > .b-body > .cos');
     function turnRobot(lx, ly) {
       const on = shape === 'robot';
       const front = on ? `translate(${(lx * 1.5).toFixed(2)}px, ${(ly * 0.9).toFixed(2)}px) scale(${(1 - Math.abs(lx) * 0.06).toFixed(3)}, ${(1 - Math.abs(ly) * 0.04).toFixed(3)})` : '';
@@ -598,7 +653,7 @@
 
     setMood('idle');
     setShape();
-    return { el: svg, setMood, setCostume, look, jump, morph, play, hold, get mood() { return mood; }, get shape() { return shape; } };
+    return { el: svg, setMood, setCostume, setWater, setDisplay, look, jump, morph, play, hold, get mood() { return mood; }, get shape() { return shape; } };
   }
 
   window.createBuddy = createBuddy;

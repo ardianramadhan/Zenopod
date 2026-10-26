@@ -8970,14 +8970,6 @@ bingkai {
   color: var(--text);
 }
 
-.wt-chart .wt-col {
-  fill: rgba(255, 255, 255, 0.06);
-}
-
-.wt-chart .bar {
-  opacity: 1;
-}
-
 /* Detail Minum: pengaturan dalam satu baris tiga kolom */
 .wt-settings {
   display: grid;
@@ -10919,4 +10911,519 @@ body[data-align="right"] .yt-stage:not(.free) .yt-stage-grip {
 
 .yt-mini .yt-btn {
   height: 20px;
+}
+
+/* Lirik island: hanya baris aktif yang boleh 2 baris; baris lain 1 baris supaya baris aktif selalu
+   muat utuh. Pudar di bawah dimulai dari 82% (sama dengan batas "muat" di renderIslandLyrics). */
+.np-lyrics li:not(.now) {
+  -webkit-line-clamp: 1;
+}
+
+.np.with-lyrics .np-lyrics {
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent);
+}
+
+/* ---------- Musik: Zeno pindah ke kotak sampul, Zeno besar disembunyikan ---------- */
+.buddy-big {
+  transition:
+    width 0.3s ease,
+    height 0.3s ease,
+    opacity 0.2s ease;
+}
+
+.media.music-mode {
+  gap: 0;
+}
+
+.media.music-mode .buddy-big {
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.np-art .buddy {
+  width: 88%;
+  height: 88%;
+}
+
+/* Ikon not musik diganti Zeno */
+.np .np-art-empty {
+  display: none;
+}
+
+/* Sampul album (kalau ada) jadi lencana kecil di sudut kotak, Zeno tetap terlihat */
+.np .np-art .art {
+  position: absolute;
+  inset: auto 3px 3px auto;
+  right: 3px;
+  bottom: 3px;
+  z-index: 1;
+  width: 40%;
+  height: 40%;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1.5px var(--surface-hover);
+}
+
+/* Tanpa Zeno besar: lirik dapat kolom lebih lebar */
+.media.music-mode .np.with-lyrics {
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1.5fr);
+  padding-left: 2px;
+}
+
+/* Mode lirik: kotaknya kecil (34px), sampul cukup jadi warna latar (--tint), jadi lencananya disembunyikan */
+.np.with-lyrics .np-art .art {
+  display: none;
+}
+
+/* ---------- Minum: air di layar Zeno, tombol di kanan ---------- */
+.water-page {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+}
+
+.water-page .wt-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.water-page .wt-drink {
+  justify-content: center;
+  min-width: 104px;
+}
+
+.water-page .wt-gear {
+  width: auto;
+}
+
+.buddy .b-water {
+  display: none;
+}
+
+.buddy[data-water] .b-water {
+  display: inline;
+}
+
+.buddy .b-water-level {
+  transition: transform 0.9s cubic-bezier(0.3, 1.25, 0.5, 1);
+}
+
+.buddy .b-wave {
+  fill: #3987e5;
+}
+
+.buddy .b-wave.front {
+  opacity: 0.9;
+  animation: b-slosh 2.6s ease-in-out infinite alternate;
+}
+
+.buddy .b-wave.back {
+  opacity: 0.45;
+  animation: b-slosh-back 3.3s ease-in-out infinite alternate;
+}
+
+/* Bolak-balik: dua gelombang bergerak berlawanan arah, seperti air di galon yang digoyang. */
+@keyframes b-slosh {
+  from {
+    transform: translateX(-8px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes b-slosh-back {
+  from {
+    transform: translateX(0) translateY(-0.4px);
+  }
+  to {
+    transform: translateX(-9px) translateY(0.4px);
+  }
+}
+
+.buddy .b-bubble {
+  fill: rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  animation: b-bubble 3.4s ease-in infinite;
+}
+
+.buddy .b-bubble:nth-of-type(2) {
+  animation-delay: 1.2s;
+}
+
+.buddy .b-bubble:nth-of-type(3) {
+  animation-delay: 2.3s;
+}
+
+@keyframes b-bubble {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  15% {
+    opacity: 0.85;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--rise, -10px));
+  }
+}
+
+.buddy[data-water="none"] .b-bubble {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy .b-wave,
+  .buddy .b-bubble {
+    animation: none;
+  }
+}
+
+/* ---------- Fokus: hitung mundur di layar Zeno ---------- */
+.buddy .b-display {
+  display: none;
+}
+
+.buddy[data-display] .b-display {
+  display: inline;
+}
+
+/* Wajah & lapisan layar lain disembunyikan selama layar menampilkan angka */
+.buddy[data-display] .face-clip,
+.buddy[data-display] [data-part="x-code"],
+.buddy[data-display] [data-part="x-typebar"] {
+  visibility: hidden;
+}
+
+.buddy .b-display-bg {
+  fill: #0b0d12;
+}
+
+.buddy .b-display-text {
+  fill: #f4f6fb;
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.buddy .b-display-track {
+  fill: rgba(255, 255, 255, 0.16);
+}
+
+.buddy .b-display-bar {
+  fill: #3987e5;
+  transition: width 0.9s linear;
+}
+
+.buddy[data-display="idle"] .b-display-text {
+  fill: rgba(244, 246, 251, 0.72);
+}
+
+.buddy[data-display="rest"] .b-display-bar {
+  fill: #9aa3b5;
+}
+
+.buddy[data-display="final"] .b-display-text {
+  fill: #7cb4f5;
+}
+
+.buddy[data-display="paused"] .b-display-text {
+  animation: b-display-blink 1.2s steps(2, jump-none) infinite;
+}
+
+@keyframes b-display-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Island Fokus: angka besar sudah ada di layar Zeno, jadi kolom jam disembunyikan */
+.focus-page .focus-clock {
+  display: none;
+}
+
+/* ---------- Kapsul fokus (gaya Dynamic Island): cincin + angka di tengah, tanpa Zeno ---------- */
+.pill-focus {
+  display: none;
+}
+
+.shell.focus-live .pill {
+  justify-content: center;
+}
+
+.shell.focus-live .pill > :not(.pill-focus, .osd, .privacy-dots) {
+  display: none !important;
+}
+
+.shell.focus-live .pill-focus:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto;
+}
+
+.pf-ring {
+  width: 18px;
+  height: 18px;
+  rotate: -90deg;
+}
+
+.pf-track,
+.pf-bar {
+  fill: none;
+  stroke-width: 2.6;
+}
+
+.pf-track {
+  stroke: rgba(57, 135, 229, 0.25);
+}
+
+.pf-bar {
+  stroke: #3987e5;
+  stroke-linecap: round;
+  stroke-dasharray: 0 100;
+  transition: stroke-dasharray 0.9s linear;
+}
+
+/* Jeda: dua garis di tengah cincin (cincin diputar -90°, jadi garisnya ikut diputar balik) */
+.pf-pause {
+  display: none;
+  fill: none;
+  stroke: #3987e5;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  rotate: 90deg;
+  transform-origin: 10px 10px;
+}
+
+.pill-focus.paused .pf-pause {
+  display: inline;
+}
+
+.pf-time {
+  font-family: "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: #3987e5;
+}
+
+.pill-focus.paused .pf-time {
+  opacity: 0.55;
+}
+
+/* Istirahat: abu-abu (monokrom), menit terakhir fokus: angka putih */
+.pill-focus.rest .pf-bar,
+.pill-focus.rest .pf-pause {
+  stroke: #9aa3b5;
+}
+
+.pill-focus.rest .pf-track {
+  stroke: rgba(154, 163, 181, 0.25);
+}
+
+.pill-focus.rest .pf-time {
+  color: #c9ced8;
+}
+
+.pill-focus.final .pf-time {
+  color: #fff;
+}
+
+/* ---------- Kartu Fokus: statistik di kanan ---------- */
+.focus-island-info {
+  flex: 1;
+}
+
+.focus-island .focus-stats {
+  position: relative;
+  flex: none;
+  display: grid;
+  grid-template-columns: 44px auto;
+  grid-template-rows: 1fr 1fr;
+  column-gap: 9px;
+  row-gap: 3px;
+  align-items: center;
+  width: 128px;
+  margin-right: 4px;
+}
+
+.focus-island .fs-ring {
+  grid-area: 1 / 1 / 3 / 2;
+  width: 44px;
+  height: 44px;
+  rotate: -90deg;
+}
+
+.focus-island .fs-pct {
+  grid-area: 1 / 1 / 3 / 2;
+  justify-self: center;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-island .fs-track,
+.focus-island .fs-bar {
+  fill: none;
+  stroke-width: 4.5;
+}
+
+.focus-island .fs-track {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+
+.focus-island .fs-bar {
+  stroke: #3987e5;
+  stroke-linecap: round;
+  stroke-dasharray: 0 100;
+  transition: stroke-dasharray 0.9s ease;
+}
+
+.focus-island .fs-text {
+  grid-area: 1 / 2;
+  align-self: end;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.focus-island .fs-text b {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-island .fs-text span {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.focus-island .fs-cycle {
+  grid-area: 2 / 2;
+  align-self: start;
+  display: flex;
+  flex-direction: row;
+  gap: 3px;
+}
+
+.focus-island .fs-cycle i {
+  position: relative;
+  flex: 1;
+  width: 14px;
+  height: 5px;
+  min-height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.focus-island .fs-cycle i::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--fill, 0%);
+  background: #3987e5;
+  transition: width 0.9s linear;
+}
+
+/* Label "Sesi x dari y" cukup jadi tooltip (baris ketiga menabrak titik penunjuk section) */
+.focus-island .fs-label {
+  display: none;
+  grid-area: 3 / 1 / 4 / 3;
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Ringkas (muat bersama 4 tombol "Siap fokus?"): cincin berisi menit hari ini, segmen sesi di bawahnya.
+   Angka "x / target" ada di tooltip. */
+.focus-island .focus-stats {
+  grid-template-columns: 46px;
+  grid-template-rows: 46px auto;
+  row-gap: 6px;
+  width: 46px;
+  margin-right: 2px;
+}
+
+.focus-island .fs-ring,
+.focus-island .fs-pct {
+  grid-area: 1 / 1;
+  width: 46px;
+  height: 46px;
+}
+
+.focus-island .fs-pct {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-size: 13px;
+}
+
+.focus-island .fs-pct small {
+  font-size: 8.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.focus-island .fs-text {
+  display: none;
+}
+
+.focus-island .fs-cycle {
+  grid-area: 2 / 1;
+  gap: 2px;
+}
+
+.focus-island .fs-cycle i {
+  width: auto;
+  height: 4px;
+  min-height: 4px;
+}
+
+/* Sedikit lebih kecil supaya segmen tidak menyentuh titik penunjuk section di bawahnya */
+.focus-island .focus-stats {
+  grid-template-columns: 40px;
+  grid-template-rows: 40px auto;
+  row-gap: 5px;
+  width: 40px;
+  align-self: center;
+  margin-bottom: 10px;
+}
+
+.focus-island .fs-ring,
+.focus-island .fs-pct {
+  width: 40px;
+  height: 40px;
+}
+
+/* Segmen sesi sedikit lebih lebar dari cincin supaya terbaca sebagai bar, bukan titik */
+.focus-island .focus-stats {
+  grid-template-columns: 56px;
+  width: 56px;
+  justify-items: center;
+}
+
+.focus-island .fs-cycle {
+  width: 100%;
+  gap: 3px;
+}
+
+/* Ikon chip berupa garis (mis. ulang timer) */
+.action-chip .action-icon svg path.line {
+  fill: none;
 }
