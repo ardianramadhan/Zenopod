@@ -597,6 +597,114 @@ public static class ZenoWall {
 }
 "@
 
+# ---------- Kecepatan internet & mode presentasi ----------
+Add-Type -TypeDefinition @"
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Text.RegularExpressions;
+public static class ZenoNet {
+  static long lastDown = -1, lastUp = -1;
+  static Stopwatch clock = Stopwatch.StartNew();
+  // Byte/detik sejak panggilan sebelumnya, dijumlah dari adaptor aktif (tanpa loopback & adaptor virtual).
+  public static long[] Rate() {
+    long down = 0, up = 0;
+    foreach (var nic in NetworkInterface.GetAllNetworkInterfaces()) {
+      if (nic.OperationalStatus != OperationalStatus.Up) continue;
+      if (nic.NetworkInterfaceType == NetworkInterfaceType.Loopback || nic.NetworkInterfaceType == NetworkInterfaceType.Tunnel) continue;
+      string d = nic.Description + " " + nic.Name;
+      if (Regex.IsMatch(d, "virtual|hyper-v|vethernet|vmware|virtualbox|pseudo|loopback|wsl", RegexOptions.IgnoreCase)) continue;
+      try {
+        var s = nic.GetIPStatistics();
+        down += s.BytesReceived;
+        up += s.BytesSent;
+      } catch { }
+    }
+    double seconds = clock.Elapsed.TotalSeconds;
+    clock.Restart();
+    long[] rate = new long[] { 0, 0 };
+    if (lastDown >= 0 && seconds > 0.2) {
+      rate[0] = (long)Math.Max(0, (down - lastDown) / seconds);
+      rate[1] = (long)Math.Max(0, (up - lastUp) / seconds);
+    }
+    lastDown = down;
+    lastUp = up;
+    return rate;
+  }
+}
+public static class ZenoPresent {
+  delegate bool EnumProc(IntPtr h, IntPtr l);
+  [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc cb, IntPtr l);
+  [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder s, int n);
+  [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+  static Dictionary<uint, string> names = new Dictionary<uint, string>();
+  // Jendela penanda berbagi layar dari aplikasi rapat & browser (bahasa Inggris dan Indonesia).
+  static Regex sharing = new Regex(
+    "is sharing (your screen|a window|this tab|your entire screen)|sedang membagikan|membagikan layar|berbagi layar|" +
+    "sharing control bar|bilah kontrol berbagi|you are screen sharing|you're sharing|anda sedang berbagi|stop sharing|hentikan berbagi",
+    RegexOptions.IgnoreCase);
+  static string App(uint pid) {
+    string name;
+    if (names.TryGetValue(pid, out name)) return name;
+    try { name = Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant(); } catch { name = ""; }
+    if (names.Count > 400) names.Clear();
+    names[pid] = name;
+    return name;
+  }
+  static string Label(string app, string title) {
+    if (title.Contains("meet.google")) return "Google Meet";
+    if (title.Contains("teams.")) return "Teams";
+    if (app.StartsWith("zoom")) return "Zoom";
+    if (app.Contains("teams")) return "Teams";
+    if (app.Contains("webex") || app.StartsWith("ciscocollab")) return "Webex";
+    if (app == "powerpnt") return "PowerPoint";
+    if (app == "chrome") return "Chrome";
+    if (app == "msedge") return "Edge";
+    if (app == "firefox" || app == "brave" || app == "opera") return "Browser";
+    if (app == "slack" || app == "discord") return app == "slack" ? "Slack" : "Discord";
+    return "Berbagi layar";
+  }
+  // Alasan presentasi ("Zoom", "PowerPoint", …) atau "" bila tidak sedang presentasi.
+  public static string Reason() {
+    string found = "";
+    EnumWindows((h, l) => {
+      if (!IsWindowVisible(h)) return true;
+      var cls = new StringBuilder(128);
+      GetClassName(h, cls, 128);
+      string c = cls.ToString();
+      uint pid;
+      GetWindowThreadProcessId(h, out pid);
+      // Slideshow PowerPoint (layar penuh) & toolbar berbagi layar Zoom.
+      if (c == "screenClass") { found = "PowerPoint"; return false; }
+      if (c == "ZPFloatToolbarClass") { found = "Zoom"; return false; }
+      var title = new StringBuilder(256);
+      if (GetWindowText(h, title, 256) == 0) return true;
+      string text = title.ToString();
+      if (sharing.IsMatch(text)) { found = Label(App(pid), text.ToLowerInvariant()); return false; }
+      return true;
+    }, IntPtr.Zero);
+    return found;
+  }
+}
+"@
+
+$lastPresenting = $null
+function Emit-Net {
+    $rate = [ZenoNet]::Rate()
+    Send @{ type = 'net'; down = $rate[0]; up = $rate[1] }
+}
+function Emit-Presenting {
+    $reason = [ZenoPresent]::Reason()
+    if ($reason -eq $script:lastPresenting) { return }
+    $script:lastPresenting = $reason
+    Send @{ type = 'presenting'; reason = $(if ($reason) { $reason } else { $null }) }
+}
+
 $appNames = @{}   # pid → nama ramah ("Google Chrome", bukan "chrome")
 $lastForeground = $null
 
@@ -681,9 +789,11 @@ while ($true) {
     $quickTick++
     # USB & drive tiap ±1,6 dtk (cepat: satu kueri WinRT + daftar drive).
     try { Emit-Foreground } catch { }
+    try { Emit-Net } catch { }
     if ($quickTick % 2 -eq 0) {
         try { Emit-Usb $false } catch { }
         try { Emit-Privacy $false } catch { }
+        try { Emit-Presenting } catch { }
     }
     if ($quickTick -ge 6) {
         $quickTick = 0

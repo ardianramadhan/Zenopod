@@ -22,6 +22,10 @@ let lastPeek = { kind: null, at: 0 };
 let calendarEvents = null; // null = kalender belum disambungkan
 let habitItems = [];
 let systemNow = null;
+let prayerNow = null; // { enabled, city, times: { fajr, … } (ms), next: { key, name, at } } dari main
+let netNow = { down: 0, up: 0 }; // byte/detik
+let presentingNow = { on: false, reason: null };
+let shelfItems = []; // kantong file: { id, name, size, dir, icon }
 
 // Claude sedang bekerja (berpikir / menjalankan tool) atau menunggu jawaban.
 const claudeBusy = () => claudeState.active.some((s) => s.state === 'thinking' || s.state === 'working');
@@ -1128,6 +1132,7 @@ function renderPeek(peek) {
 window.kapsul.onPeek((peek) => {
   if (peekState) lastPeek = { kind: peekState.kind, at: Date.now() };
   peekState = peek;
+  peekBuddy.setCostume(peek?.costume ?? seasonalCostume);
   if (peek) renderPeek(peek);
   shell.classList.toggle('peeking', Boolean(peek));
   shell.classList.toggle('peek-tall', Boolean(peek?.actions?.length));
@@ -1892,6 +1897,7 @@ const PAGES = [
   { id: 'music', label: 'Musik', sound: 'note' },
   { id: 'video', label: 'Video', sound: 'pop' },
   { id: 'inbox', label: 'Kotak masuk', sound: 'pop' },
+  { id: 'shelf', label: 'Kantong', sound: 'pop' },
   { id: 'focus', label: 'Fokus & timer', sound: 'tick' },
   { id: 'water', label: 'Minum air', sound: 'pop' },
   { id: 'chat', label: 'Chat', sound: 'pop' },
@@ -1919,6 +1925,7 @@ function pageMood() {
   if (page === 'chat') return chatState.busy ? 'think' : pendingFiles.length ? 'hungry' : 'happy';
   if (page === 'music') return media.playing ? 'music' : 'listen';
   if (page === 'time') return 'clock';
+  if (page === 'shelf') return shelfItems.length ? 'happy' : 'hungry';
   if (page === 'water') return waterRatio() >= 1 ? 'happy' : 'idle';
   if (page === 'focus') return focusState.running && focusState.phase !== 'focus' ? 'stretch' : 'focus';
   if (page === 'device') return systemNow?.online === false ? 'cry' : battery?.charging ? 'charging' : lowBattery() ? 'lowbat' : 'smug';
@@ -3719,8 +3726,9 @@ $('chat-last').addEventListener('click', () => {
     hide();
     const files = [...event.dataTransfer.files];
     const point = { x: event.clientX, y: event.clientY };
-    if (files.length && files.every((f) => f.type.startsWith('image/'))) askDropTarget(files, point);
-    else attachFiles(files, point);
+    if (!files.length) return;
+    if (open && PAGES[pageIndex]?.id === 'shelf') window.kapsul.shelfAdd(window.kapsul.filePaths(files));
+    else askDropTarget(files, point);
   });
 })();
 
@@ -3728,10 +3736,18 @@ $('chat-last').addEventListener('click', () => {
 let dropFiles = null;
 function askDropTarget(files, point) {
   dropFiles = { files, point };
+  const images = files.every((f) => f.type.startsWith('image/'));
   const thumbs = $('drop-thumbs');
   thumbs.replaceChildren();
+  $('drop-wallpaper').hidden = !images;
+  if (!images) {
+    const icon = document.createElement('span');
+    icon.className = 'drop-file-icon';
+    icon.innerHTML = FILE_ICON;
+    thumbs.append(icon);
+  }
   // Pratinjau lewat data URL (CSP island hanya mengizinkan gambar 'self' & data:).
-  for (const file of files.slice(0, 3)) {
+  for (const file of images ? files.slice(0, 3) : []) {
     const img = document.createElement('img');
     img.alt = '';
     thumbs.append(img);
@@ -3739,11 +3755,12 @@ function askDropTarget(files, point) {
     reader.onload = () => (img.src = reader.result);
     reader.readAsDataURL(file);
   }
-  $('drop-choice-title').textContent = files.length > 1 ? `${files.length} gambar ini untuk apa?` : 'Gambar ini untuk apa?';
+  const noun = images ? 'gambar' : 'file';
+  $('drop-choice-title').textContent = files.length > 1 ? `${files.length} ${noun} ini untuk apa?` : `${images ? 'Gambar' : 'File'} ini untuk apa?`;
   $('drop-wallpaper').lastChild.textContent = files.length > 1 ? ' Tambah ke wallpaper' : ' Jadikan wallpaper';
   $('drop-choice').hidden = false;
   react('surprised', 900);
-  $('drop-wallpaper').focus();
+  $('drop-shelf').focus();
 }
 
 function closeDropChoice() {
@@ -3752,6 +3769,13 @@ function closeDropChoice() {
   dropFiles = null;
 }
 
+$('drop-shelf').addEventListener('click', () => {
+  const picked = dropFiles;
+  closeDropChoice();
+  if (!picked) return;
+  window.kapsul.shelfAdd(window.kapsul.filePaths(picked.files));
+  goToSection('shelf', { sound: false });
+});
 $('drop-wallpaper').addEventListener('click', () => {
   const picked = dropFiles;
   closeDropChoice();
@@ -4740,6 +4764,172 @@ function showOsd(kind, value, muted = false) {
 
 window.kapsul.onLocks?.(({ key, on }) => showOsd(key, on));
 
+// ---------- Jadwal sholat ----------
+const PRAYER_ROW = [['fajr', 'Subuh'], ['dhuhr', 'Dzuhur'], ['asr', 'Ashar'], ['maghrib', 'Maghrib'], ['isha', 'Isya']];
+function renderPrayer() {
+  const on = Boolean(prayerNow?.enabled && prayerNow.times);
+  $('prayer-block').hidden = !on;
+  if (!on) return;
+  $('prayer-city').textContent = prayerNow.city ?? '';
+  const row = $('prayer-row');
+  row.replaceChildren(
+    ...PRAYER_ROW.map(([key, name]) => {
+      const cell = document.createElement('div');
+      const at = prayerNow.times[key];
+      cell.className = `prayer-cell${prayerNow.next?.key === key && Math.abs(prayerNow.next.at - at) < 86_400_000 / 2 ? ' next' : ''}${at < Date.now() ? ' past' : ''}`;
+      const label = document.createElement('span');
+      label.textContent = name;
+      const time = document.createElement('b');
+      time.textContent = hm(at);
+      cell.append(label, time);
+      return cell;
+    }),
+  );
+}
+window.kapsul.onPrayer?.((state) => {
+  prayerNow = state;
+  renderPrayer();
+  renderPillText();
+});
+
+// ---------- Kecepatan internet ----------
+window.kapsul.onNet?.((state) => {
+  const wasBusy = netBusy();
+  netNow = state ?? { down: 0, up: 0 };
+  // Slide kecepatan sedang tampil: perbarui angkanya tanpa animasi ganti slide.
+  if (tickKey === 'net' || wasBusy !== netBusy()) renderPillText();
+});
+
+// ---------- Mode presentasi ----------
+window.kapsul.onPresenting?.((state) => {
+  presentingNow = state ?? { on: false, reason: null };
+  shell.classList.toggle('presenting', presentingNow.on);
+  renderPillText(true);
+});
+
+// ---------- Kantong file ----------
+const SHELF_ICONS = {
+  open: '<svg viewBox="0 0 16 16"><path d="M9 2.5h4.5V7M13.5 2.5 7.5 8.5M12 9.5v3a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h3" /></svg>',
+  folder: '<svg viewBox="0 0 16 16"><path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" /></svg>',
+  remove: '<svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" /></svg>',
+};
+
+const FILE_ICON = '<svg viewBox="0 0 16 16"><path d="M4 1.8h5.2L12.5 5v9.2h-8.5z" /><path d="M9 1.8V5h3.5" /></svg>';
+
+function fileSize(n) {
+  if (n == null) return 'Folder';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 ** 2) return `${Math.round(n / 1024)} KB`;
+  return bytesText(n);
+}
+
+// Satu baris file (detail): seret keluar, buka, tampilkan di folder, keluarkan.
+function shelfRow(item) {
+  const li = document.createElement('li');
+  li.className = 'shelf-item';
+  li.draggable = true;
+  // startDrag harus dipanggil saat dragstart (seret bawaan browser dibatalkan).
+  li.addEventListener('dragstart', (event) => {
+    event.preventDefault();
+    window.kapsul.shelfDrag([item.id]);
+  });
+  const text = document.createElement('span');
+  text.className = 'shelf-text';
+  const name = document.createElement('b');
+  name.textContent = item.name;
+  const size = document.createElement('small');
+  size.textContent = fileSize(item.size);
+  text.append(name, size);
+  const button = (kind, title, onClick) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'shelf-act';
+    b.title = title;
+    b.setAttribute('aria-label', `${title}: ${item.name}`);
+    b.innerHTML = SHELF_ICONS[kind];
+    b.addEventListener('click', onClick);
+    return b;
+  };
+  // Tombol aksi di pojok kotak (muncul saat diarahkan kursor).
+  const actions = document.createElement('span');
+  actions.className = 'shelf-acts';
+  actions.append(
+    button('open', 'Buka', () => window.kapsul.shelfOpen(item.id)),
+    button('folder', 'Tampilkan di folder', () => window.kapsul.shelfReveal(item.id)),
+    button('remove', 'Keluarkan dari kantong', () => window.kapsul.shelfRemove([item.id])),
+  );
+  li.title = `${item.name} · seret ke folder atau aplikasi`;
+  li.append(shelfIcon(item), text, actions);
+  return li;
+}
+
+function shelfIcon(item) {
+  const icon = document.createElement('span');
+  icon.className = 'shelf-icon';
+  if (item.icon) {
+    const img = document.createElement('img');
+    img.src = item.icon;
+    img.alt = '';
+    img.draggable = false;
+    icon.append(img);
+  } else {
+    icon.innerHTML = item.dir ? SHELF_ICONS.folder : FILE_ICON;
+  }
+  return icon;
+}
+
+const SHELF_STRIP = 4; // ikon file di island (sisanya "+N") supaya muat bersama tombol Seret semua
+
+function renderShelf() {
+  const count = shelfItems.length;
+  $('shelf-count').hidden = count === 0;
+  $('shelf-count').textContent = String(count);
+  $('shelf-title').textContent = count ? `Kantong · ${count} item` : 'Kantong';
+  $('shelf-list').replaceChildren(...shelfItems.map(shelfRow));
+  $('shelf-hint').hidden = count > 0;
+  $('shelf-clear').hidden = count === 0;
+
+  // Island: jumlah, ukuran total, deret ikon yang bisa diseret satu-satu.
+  $('sh-count').textContent = count ? `${count} file di kantong` : 'Kantong kosong';
+  const total = shelfItems.reduce((n, item) => n + (item.size ?? 0), 0);
+  $('sh-sub').textContent = count ? `${fileSize(total)} · seret untuk memindahkan` : 'Seret file ke sini untuk dititip';
+  $('sh-actions').hidden = count === 0;
+  const strip = $('sh-strip');
+  strip.replaceChildren(
+    ...shelfItems.slice(-SHELF_STRIP).reverse().map((item) => {
+      const tile = shelfIcon(item);
+      tile.classList.add('sh-tile');
+      tile.draggable = true;
+      tile.title = `${item.name} · seret ke folder atau aplikasi`;
+      tile.addEventListener('dragstart', (event) => {
+        event.preventDefault();
+        window.kapsul.shelfDrag([item.id]);
+      });
+      return tile;
+    }),
+  );
+  if (count > SHELF_STRIP) {
+    const more = document.createElement('span');
+    more.className = 'sh-more';
+    more.textContent = `+${count - SHELF_STRIP}`;
+    strip.append(more);
+  }
+  if (PAGES[pageIndex]?.id === 'shelf') renderBuddy();
+}
+
+window.kapsul.onShelf?.((list) => {
+  const before = shelfItems.length;
+  shelfItems = list ?? [];
+  renderShelf();
+  if (shelfItems.length > before) react('happy', 900);
+});
+$('shelf-clear').addEventListener('click', () => window.kapsul.shelfClear());
+$('shelf-drag-all').addEventListener('dragstart', (event) => {
+  event.preventDefault();
+  window.kapsul.shelfDrag(shelfItems.map((item) => item.id));
+});
+
+
 // Geser slider: kirim paling cepat tiap 120 ms; nilai akhir saat dilepas.
 for (const what of ['volume', 'brightness']) {
   const input = $(`quick-${what}`);
@@ -4944,6 +5134,8 @@ const timeFormat = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '
 // Bisa diatur di Pengaturan › Tampilan (saklar & durasi).
 let tickerSettings = { enabled: true, seconds: 5 };
 const PILL_ICONS = {
+  mosque: '<svg viewBox="0 0 16 16"><path d="M3 13.5V8.5a5 4 0 0 1 10 0v5M1.5 13.5h13M8 4.5V2.5M6.5 13.5V11a1.5 1.5 0 0 1 3 0v2.5" /></svg>',
+  net: '<svg viewBox="0 0 16 16"><path d="M5 2.5v10M2.5 10 5 12.5 7.5 10M11 13.5v-10M8.5 6 11 3.5 13.5 6" /></svg>',
   mic: '<svg viewBox="0 0 16 16"><rect x="5.5" y="1.8" width="5" height="8" rx="2.5" /><path d="M3.2 7.5a4.8 4.8 0 0 0 9.6 0M8 12.3v2" /></svg>',
   download: '<svg viewBox="0 0 16 16"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg>',
   music: '<svg viewBox="0 0 16 16"><path d="M6 12V3.5l7-1.5V10.5" /><circle cx="4.5" cy="12" r="1.6" /><circle cx="11.5" cy="10.5" r="1.6" /></svg>',
@@ -5058,7 +5250,10 @@ function pinnedSlides() {
       render: (el) => {
         const label = document.createElement('span');
         label.className = 'claude-shimmer';
-        label.textContent = session.label || 'Berpikir';
+        // Kapsul sempit: label panjang ("Menjalankan perintah") cukup kata pertamanya.
+        const full = session.label || 'Berpikir';
+        label.textContent = full.length > 13 ? full.split(/\s+/)[0] : full;
+        label.title = full;
         el.append(label);
         if (session.started) {
           const time = document.createElement('span');
@@ -5069,7 +5264,28 @@ function pinnedSlides() {
       },
     });
   }
+  // 15 menit sebelum adzan: sholat berikutnya tampil terus, Zeno memakai peci.
+  const prayerSoon = prayerNow?.next;
+  if (prayerSoon && prayerSoon.at - Date.now() <= 15 * 60_000) {
+    pinned.push({ key: 'prayer', mood: 'clock', costume: 'peci', render: slideContent('mosque', `${prayerSoon.name} ${hm(prayerSoon.at)}`, untilText(prayerSoon.at)) });
+  }
   return pinned;
+}
+
+function untilText(at) {
+  const minutes = Math.max(0, Math.round((at - Date.now()) / 60_000));
+  if (minutes < 1) return 'sekarang';
+  return minutes < 60 ? `${minutes} mnt lagi` : `${Math.floor(minutes / 60)} j ${minutes % 60} mnt lagi`;
+}
+
+// Unduh / unggah dianggap sibuk mulai 300 KB/s (fungsi biasa: dipakai juga saat skrip baru dimuat).
+function netBusy() {
+  return netNow.down >= 300 * 1024 || netNow.up >= 300 * 1024;
+}
+function speedText(bps) {
+  const mb = bps / 1024 ** 2;
+  if (mb >= 1) return `${mb.toFixed(mb >= 10 ? 0 : 1).replace('.', ',')} MB/s`;
+  return `${Math.round(bps / 1024)} KB/s`;
 }
 
 // Slide yang berputar; hanya yang ada isinya.
@@ -5096,6 +5312,13 @@ function pillSlides() {
   if (meeting && meeting.start - now.getTime() < 2 * 3_600_000) {
     slides.push({ key: 'meeting', mood: 'clock', render: slideContent('calendar', meeting.title, eventTime(meeting, now.getTime())) });
   }
+  // Sholat berikutnya dalam 3 jam (15 menit terakhir disematkan, lihat pinnedSlides).
+  const soon = prayerNow?.next;
+  if (soon && soon.at - now.getTime() < 3 * 3_600_000) {
+    slides.push({ key: 'prayer', mood: 'clock', render: slideContent('mosque', `${soon.name} ${hm(soon.at)}`, untilText(soon.at)) });
+  }
+  // Unduh / unggah besar (≥ 300 KB/s): tampilkan kecepatannya.
+  if (netBusy()) slides.push({ key: 'net', mood: 'focus', render: slideContent('net', speedText(netNow.down), `↑ ${speedText(netNow.up)}`) });
   if (media.title) {
     // Lagu diputar dan liriknya tersinkron: kapsul menampilkan baris yang sedang dinyanyikan.
     const line = media.playing ? currentLyric() : '';
@@ -5140,6 +5363,8 @@ function renderPillText(animate = false) {
   const text = $('pill-text');
   const override = pillOverride();
   let slide = override;
+  // Presentasi / berbagi layar: kapsul hanya jam (tanpa lirik, notifikasi, dsb).
+  if (!slide && presentingNow.on) slide = pillSlides()[0];
   if (!slide && !tickerSettings.enabled) {
     // Putaran dimatikan: tersemat (fokus/Claude) > lagu > jam.
     const slides = pillSlides();

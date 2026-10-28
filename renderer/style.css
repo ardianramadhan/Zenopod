@@ -10998,152 +10998,6 @@ body[data-align="right"] .yt-stage:not(.free) .yt-stage-grip {
   width: auto;
 }
 
-.buddy .b-water {
-  display: none;
-}
-
-.buddy[data-water] .b-water {
-  display: inline;
-}
-
-.buddy .b-water-level {
-  transition: transform 0.9s cubic-bezier(0.3, 1.25, 0.5, 1);
-}
-
-.buddy .b-wave {
-  fill: #3987e5;
-}
-
-.buddy .b-wave.front {
-  opacity: 0.9;
-  animation: b-slosh 2.6s ease-in-out infinite alternate;
-}
-
-.buddy .b-wave.back {
-  opacity: 0.45;
-  animation: b-slosh-back 3.3s ease-in-out infinite alternate;
-}
-
-/* Bolak-balik: dua gelombang bergerak berlawanan arah, seperti air di galon yang digoyang. */
-@keyframes b-slosh {
-  from {
-    transform: translateX(-8px);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes b-slosh-back {
-  from {
-    transform: translateX(0) translateY(-0.4px);
-  }
-  to {
-    transform: translateX(-9px) translateY(0.4px);
-  }
-}
-
-.buddy .b-bubble {
-  fill: rgba(255, 255, 255, 0.6);
-  opacity: 0;
-  animation: b-bubble 3.4s ease-in infinite;
-}
-
-.buddy .b-bubble:nth-of-type(2) {
-  animation-delay: 1.2s;
-}
-
-.buddy .b-bubble:nth-of-type(3) {
-  animation-delay: 2.3s;
-}
-
-@keyframes b-bubble {
-  0% {
-    opacity: 0;
-    transform: translateY(0);
-  }
-  15% {
-    opacity: 0.85;
-  }
-  80% {
-    opacity: 0.5;
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(var(--rise, -10px));
-  }
-}
-
-.buddy[data-water="none"] .b-bubble {
-  display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .buddy .b-wave,
-  .buddy .b-bubble {
-    animation: none;
-  }
-}
-
-/* ---------- Fokus: hitung mundur di layar Zeno ---------- */
-.buddy .b-display {
-  display: none;
-}
-
-.buddy[data-display] .b-display {
-  display: inline;
-}
-
-/* Wajah & lapisan layar lain disembunyikan selama layar menampilkan angka */
-.buddy[data-display] .face-clip,
-.buddy[data-display] [data-part="x-code"],
-.buddy[data-display] [data-part="x-typebar"] {
-  visibility: hidden;
-}
-
-.buddy .b-display-bg {
-  fill: #0b0d12;
-}
-
-.buddy .b-display-text {
-  fill: #f4f6fb;
-  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-.buddy .b-display-track {
-  fill: rgba(255, 255, 255, 0.16);
-}
-
-.buddy .b-display-bar {
-  fill: #3987e5;
-  transition: width 0.9s linear;
-}
-
-.buddy[data-display="idle"] .b-display-text {
-  fill: rgba(244, 246, 251, 0.72);
-}
-
-.buddy[data-display="rest"] .b-display-bar {
-  fill: #9aa3b5;
-}
-
-.buddy[data-display="final"] .b-display-text {
-  fill: #7cb4f5;
-}
-
-.buddy[data-display="paused"] .b-display-text {
-  animation: b-display-blink 1.2s steps(2, jump-none) infinite;
-}
-
-@keyframes b-display-blink {
-  50% {
-    opacity: 0.35;
-  }
-}
-
 /* Island Fokus: angka besar sudah ada di layar Zeno, jadi kolom jam disembunyikan */
 .focus-page .focus-clock {
   display: none;
@@ -11426,4 +11280,367 @@ body[data-align="right"] .yt-stage:not(.free) .yt-stage-grip {
 /* Ikon chip berupa garis (mis. ulang timer) */
 .action-chip .action-icon svg path.line {
   fill: none;
+}
+
+/* ---------- Jadwal sholat (detail Waktu) ---------- */
+.prayer-block {
+  margin-bottom: 10px;
+}
+
+.prayer-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.prayer-head span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.prayer-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.prayer-cell {
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  padding: 6px 2px;
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.prayer-cell span {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.prayer-cell b {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.prayer-cell.past b {
+  color: var(--muted);
+}
+
+.prayer-cell.next {
+  background: rgba(57, 135, 229, 0.18);
+}
+
+.prayer-cell.next span,
+.prayer-cell.next b {
+  color: #7cb4f5;
+}
+
+/* ---------- Kantong file (section) ---------- */
+.shelf-page {
+  justify-content: flex-start;
+}
+
+.sh-main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+}
+
+.sh-top {
+  display: grid;
+  gap: 1px;
+}
+
+.sh-top b {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.sh-top span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.sh-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+}
+
+.sh-strip:empty {
+  display: none;
+}
+
+.shelf-icon.sh-tile {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--surface-hover);
+  cursor: grab;
+}
+
+.shelf-icon.sh-tile img {
+  width: 20px;
+  height: 20px;
+}
+
+.sh-tile:hover {
+  background: rgba(57, 135, 229, 0.22);
+}
+
+.sh-more {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.sh-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sh-row[hidden] {
+  display: none;
+}
+
+.sh-row .sh-strip {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sh-drag-all {
+  flex: none;
+}
+
+.sh-drag-all {
+  cursor: grab;
+}
+
+.shelf-hint[hidden] {
+  display: none;
+}
+
+.shelf-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.shelf-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 6px;
+  border-radius: 9px;
+  cursor: grab;
+}
+
+.shelf-item:hover {
+  background: var(--surface-hover);
+}
+
+.shelf-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+}
+
+.shelf-icon img {
+  width: 24px;
+  height: 24px;
+}
+
+.shelf-icon svg,
+.shelf-act svg,
+.drop-file-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.shelf-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.shelf-text b {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shelf-text small {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.shelf-act {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.shelf-act svg {
+  width: 14px;
+  height: 14px;
+}
+
+.shelf-item:hover .shelf-act,
+.shelf-act:focus-visible {
+  opacity: 1;
+}
+
+.shelf-act:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.shelf-hint {
+  margin: 6px 2px 0;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.drop-file-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--surface-hover);
+  color: var(--muted);
+}
+
+.drop-btn[hidden] {
+  display: none;
+}
+
+/* Detail Kantong: kotak-kotak berjejer (seperti ikon di folder) */
+.shelf-list {
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.shelf-item {
+  position: relative;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 14px 6px 10px;
+  border-radius: 12px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.shelf-item .shelf-icon,
+.shelf-item .shelf-icon img {
+  width: 40px;
+  height: 40px;
+}
+
+.shelf-item .shelf-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.shelf-item .shelf-text {
+  justify-items: center;
+  width: 100%;
+  gap: 2px;
+}
+
+/* Nama file sampai dua baris (nama panjang dipotong di tengah kata bila perlu) */
+.shelf-item .shelf-text b {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 11.5px;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.shelf-acts {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 1px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(11, 11, 16, 0.88);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.shelf-item:hover .shelf-acts,
+.shelf-item:focus-within .shelf-acts {
+  opacity: 1;
+}
+
+.shelf-acts .shelf-act {
+  width: 22px;
+  height: 22px;
+  opacity: 1;
+}
+
+/* ---------- Kapsul: status kanan rapi & netral ----------
+   Urutan tetap: titik status lalu baterai di ujung kanan. Hanya satu titik tampil: merah (server dev mati)
+   mengalahkan biru (notifikasi). Baterai putih netral (juga saat mengisi), merah hanya saat lemah. */
+.pill .dev-alert,
+.pill .badge,
+.pill .privacy-dots {
+  order: 2;
+}
+
+.pill .pill-battery {
+  order: 3;
+}
+
+.pill .dev-alert:not([hidden]) ~ .badge {
+  display: none;
+}
+
+.pill .dev-alert {
+  width: 7px;
+  height: 7px;
+  background: #ff453a;
+}
+
+.pill-battery.charging {
+  --bat: #ffffff;
+}
+
+.pill-battery.charging .bat-bolt {
+  fill: rgba(255, 255, 255, 0.85);
 }

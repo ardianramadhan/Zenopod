@@ -629,6 +629,20 @@
             </div>
             <label class="switch"><input type="checkbox" id="live-downloads" /><span></span></label>
           </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Mode presentasi otomatis</div>
+              <div class="row-sub">Saat berbagi layar (Zoom, Google Meet, Teams, …), slideshow PowerPoint, atau layar diduplikasi ke proyektor: notifikasi tidak muncul dan kapsul hanya menampilkan jam. Notifikasinya tetap masuk Kotak masuk. Bisa juga dinyalakan manual dari ikon tray.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="live-presenting" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Kecepatan internet</div>
+              <div class="row-sub">Saat unduhan atau unggahan besar (di atas 300 KB/s), kapsul menampilkan kecepatannya.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="live-netspeed" /><span></span></label>
+          </div>
 
           <div class="card row">
             <div>
@@ -657,7 +671,7 @@
         <!-- Cuaca & baterai -->
         <section data-panel="weather" hidden>
           <header>
-            <h1>Cuaca & baterai</h1>
+            <h1>Cuaca, sholat & baterai</h1>
             <p>Cuaca dari Open-Meteo (gratis). Yang dikirim hanya nama kota yang kamu cari dan koordinatnya.</p>
           </header>
           <div class="card row">
@@ -672,6 +686,33 @@
             <div class="actions-row"><button type="submit" class="btn">Cari kota</button></div>
             <div class="list" id="city-results"></div>
           </form>
+          <div class="card row">
+            <div>
+              <div class="row-title">Jadwal sholat</div>
+              <div class="row-sub" id="prayer-sub">Dihitung tanpa internet dari kota di atas (metode Kemenag RI). Tampil di kapsul dan detail Waktu.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="prayer-enabled" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Ingatkan waktu sholat</div>
+              <div class="row-sub">Kartu muncul saat masuk waktu sholat, dengan Zeno memakai peci.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="prayer-remind" /><span></span></label>
+          </div>
+          <div class="card row">
+            <div>
+              <div class="row-title">Ingatkan sebelumnya</div>
+              <div class="row-sub">Kartu tambahan beberapa menit sebelum adzan.</div>
+            </div>
+            <select id="prayer-early">
+              <option value="0">Tidak</option>
+              <option value="5">5 menit</option>
+              <option value="10">10 menit</option>
+              <option value="15">15 menit</option>
+              <option value="30">30 menit</option>
+            </select>
+          </div>
           <div class="card row">
             <div>
               <div class="row-title">Kabari saat mulai hujan</div>

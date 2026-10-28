@@ -723,12 +723,12 @@ $('add-project').addEventListener('click', async () => {
 
 // ---------- Aktivitas live ----------
 
-for (const key of ['privacy', 'meetings', 'downloads']) {
+for (const key of ['privacy', 'meetings', 'downloads', 'presenting', 'netspeed']) {
   $(`live-${key}`).addEventListener('change', (e) => save({ live: { ...state.config.live, [key]: e.target.checked } }));
 }
 
 function renderLive() {
-  for (const key of ['privacy', 'meetings', 'downloads']) $(`live-${key}`).checked = state.config.live[key];
+  for (const key of ['privacy', 'meetings', 'downloads', 'presenting', 'netspeed']) $(`live-${key}`).checked = state.config.live[key];
 }
 
 // ---------- Ngobrol ----------
@@ -1148,6 +1148,13 @@ function renderWeather() {
   $('battery-percent').checked = state.config.battery.showPercent;
   $('bluetooth-alerts').checked = state.config.bluetooth.alerts;
   $('usb-alerts').checked = state.config.usb.alerts;
+  $('prayer-enabled').checked = state.config.prayer.enabled;
+  $('prayer-remind').checked = state.config.prayer.remind;
+  $('prayer-early').value = String(state.config.prayer.early);
+  $('prayer-remind').disabled = $('prayer-early').disabled = !state.config.prayer.enabled;
+  $('prayer-sub').textContent = w.city
+    ? `${w.city.name} · dihitung tanpa internet (metode Kemenag RI). Tampil di kapsul dan detail Waktu.`
+    : 'Pilih kota di atas dulu (tidak perlu menyalakan cuaca).';
   const now = state.weatherNow;
   $('weather-now').textContent = !w.city
     ? 'Pilih kota dulu.'
@@ -1165,6 +1172,9 @@ $('weather-enabled').addEventListener('change', (e) => {
   save({ weather: { ...state.config.weather, enabled: e.target.checked } }).then(renderWeather);
 });
 $('weather-alerts').addEventListener('change', (e) => save({ weather: { ...state.config.weather, alerts: e.target.checked } }));
+$('prayer-enabled').addEventListener('change', (e) => save({ prayer: { ...state.config.prayer, enabled: e.target.checked } }).then(renderWeather));
+$('prayer-remind').addEventListener('change', (e) => save({ prayer: { ...state.config.prayer, remind: e.target.checked } }));
+$('prayer-early').addEventListener('change', (e) => save({ prayer: { ...state.config.prayer, early: Number(e.target.value) } }));
 $('battery-alerts').addEventListener('change', (e) => save({ battery: { ...state.config.battery, alerts: e.target.checked } }));
 $('usb-alerts').addEventListener('change', (e) => save({ usb: { ...state.config.usb, alerts: e.target.checked } }));
 $('bluetooth-alerts').addEventListener('change', (e) => save({ bluetooth: { ...state.config.bluetooth, alerts: e.target.checked } }));

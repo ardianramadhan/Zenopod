@@ -2536,3 +2536,151 @@
     animation: none !important;
   }
 }
+
+/* ---------- Lapisan layar: air (section Minum) & angka hitung mundur (section Fokus) ----------
+   Di sini (bukan style.css) supaya landing page yang hanya memuat buddy.css tetap menyembunyikannya. */
+.buddy .b-water {
+  display: none;
+}
+
+.buddy[data-water] .b-water {
+  display: inline;
+}
+
+.buddy .b-water-level {
+  transition: transform 0.9s cubic-bezier(0.3, 1.25, 0.5, 1);
+}
+
+.buddy .b-wave {
+  fill: #3987e5;
+}
+
+.buddy .b-wave.front {
+  opacity: 0.9;
+  animation: b-slosh 2.6s ease-in-out infinite alternate;
+}
+
+.buddy .b-wave.back {
+  opacity: 0.45;
+  animation: b-slosh-back 3.3s ease-in-out infinite alternate;
+}
+
+/* Bolak-balik: dua gelombang bergerak berlawanan arah, seperti air di galon yang digoyang. */
+@keyframes b-slosh {
+  from {
+    transform: translateX(-8px);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes b-slosh-back {
+  from {
+    transform: translateX(0) translateY(-0.4px);
+  }
+  to {
+    transform: translateX(-9px) translateY(0.4px);
+  }
+}
+
+.buddy .b-bubble {
+  fill: rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  animation: b-bubble 3.4s ease-in infinite;
+}
+
+.buddy .b-bubble:nth-of-type(2) {
+  animation-delay: 1.2s;
+}
+
+.buddy .b-bubble:nth-of-type(3) {
+  animation-delay: 2.3s;
+}
+
+@keyframes b-bubble {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  15% {
+    opacity: 0.85;
+  }
+  80% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--rise, -10px));
+  }
+}
+
+.buddy[data-water="none"] .b-bubble {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .buddy .b-wave,
+  .buddy .b-bubble {
+    animation: none;
+  }
+}
+
+/* ---------- Fokus: hitung mundur di layar Zeno ---------- */
+.buddy .b-display {
+  display: none;
+}
+
+.buddy[data-display] .b-display {
+  display: inline;
+}
+
+/* Wajah & lapisan layar lain disembunyikan selama layar menampilkan angka */
+.buddy[data-display] .face-clip,
+.buddy[data-display] [data-part="x-code"],
+.buddy[data-display] [data-part="x-typebar"] {
+  visibility: hidden;
+}
+
+.buddy .b-display-bg {
+  fill: #0b0d12;
+}
+
+.buddy .b-display-text {
+  fill: #f4f6fb;
+  font-family: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.buddy .b-display-track {
+  fill: rgba(255, 255, 255, 0.16);
+}
+
+.buddy .b-display-bar {
+  fill: #3987e5;
+  transition: width 0.9s linear;
+}
+
+.buddy[data-display="idle"] .b-display-text {
+  fill: rgba(244, 246, 251, 0.72);
+}
+
+.buddy[data-display="rest"] .b-display-bar {
+  fill: #9aa3b5;
+}
+
+.buddy[data-display="final"] .b-display-text {
+  fill: #7cb4f5;
+}
+
+.buddy[data-display="paused"] .b-display-text {
+  animation: b-display-blink 1.2s steps(2, jump-none) infinite;
+}
+
+@keyframes b-display-blink {
+  50% {
+    opacity: 0.35;
+  }
+}

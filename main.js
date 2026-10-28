@@ -48,6 +48,7 @@ app.commandLine.appendSwitch('js-flags', '--expose-gc');
 }
 
 const { CONFIG_FILE, DEFAULT_OFFSET, normalize, readConfig, writeConfig } = require('./lib/config');
+const prayer = require('./lib/prayer');
 const paths = require('./lib/paths');
 const apps = require('./lib/apps');
 const claude = require('./lib/claude');
@@ -437,7 +438,14 @@ const peekQueue = [];
 let currentPeek = null;
 let peekTimer = null;
 
+// Selama presentasi: kartu penting ditahan sampai selesai, sisanya (notifikasi, sapaan, cuaca, …) tidak muncul.
+const PRESENTING_KEEP = new Set(['permission', 'reminder', 'prayer', 'timer', 'todo', 'focus', 'meeting', 'battery']);
+
 function showPeek(peek) {
+  if (presenting && !PRESENTING_KEEP.has(peek.kind)) {
+    if (peek.kind === 'notification') presentingHeld++;
+    return;
+  }
   peekQueue.push({ id: crypto.randomUUID(), seconds: 6, ...peek });
   // Izin Claude didahulukan dari kartu lain yang sedang antre.
   if (peek.kind === 'permission' && peekQueue.length > 1) peekQueue.unshift(peekQueue.pop());
@@ -446,7 +454,7 @@ function showPeek(peek) {
 
 function nextPeek() {
   // Kartu yang datang selama digeser menunggu sampai dilepas (dragEnd memanggil nextPeek).
-  if (!win || expanded || currentPeek || drag) return;
+  if (!win || expanded || currentPeek || drag || presenting) return;
   currentPeek = peekQueue.shift() ?? null;
   if (!currentPeek) return;
   send('kapsul:peek', currentPeek);
@@ -543,6 +551,8 @@ async function loadConfig() {
   tray?.setContextMenu(buildTrayMenu());
   items = await apps.resolveItems(config.apps);
   send('kapsul:state', publicState());
+  sendPrayer(true);
+  updatePresenting();
   sendNotifications();
   sendReminders();
   sendTodos();
@@ -671,6 +681,16 @@ function startBridge() {
 }
 
 function handleBridge(message) {
+  if (message.type === 'net') {
+    netState = { down: Math.max(0, Number(message.down) || 0), up: Math.max(0, Number(message.up) || 0) };
+    if (config.live.netspeed) send('kapsul:net', netState);
+    return;
+  }
+  if (message.type === 'presenting') {
+    presentingAuto = message.reason ? String(message.reason) : null;
+    updatePresenting();
+    return;
+  }
   if (message.type === 'media') {
     lastMedia = message;
     send('kapsul:media', lastMedia);
@@ -2645,6 +2665,185 @@ let snipShot = null; // { image, display }
 let ocrShortcut = null;
 const ocrJobs = new Map(); // id → file gambar sementara
 
+// ---------- Kecepatan internet ----------
+let netState = { down: 0, up: 0 }; // byte/detik dari bridge.ps1 (semua adaptor jaringan aktif)
+
+// ---------- Mode presentasi ----------
+// Otomatis saat berbagi layar (Zoom, Meet, Teams, …), slideshow PowerPoint, atau layar diduplikasi ke proyektor:
+// kartu notifikasi tidak muncul dan kapsul hanya menampilkan jam. Bisa juga dinyalakan manual dari tray.
+let presenting = false;
+let presentingReason = null;
+let presentingAuto = null; // alasan dari bridge.ps1 (mis. 'Zoom'), atau null
+let presentingManual = false;
+let presentingHeld = 0; // notifikasi yang tidak ditampilkan selama presentasi
+
+function displaysMirrored() {
+  const list = screen.getAllDisplays();
+  return list.some((a, i) => list.some((b, j) => j > i && a.bounds.x === b.bounds.x && a.bounds.y === b.bounds.y));
+}
+
+function updatePresenting() {
+  const reason = presentingManual ? 'manual' : config.live.presenting ? (presentingAuto ?? (displaysMirrored() ? 'Proyektor' : null)) : null;
+  if (Boolean(reason) === presenting && reason === presentingReason) return;
+  const was = presenting;
+  presenting = Boolean(reason);
+  presentingReason = reason;
+  send('kapsul:presenting', { on: presenting, reason });
+  tray?.setContextMenu(buildTrayMenu());
+  if (presenting && currentPeek && !PRESENTING_KEEP.has(currentPeek.kind)) endPeek();
+  if (was && !presenting) {
+    if (presentingHeld) {
+      showPeek({ kind: 'system', mood: 'happy', app: 'Mode presentasi', title: 'Presentasi selesai', body: `${presentingHeld} notifikasi menunggu di Kotak masuk.`, seconds: 7 });
+    }
+    presentingHeld = 0;
+    setTimeout(nextPeek, 300);
+  }
+}
+
+// ---------- Jadwal sholat (offline; lokasi dari kota di Pengaturan › Cuaca) ----------
+const clockHM = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit' });
+const prayerFired = new Set();
+let prayerKey = '';
+
+function prayerCity() {
+  const city = config.weather.city;
+  return city && city.latitude != null && city.longitude != null ? city : null;
+}
+
+function prayerState() {
+  const city = prayerCity();
+  if (!config.prayer.enabled || !city) return { enabled: config.prayer.enabled, city: null };
+  const now = new Date();
+  const times = prayer.prayerTimes(now, city.latitude, city.longitude);
+  const next = prayer.nextPrayer(now, city.latitude, city.longitude);
+  return {
+    enabled: true,
+    city: city.name,
+    times: Object.fromEntries(Object.entries(times).map(([key, date]) => [key, date.getTime()])),
+    next: { key: next.key, name: next.name, at: next.at.getTime() },
+  };
+}
+
+function sendPrayer(force = false) {
+  const state = prayerState();
+  const key = JSON.stringify(state);
+  if (!force && key === prayerKey) return;
+  prayerKey = key;
+  send('kapsul:prayer', state);
+}
+
+// Tiap 30 detik: kartu saat masuk waktu sholat (dengan peci) & beberapa menit sebelumnya.
+function checkPrayer() {
+  sendPrayer();
+  const city = prayerCity();
+  if (!config.prayer.enabled || !config.prayer.remind || !city) return;
+  const now = Date.now();
+  const today = dayKey();
+  const times = prayer.prayerTimes(new Date(), city.latitude, city.longitude);
+  const early = Math.max(0, Number(config.prayer.early) || 0) * 60_000;
+  for (const key of prayer.PRAYERS) {
+    const at = times[key].getTime();
+    const id = `${today}-${key}`;
+    const name = prayer.NAMES[key];
+    if (now >= at && now - at < 3 * 60_000 && !prayerFired.has(id)) {
+      prayerFired.add(id);
+      showPeek({ kind: 'prayer', mood: 'happy', costume: 'peci', sound: 'chime', app: 'Waktu sholat', title: `Waktunya sholat ${name}`, body: `${clockHM.format(at)} · ${city.name}`, seconds: 20 });
+    } else if (early && now >= at - early && now < at && now - (at - early) < 3 * 60_000 && !prayerFired.has(`${id}-early`)) {
+      prayerFired.add(`${id}-early`);
+      showPeek({ kind: 'prayer', mood: 'clock', costume: 'peci', app: 'Waktu sholat', title: `${early / 60_000} menit lagi ${name}`, body: `Adzan pukul ${clockHM.format(at)} · ${city.name}`, seconds: 10 });
+    }
+  }
+  for (const id of prayerFired) if (!id.startsWith(today)) prayerFired.delete(id);
+}
+
+// ---------- Kantong file: titip file sementara di island, seret keluar ke folder/aplikasi lain ----------
+const SHELF_MAX = 30;
+let shelf = []; // { id, path, name, size, dir, icon (data URL) }
+const shelfImages = new Map(); // id → nativeImage ikon (untuk startDrag)
+const shelfFile = () => path.join(app.getPath('userData'), 'shelf.json');
+
+async function shelfEntry(file) {
+  const stat = fs.statSync(file);
+  const id = crypto.randomUUID();
+  let icon = null;
+  try {
+    // 'large' = 48 px di Windows: kotak file di detail Kantong.
+    const image = await app.getFileIcon(file, { size: 'large' });
+    if (!image.isEmpty()) {
+      shelfImages.set(id, image);
+      icon = image.toDataURL();
+    }
+  } catch {
+    // tanpa ikon
+  }
+  return { id, path: file, name: path.basename(file) || file, size: stat.isDirectory() ? null : stat.size, dir: stat.isDirectory(), icon };
+}
+
+function saveShelf() {
+  try {
+    fs.writeFileSync(shelfFile(), JSON.stringify(shelf.map((item) => item.path)));
+  } catch (error) {
+    debugLog('shelf simpan ' + error.message);
+  }
+}
+
+function sendShelf() {
+  send('kapsul:shelf', shelf.map(({ id, name, size, dir, icon }) => ({ id, name, size, dir, icon })));
+}
+
+async function addToShelf(paths) {
+  for (const file of paths) {
+    if (typeof file !== 'string' || !path.isAbsolute(file) || shelf.some((item) => item.path === file)) continue;
+    try {
+      shelf.push(await shelfEntry(file));
+    } catch {
+      // file sudah tidak ada
+    }
+  }
+  while (shelf.length > SHELF_MAX) shelfImages.delete(shelf.shift().id);
+  saveShelf();
+  sendShelf();
+}
+
+async function loadShelf() {
+  let paths = [];
+  try {
+    paths = JSON.parse(fs.readFileSync(shelfFile(), 'utf8'));
+  } catch {
+    // belum ada kantong
+  }
+  if (Array.isArray(paths)) await addToShelf(paths.filter((file) => fs.existsSync(file)));
+}
+
+const shelfById = (id) => shelf.find((item) => item.id === id);
+
+function removeFromShelf(ids) {
+  const drop = new Set(ids);
+  for (const id of drop) shelfImages.delete(id);
+  shelf = shelf.filter((item) => !drop.has(item.id));
+  saveShelf();
+  sendShelf();
+}
+
+ipcMain.on('kapsul:shelf-add', (_event, paths) => addToShelf(Array.isArray(paths) ? paths : []));
+ipcMain.on('kapsul:shelf-remove', (_event, ids) => removeFromShelf(Array.isArray(ids) ? ids.map(String) : [String(ids)]));
+ipcMain.on('kapsul:shelf-clear', () => removeFromShelf(shelf.map((item) => item.id)));
+ipcMain.on('kapsul:shelf-open', (_event, id) => {
+  const item = shelfById(String(id));
+  if (item) shell.openPath(item.path);
+});
+ipcMain.on('kapsul:shelf-reveal', (_event, id) => {
+  const item = shelfById(String(id));
+  if (item) shell.showItemInFolder(item.path);
+});
+// Seret keluar: harus dipanggil langsung dari dragstart di renderer (startDrag sinkron).
+ipcMain.on('kapsul:shelf-drag', (event, ids) => {
+  const items = (Array.isArray(ids) ? ids : [ids]).map((id) => shelfById(String(id))).filter((item) => item && fs.existsSync(item.path));
+  if (!items.length) return;
+  const icon = shelfImages.get(items[0].id) ?? appIcon(32);
+  event.sender.startDrag({ file: items[0].path, files: items.map((item) => item.path), icon });
+});
+
 function registerOcrShortcut() {
   const wanted = config.ocr.shortcut || null;
   if (ocrShortcut === wanted) return;
@@ -3304,6 +3503,17 @@ function buildTrayMenu() {
     },
     { type: 'separator' },
     {
+      label: presentingAuto && !presentingManual ? `Mode presentasi (otomatis: ${presentingAuto})` : 'Mode presentasi',
+      type: 'checkbox',
+      checked: presenting,
+      click: (item) => {
+        presentingManual = item.checked;
+        // Mematikan saat terdeteksi otomatis: abaikan deteksi sampai berbagi layar selesai.
+        if (!item.checked) presentingAuto = null;
+        updatePresenting();
+      },
+    },
+    {
       label: IS_MAC ? 'Jalankan saat login' : 'Jalankan saat Windows mulai',
       type: 'checkbox',
       checked: autostartEnabled(),
@@ -3679,6 +3889,9 @@ ipcMain.on('kapsul:habit', (_event, id, done) => habitDone(String(id), Boolean(d
 ipcMain.on('kapsul:meeting', (_event, url) => openMeeting(String(url)));
 ipcMain.on('kapsul:ready', (event) => {
   event.sender.send('kapsul:state', publicState());
+  event.sender.send('kapsul:presenting', { on: presenting, reason: presentingReason });
+  sendPrayer(true);
+  sendShelf();
   event.sender.send('kapsul:media', lastMedia);
   event.sender.send('kapsul:lyrics', lyricsState);
   sendDevices();
@@ -3729,6 +3942,9 @@ app.whenReady().then(async () => {
   claude.startServer(onClaudeEvent, onPermission);
   watchGreetings();
   setInterval(checkReminders, 15_000);
+  setInterval(checkPrayer, 30_000);
+  loadShelf();
+  for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) screen.on(event, () => updatePresenting());
   setInterval(checkTodoDue, 30_000);
   setInterval(slideshowTick, 30_000);
   setInterval(sendClaude, 60_000);

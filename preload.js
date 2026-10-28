@@ -1,6 +1,6 @@
 'use strict';
 
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const on = (channel) => (callback) => ipcRenderer.on(channel, (_event, payload) => callback(payload));
 
@@ -57,6 +57,18 @@ contextBridge.exposeInMainWorld('kapsul', {
   theaterResize: (phase, dx) => ipcRenderer.send('kapsul:theater-resize', phase, dx),
   theaterMove: (phase, dx, dy, moved) => ipcRenderer.send('kapsul:theater-move', phase, dx, dy, moved),
   onTheater: on('kapsul:theater'),
+  onPrayer: on('kapsul:prayer'),
+  onNet: on('kapsul:net'),
+  onPresenting: on('kapsul:presenting'),
+  onShelf: on('kapsul:shelf'),
+  // Path file yang dilepas ke island (File.path sudah tidak ada sejak Electron 32).
+  filePaths: (files) => files.map((file) => webUtils.getPathForFile(file)).filter(Boolean),
+  shelfAdd: (paths) => ipcRenderer.send('kapsul:shelf-add', paths),
+  shelfRemove: (ids) => ipcRenderer.send('kapsul:shelf-remove', ids),
+  shelfClear: () => ipcRenderer.send('kapsul:shelf-clear'),
+  shelfOpen: (id) => ipcRenderer.send('kapsul:shelf-open', id),
+  shelfReveal: (id) => ipcRenderer.send('kapsul:shelf-reveal', id),
+  shelfDrag: (ids) => ipcRenderer.send('kapsul:shelf-drag', ids),
   waterSettings: (patch) => ipcRenderer.send('kapsul:water-settings', patch),
   onPetEvent: on('kapsul:pet-event'),
   quick: (query) => ipcRenderer.invoke('kapsul:quick', query),

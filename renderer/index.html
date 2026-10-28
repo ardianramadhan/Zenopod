@@ -91,6 +91,10 @@
               <svg class="ti ti-bell" viewBox="0 0 16 16" aria-hidden="true"><g class="bell"><path d="M4 11V7.5a4 4 0 0 1 8 0V11l1 1.5H3z" /></g><path class="clapper" d="M6.5 14h3" /></svg>
               <span class="count corner" id="notif-count" hidden></span>
             </button>
+            <button type="button" role="tab" data-section="shelf" aria-label="Kantong file" title="Kantong file">
+              <svg class="ti ti-shelf" aria-hidden="true" viewBox="0 0 16 16"><path d="M2 6.5h12l-1.2 6.2a1 1 0 0 1-1 .8H4.2a1 1 0 0 1-1-.8z" /><path d="M5 6.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2.5M6.5 9.5h3" /></svg>
+              <span class="count corner" id="shelf-count" hidden></span>
+            </button>
             <button type="button" role="tab" data-section="focus" id="tab-focus" aria-label="Fokus & timer" title="Fokus & timer">
               <svg class="ti ti-focus" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="9" r="5.2" /><path d="M6.5 1.8h3" /><path class="hand" d="M8 9V6" /></svg>
               <span class="count live-count" id="focus-count" hidden></span>
@@ -252,6 +256,17 @@
                 <div class="page-kicker" id="inbox-title"></div>
                 <div class="inbox-latest" id="inbox-latest"></div>
                 <div class="action-row" id="inbox-card-actions"></div>
+              </div>
+              <!-- Kantong: titip file sementara, seret keluar ke folder / aplikasi lain -->
+              <div class="page shelf-page" data-page="shelf" aria-label="Kantong file">
+                <div class="sh-main">
+                  <div class="sh-top"><b id="sh-count">Kantong kosong</b><span id="sh-sub">Seret file ke sini untuk dititip</span></div>
+                  <!-- Satu baris: ikon file (seret satu-satu) + seret semua -->
+                  <div class="sh-row" id="sh-actions" hidden>
+                    <div class="sh-strip" id="sh-strip"></div>
+                    <span class="action-chip primary sh-drag-all" id="shelf-drag-all" draggable="true" title="Seret semua file sekaligus ke folder atau aplikasi">Seret semua</span>
+                  </div>
+                </div>
               </div>
               <div class="page focus-page" data-page="focus" aria-label="Fokus">
                 <div class="focus-island idle" id="focus-island">
@@ -424,6 +439,11 @@
             </section>
 
             <section class="pane scroll" data-pane="time" aria-label="Jadwal & tugas">
+              <!-- Jadwal sholat hari ini (lokasi dari kota cuaca), sholat berikutnya disorot -->
+              <div class="block prayer-block" id="prayer-block" hidden>
+                <div class="prayer-head"><b>Jadwal sholat</b><span id="prayer-city"></span></div>
+                <div class="prayer-row" id="prayer-row"></div>
+              </div>
               <!-- Kalender bulanan: titik = acara (biru), tenggat tugas (kuning), pengingat (ungu) -->
               <div class="block cal-block" id="cal-block">
                 <div class="cal-head">
@@ -523,6 +543,11 @@
             </section>
 
             <!-- Detail Fokus: ringkasan saja (semua tombol ada di island) -->
+            <section class="pane scroll" data-pane="shelf" aria-label="Isi kantong">
+              <div class="pane-head"><span class="page-kicker" id="shelf-title">Kantong</span><button type="button" class="link" id="shelf-clear" hidden>Kosongkan</button></div>
+              <ul class="shelf-list" id="shelf-list"></ul>
+              <p class="shelf-hint" id="shelf-hint">Seret file dari Explorer ke island, pilih "Simpan di kantong". Seret dari sini untuk memindahkannya ke folder, email, atau chat. Yang disimpan hanya alamat filenya, bukan salinan.</p>
+            </section>
             <section class="pane scroll focus-tab" data-pane="focus" id="focus-tab" aria-label="Ringkasan fokus">
               <!-- Ringkas: cincin menit fokus vs target + angka utama + satu kesimpulan -->
               <div class="an-card an-kpi">
@@ -642,6 +667,10 @@
           <div class="drop-main">
           <b id="drop-choice-title">Gambar ini untuk apa?</b>
           <div class="drop-actions">
+            <button type="button" class="drop-btn" id="drop-shelf">
+              <svg viewBox="0 0 16 16"><path d="M2 6.5h12l-1.2 6.2a1 1 0 0 1-1 .8H4.2a1 1 0 0 1-1-.8z" /><path d="M5 6.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2.5M6.5 9.5h3" /></svg>
+              Simpan di kantong
+            </button>
             <button type="button" class="drop-btn" id="drop-wallpaper">
               <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.6" /><path d="M2.4 11.6 6 8.2l2.6 2.4 1.8-1.6 3.2 2.8" /></svg>
               Jadikan wallpaper
